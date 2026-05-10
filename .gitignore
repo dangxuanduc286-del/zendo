@@ -1,0 +1,13 @@
+.vercel
+.env
+.env.local
+
+node_modules
+.next
+*.log
+tsconfig.tsbuildinfo
+
+# Debug / temp cleanup artifacts (do not commit)
+.cursor/debug_*.log
+.tmp*
+.cleanup-backup/

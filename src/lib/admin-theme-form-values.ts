@@ -1,0 +1,48 @@
+import type { ThemeSettings } from "./settings";
+import type { ThemeSettingsFormValues } from "./admin-settings";
+
+/** Chuẩn hóa ThemeSettings → payload PATCH theme (dùng chung admin, tránh lệch field). */
+export function themeSettingsToFormValues(theme: ThemeSettings): ThemeSettingsFormValues {
+  return {
+    primaryColor: theme.primaryColor,
+    secondaryColor: theme.secondaryColor,
+    heroTitle: theme.heroTitle,
+    heroSubtitle: theme.heroSubtitle,
+    homeBannerImage: theme.homeBannerImage,
+    homeBannerMobileImage: theme.homeBannerMobileImage,
+    mainBannerImage: theme.mainBannerImage,
+    mainBannerHref: theme.mainBannerHref,
+    mainBannerTitle: theme.mainBannerTitle,
+    mainBannerSubtitle: theme.mainBannerSubtitle,
+    leftBannerTopImage: theme.leftBannerTopImage,
+    leftBannerTopHref: theme.leftBannerTopHref,
+    leftBannerBottomImage: theme.leftBannerBottomImage,
+    leftBannerBottomHref: theme.leftBannerBottomHref,
+    rightBannerTopImage: theme.rightBannerTopImage,
+    rightBannerTopHref: theme.rightBannerTopHref,
+    rightBannerBottomImage: theme.rightBannerBottomImage,
+    rightBannerBottomHref: theme.rightBannerBottomHref,
+    campaignBackgroundEnabled: theme.campaignBackgroundEnabled,
+    campaignBackgroundImage: theme.campaignBackgroundImage,
+    campaignBackgroundMobileImage: theme.campaignBackgroundMobileImage,
+    enableSiteBackgroundImage: theme.enableSiteBackgroundImage,
+    siteBackgroundImage: theme.siteBackgroundImage,
+    showHeroBanner: theme.showHeroBanner,
+    heroCtaLabel: theme.heroCtaLabel,
+    heroCtaHref: theme.heroCtaHref,
+    homeBannersJson: JSON.stringify(theme.homeBanners ?? [], null, 2),
+    homeRightPromoCardsJson: JSON.stringify(theme.homeRightPromoCards ?? [], null, 2),
+    homeBottomPromoCardsJson: JSON.stringify(theme.homeBottomPromoCards ?? [], null, 2),
+    enableFlashSaleSection: theme.enableFlashSaleSection,
+    enableFeaturedSection: theme.enableFeaturedSection,
+    enableNewSection: theme.enableNewSection,
+    enableBestSellerSection: theme.enableBestSellerSection,
+    enableBrandSection: theme.enableBrandSection,
+    enableBlogSection: theme.enableBlogSection,
+    productCardButtonMode: theme.productCardButtonMode,
+    productCardButtonText: theme.productCardButtonText,
+    productDetailPrimaryButtonText: theme.productDetailPrimaryButtonText,
+    showAddToCartButton: theme.showAddToCartButton,
+    showBuyNowButton: theme.showBuyNowButton,
+  };
+}
