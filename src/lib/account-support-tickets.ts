@@ -9,8 +9,10 @@ import {
   customerSupportTicketApiSelect,
   type CustomerSupportTicketApiPayload,
 } from "./support-ticket-api-serializers";
+import { STOREFRONT_DEFAULT_CHAT_BODY, STOREFRONT_DEFAULT_CHAT_SUBJECT } from "./support-ticket-constants";
+import { supportTicketNotArchivedWhere, supportTicketNotBlockedWhere } from "./support-ticket-archive";
+import { serializeSupportTicketMessageForApi } from "./support-ticket-message-serialize";
 import { pickRoundRobinSupportAssigneeId } from "./support-ticket-assign";
-import { ACTIVE_GENERAL_DEFAULT_STATUSES } from "./support-ticket-status";
 import { inferSupportTicketTags } from "./support-ticket-tags";
 import {
   getSupportAutoReplySenderAdminId,
@@ -70,6 +72,8 @@ export type SupportTicketMessageRow = {
   senderCustomerId: string | null;
   createdAt: Date;
   seenBy: string[];
+  deletedAt: Date | null;
+  deletedByAdminId: string | null;
 };
 
 /**
@@ -91,6 +95,8 @@ export async function listAllSupportTicketMessagesForTicketId(ticketId: string):
       senderCustomerId: true,
       createdAt: true,
       seenBy: true,
+      deletedAt: true,
+      deletedByAdminId: true,
     },
   });
 }
@@ -133,9 +139,7 @@ export type CreateSupportTicketInput = {
   affiliateApplicationId?: string | null;
 };
 
-/** Mặc định kênh chat storefront — đồng bộ với `ensureDefaultGeneralSupportTicketForCustomer`. */
-export const STOREFRONT_DEFAULT_CHAT_SUBJECT = "Liên hệ hỗ trợ";
-export const STOREFRONT_DEFAULT_CHAT_BODY = "Xin chào, tôi cần hỗ trợ qua kênh chat.";
+export { STOREFRONT_DEFAULT_CHAT_BODY, STOREFRONT_DEFAULT_CHAT_SUBJECT } from "./support-ticket-constants";
 
 /**
  * Một ticket GENERAL “chat mặc định” (không gắn đơn / hồ sơ CTV) cho mỗi khách.
@@ -150,9 +154,9 @@ export async function ensureDefaultGeneralSupportTicketForCustomer(customerId: s
       where: {
         customerId,
         type: "GENERAL",
-        status: { in: [...ACTIVE_GENERAL_DEFAULT_STATUSES] },
         orderId: null,
         affiliateApplicationId: null,
+        ...supportTicketNotBlockedWhere,
       },
       orderBy: { lastMessageAt: "desc" },
       select: { id: true },
@@ -230,7 +234,7 @@ export async function ensureDefaultGeneralSupportTicketForCustomer(customerId: s
   } catch (error) {
     console.error("ensureDefault crash:", error);
     const fallback = await db.supportTicket.findFirst({
-      where: { customerId },
+      where: { customerId, ...supportTicketNotBlockedWhere },
       orderBy: { lastMessageAt: "desc" },
       select: { id: true },
     });
@@ -243,7 +247,7 @@ export async function ensureDefaultGeneralSupportTicketForCustomer(customerId: s
 export async function getSupportTicketUnreadTotalForCustomer(customerId: string): Promise<number> {
   const { db } = await import("./db");
   const agg = await db.supportTicket.aggregate({
-    where: { customerId },
+    where: { customerId, ...supportTicketNotBlockedWhere, ...supportTicketNotArchivedWhere },
     _sum: { customerUnreadCount: true },
   });
   const n = agg._sum.customerUnreadCount ?? 0;
@@ -256,7 +260,7 @@ export async function listSupportTicketsForCustomer(
   try {
     const { db } = await import("./db");
     const tickets = await db.supportTicket.findMany({
-      where: { customerId },
+      where: { customerId, ...supportTicketNotBlockedWhere, ...supportTicketNotArchivedWhere },
       orderBy: { lastMessageAt: "desc" },
       take: 200,
       select: customerSupportTicketApiSelect,
@@ -277,14 +281,7 @@ export async function getSupportTicketDetailForCustomer(
   ticketId: string,
 ): Promise<{
   ticket: CustomerSupportTicketApiPayload;
-  messages: Array<{
-    id: string;
-    body: string;
-    senderRole: SupportTicketSenderRole;
-    fromAdmin: boolean;
-    createdAt: Date;
-    seenBy: string[];
-  }>;
+  messages: Array<ReturnType<typeof serializeSupportTicketMessageForApi>>;
 } | null> {
   const { db } = await import("./db");
   const ticket = await db.supportTicket.findFirst({
@@ -294,14 +291,7 @@ export async function getSupportTicketDetailForCustomer(
   if (!ticket) return null;
 
   const ticketMessages = await listAllSupportTicketMessagesForTicketId(ticket.id);
-  const messages = ticketMessages.map((m) => ({
-    id: m.id,
-    body: m.body,
-    senderRole: m.senderRole,
-    fromAdmin: Boolean(m.senderAdminId),
-    createdAt: m.createdAt,
-    seenBy: m.seenBy,
-  }));
+  const messages = ticketMessages.map((m) => serializeSupportTicketMessageForApi(m));
 
   return { ticket, messages };
 }
@@ -359,6 +349,8 @@ export type PostedCustomerSupportMessageResult = {
   id: string;
   adminUnreadCount: number;
   customerUnreadCount: number;
+  /** Ticket trước đó bị admin ẩn (deleted) / đóng — đã mở lại cho admin. */
+  reopened: boolean;
   autoReply: null | {
     id: string;
     body: string;
@@ -380,22 +372,25 @@ export async function postSupportTicketMessageForCustomer(
   return db.$transaction(async (tx) => {
     const ticket = await tx.supportTicket.findFirst({
       where: { id: ticketId, customerId },
-      select: { id: true, status: true },
+      select: { id: true, blockedAt: true },
     });
     if (!ticket) return null;
-    if (ticket.status === "CLOSED") throw new Error("TICKET_CLOSED");
+    if (ticket.blockedAt != null) throw new Error("TICKET_BLOCKED");
 
     await lockSupportTicketRowForUpdate(tx, ticket.id);
 
     const ticketLocked = await tx.supportTicket.findFirst({
       where: { id: ticket.id, customerId },
-      select: { id: true, status: true, autoReplySentAt: true },
+      select: { id: true, status: true, autoReplySentAt: true, deletedAt: true, blockedAt: true },
     });
     if (!ticketLocked) return null;
-    if (ticketLocked.status === "CLOSED") throw new Error("TICKET_CLOSED");
+    if (ticketLocked.blockedAt != null) throw new Error("TICKET_BLOCKED");
+
+    const reopen =
+      ticketLocked.deletedAt != null || String(ticketLocked.status).toUpperCase() === "CLOSED";
 
     const senderRole = await resolveSenderRole(tx, customerId);
-    const nextStatus: SupportTicketStatus = "OPEN";
+    const nextStatus: SupportTicketStatus = "WAITING_ADMIN";
 
     const msg = await tx.supportTicketMessage.create({
       data: {
@@ -413,6 +408,7 @@ export async function postSupportTicketMessageForCustomer(
         lastMessageAt: now,
         adminUnreadCount: { increment: 1 },
         status: nextStatus,
+        ...(reopen ? { deletedAt: null, deletedByAdminId: null } : {}),
       },
     });
 
@@ -476,6 +472,7 @@ export async function postSupportTicketMessageForCustomer(
       id: msg.id,
       adminUnreadCount: counts?.adminUnreadCount ?? 0,
       customerUnreadCount: counts?.customerUnreadCount ?? 0,
+      reopened: reopen,
       autoReply,
     };
   });

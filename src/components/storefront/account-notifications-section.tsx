@@ -1,10 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type { AffiliateCommissionTabSettings } from "@/lib/affiliate-commission-tab-settings";
 import { formatOrderStatus } from "@/lib/admin-order";
+import {
+  normalizeCustomerNotificationCategory,
+  type CustomerNotificationTabCategory,
+} from "@/lib/customer-account-notification-category";
 import type { CustomerNotificationsPollBundle } from "@/lib/use-customer-notifications-poll";
 
 export type AccountNotificationListItem = CustomerNotificationsPollBundle["items"][number];
@@ -22,14 +26,45 @@ type NotificationFilter = "all" | "order" | "commission" | "promotion" | "system
 
 type CommissionHistoryRange = "today" | "7d" | "30d" | "month";
 
+function commissionHistoryIncludes(createdAt: string, range: CommissionHistoryRange): boolean {
+  const t = new Date(createdAt).getTime();
+  if (!Number.isFinite(t)) return false;
+  const now = Date.now();
+  const day = 86400000;
+  if (range === "today") return t >= now - day;
+  if (range === "7d") return t >= now - 7 * day;
+  if (range === "30d") return t >= now - 30 * day;
+  const d = new Date();
+  const startMonth = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+  return t >= startMonth;
+}
+
+/** Card có thể bấm toàn bộ — không dùng <button> bọc ngoài (tránh nested button với CTA bên trong). */
+function NotificationRowClickable(props: { onActivate: () => void; className: string; children: ReactNode }): JSX.Element {
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault();
+    props.onActivate();
+  };
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => props.onActivate()}
+      onKeyDown={onKeyDown}
+      className={props.className}
+    >
+      {props.children}
+    </div>
+  );
+}
+
 function fmtVnd(n: number): string {
   return `${new Intl.NumberFormat("vi-VN").format(Math.round(n))}đ`;
 }
 
-function isCommissionishRow(item: AccountNotificationListItem): boolean {
-  if (item.category === "commission") return true;
-  const t = item.metadata && typeof item.metadata === "object" ? (item.metadata as Record<string, unknown>).type : null;
-  return item.category === "order" && t === "AFFILIATE_REFERRAL";
+function tabCategoryOf(item: AccountNotificationListItem): CustomerNotificationTabCategory {
+  return normalizeCustomerNotificationCategory(item.category);
 }
 
 function isReferralRow(item: AccountNotificationListItem): boolean {
@@ -47,22 +82,84 @@ function metaType(item: AccountNotificationListItem): string | null {
   return typeof t === "string" ? t : null;
 }
 
-function isOrderCustomerRow(item: AccountNotificationListItem): boolean {
+/** Chỉ chọn layout/CTA — không dùng để lọc tab. */
+function isOrderCustomerUiVariant(item: AccountNotificationListItem): boolean {
   return metaType(item) === "ORDER_CUSTOMER";
 }
 
-function isPromotionCampaignRow(item: AccountNotificationListItem): boolean {
-  return metaType(item) === "PROMOTION_CAMPAIGN";
-}
-
-function isSystemCustomerRow(item: AccountNotificationListItem): boolean {
+function isSystemCustomerUiVariant(item: AccountNotificationListItem): boolean {
   return metaType(item) === "SYSTEM_CUSTOMER";
 }
 
-function systemSeverityTone(sev: string | undefined): { icon: string; ring: string; bg: string } {
-  if (sev === "critical") return { icon: "⛔", ring: "ring-rose-400", bg: "bg-rose-50" };
-  if (sev === "warning") return { icon: "⚠️", ring: "ring-amber-300", bg: "bg-amber-50" };
-  return { icon: "ℹ️", ring: "ring-sky-300", bg: "bg-sky-50" };
+function formatRelativeVi(iso: string): string {
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return "";
+  let diffSec = Math.round((Date.now() - t) / 1000);
+  if (diffSec < 0) diffSec = 0;
+  if (diffSec < 45) return "vừa xong";
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)} phút trước`;
+  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)} giờ trước`;
+  if (diffSec < 604800) return `${Math.floor(diffSec / 86400)} ngày trước`;
+  return new Date(iso).toLocaleString("vi-VN");
+}
+
+function RelativeTimeVi({ iso }: { iso: string }): JSX.Element {
+  const [label, setLabel] = useState(() => formatRelativeVi(iso));
+  useEffect(() => {
+    setLabel(formatRelativeVi(iso));
+    const id = window.setInterval(() => setLabel(formatRelativeVi(iso)), 60_000);
+    return () => window.clearInterval(id);
+  }, [iso]);
+  return <span className="tabular-nums">{label}</span>;
+}
+
+function systemSeverityTone(sev: string | undefined): {
+  icon: string;
+  ring: string;
+  bg: string;
+  badgeClass: string;
+  labelVi: string;
+} {
+  if (sev === "critical" || sev === "danger") {
+    return {
+      icon: "🛡",
+      ring: "ring-rose-500",
+      bg: "bg-rose-50",
+      badgeClass: "border border-rose-200 bg-rose-100 text-rose-800",
+      labelVi: "Nguy hiểm",
+    };
+  }
+  if (sev === "warning") {
+    return {
+      icon: "⚠️",
+      ring: "ring-amber-300",
+      bg: "bg-[#FFFDF8]",
+      badgeClass: "border border-amber-200 bg-amber-100 text-amber-900",
+      labelVi: "Cảnh báo",
+    };
+  }
+  return {
+    icon: "ℹ️",
+    ring: "ring-sky-300",
+    bg: "bg-sky-50",
+    badgeClass: "border border-sky-200 bg-sky-100 text-sky-900",
+    labelVi: "Thông tin",
+  };
+}
+
+function metaString(meta: Record<string, unknown> | null, key: string): string {
+  const v = meta?.[key];
+  return typeof v === "string" ? v.trim() : "";
+}
+
+function systemTypeLabel(meta: Record<string, unknown> | null): string {
+  const st = metaString(meta, "systemType");
+  const map: Record<string, string> = {
+    NEW_SIGN_IN: "Đăng nhập",
+    PASSWORD_CHANGED: "Mật khẩu",
+    POLICY_UPDATED: "Chính sách",
+  };
+  return map[st] ?? st;
 }
 
 function PromotionCountdown({ expireAt }: { expireAt: string | null | undefined }): JSX.Element | null {
@@ -82,7 +179,7 @@ function PromotionCountdown({ expireAt }: { expireAt: string | null | undefined 
   const m = Math.floor((left % 3600000) / 60000);
   if (left <= 0) return <p className="mt-1 text-[11px] font-semibold text-rose-600">Đã hết hạn</p>;
   return (
-    <p className="mt-1 text-[11px] text-slate-600">
+    <p className="mt-1 text-[11px] text-[#64748B]">
       Còn lại:{" "}
       <span className="font-semibold tabular-nums text-rose-700">
         {h > 0 ? `${h} giờ ` : ""}
@@ -313,12 +410,33 @@ export function AccountNotificationsSection({
 
   const filteredBase = useMemo(() => {
     if (filter === "all") return notifications.items;
-    if (filter === "commission") return notifications.items.filter((item) => isCommissionishRow(item));
-    if (filter === "order") {
-      return notifications.items.filter((item) => item.category === "order" && !isReferralRow(item));
-    }
-    return notifications.items.filter((item) => item.category === filter);
+    return notifications.items.filter((item) => tabCategoryOf(item) === filter);
   }, [filter, notifications.items]);
+
+  /** Badge tab đồng bộ với payload (tránh DB groupBy > 0 nhưng take 60 không chứa bản ghi unread của tab). */
+  const unreadInPayloadByCategory = useMemo(() => {
+    const m = { order: 0, promotion: 0, system: 0, commission: 0 };
+    for (const item of notifications.items) {
+      if (item.read) continue;
+      const c = tabCategoryOf(item);
+      if (c === "order") m.order += 1;
+      else if (c === "promotion") m.promotion += 1;
+      else if (c === "system") m.system += 1;
+      else m.commission += 1;
+    }
+    return m;
+  }, [notifications.items]);
+
+  const commissionUnreadInActiveHistoryRange = useMemo(
+    () =>
+      notifications.items.filter(
+        (i) =>
+          !i.read &&
+          tabCategoryOf(i) === "commission" &&
+          commissionHistoryIncludes(i.createdAt, commissionHistoryRange),
+      ).length,
+    [notifications.items, commissionHistoryRange],
+  );
 
   const commissionDisplayRows = useMemo(() => {
     if (filter !== "commission") return null;
@@ -326,11 +444,33 @@ export function AccountNotificationsSection({
     return groupCommissionTabItems(filteredBase, windowMs, commissionTab.groupSimilarEnabled);
   }, [filter, filteredBase, commissionTab.groupSimilarEnabled, commissionTab.groupWindowSeconds]);
 
+  /** Chuỗi render: chỉ category + grouping commission (metadata.type chỉ trong groupCommissionTabItems UI, không dùng loại khỏi tab khác). */
+  const notificationGroupedRows = useMemo((): GroupedCommissionRow[] => {
+    const inCommissionHistory = (createdAt: string): boolean =>
+      filter !== "commission" || commissionHistoryIncludes(createdAt, commissionHistoryRange);
+
+    if (filter === "commission" && commissionDisplayRows) {
+      return commissionDisplayRows.filter((row) =>
+        row.kind === "bundle" ? inCommissionHistory(row.latestAt) : inCommissionHistory(row.item.createdAt),
+      );
+    }
+
+    return filteredBase.map((item) => ({ kind: "single" as const, item }));
+  }, [filter, filteredBase, commissionDisplayRows, commissionHistoryRange]);
+
+  const visibleNotificationRows = useMemo(
+    () => notificationGroupedRows.slice(0, listTake),
+    [notificationGroupedRows, listTake],
+  );
+
+  const commissionTabBadgeCount =
+    filter === "commission" ? commissionUnreadInActiveHistoryRange : unreadInPayloadByCategory.commission;
+
   const groupRows = [
-    { key: "order", label: "Đơn hàng", count: notifications.groups.order },
-    ...(showCommissionHub ? [{ key: "commission" as const, label: "Hoa hồng", count: notifications.groups.commission }] : []),
-    { key: "promotion", label: "Khuyến mãi", count: notifications.groups.promotion },
-    { key: "system", label: "Hệ thống", count: notifications.groups.system },
+    { key: "order", label: "Đơn hàng", count: unreadInPayloadByCategory.order },
+    ...(showCommissionHub ? [{ key: "commission" as const, label: "Hoa hồng", count: commissionTabBadgeCount }] : []),
+    { key: "promotion", label: "Khuyến mãi", count: unreadInPayloadByCategory.promotion },
+    { key: "system", label: "Hệ thống", count: unreadInPayloadByCategory.system },
   ] as const;
   const visibleGroups = filter === "all" ? groupRows : groupRows.filter((item) => item.key === filter);
 
@@ -360,9 +500,9 @@ export function AccountNotificationsSection({
               {notifications.unread > 99 ? "99+ mới" : `${notifications.unread} mới`}
             </span>
           ) : null}
-          {showCommissionHub && notifications.groups.commission > 0 ? (
+          {showCommissionHub && unreadInPayloadByCategory.commission > 0 ? (
             <span className="rounded-full bg-emerald-600 px-2 py-0.5 font-semibold text-white shadow-sm">
-              Hoa hồng {notifications.groups.commission > 99 ? "99+" : notifications.groups.commission}
+              Hoa hồng {unreadInPayloadByCategory.commission > 99 ? "99+" : unreadInPayloadByCategory.commission}
             </span>
           ) : null}
         </div>
@@ -388,8 +528,8 @@ export function AccountNotificationsSection({
           className={`${swipeTabClass} ${filter === "order" ? "bg-[#2563EB] text-white" : "bg-[#F8FAFC] text-[#0F172A]"}`}
         >
           Đơn hàng
-          {notifications.groups.order > 0
-            ? ` (${notifications.groups.order > 99 ? "99+" : notifications.groups.order})`
+          {unreadInPayloadByCategory.order > 0
+            ? ` (${unreadInPayloadByCategory.order > 99 ? "99+" : unreadInPayloadByCategory.order})`
             : ""}
         </button>
         {showCommissionHub ? (
@@ -402,8 +542,11 @@ export function AccountNotificationsSection({
             className={`${swipeTabClass} relative ${filter === "commission" ? "bg-[#2563EB] text-white" : "bg-[#F8FAFC] text-[#0F172A]"}`}
           >
             Hoa hồng
-            {commissionTab.realtimeBadgeEnabled && notifications.groups.commission > 0 ? (
-              <span className="absolute -right-0.5 -top-0.5 h-2 w-2 animate-pulse rounded-full bg-rose-500 ring-2 ring-white" />
+            {commissionTabBadgeCount > 0
+              ? ` (${commissionTabBadgeCount > 99 ? "99+" : commissionTabBadgeCount})`
+              : ""}
+            {commissionTab.realtimeBadgeEnabled && commissionTabBadgeCount > 0 ? (
+              <span className="absolute -right-0.5 -top-0.5 h-2 w-2 animate-pulse rounded-full bg-[#EF4444] ring-2 ring-white" />
             ) : null}
           </button>
         ) : null}
@@ -416,8 +559,8 @@ export function AccountNotificationsSection({
           className={`${swipeTabClass} ${filter === "promotion" ? "bg-[#2563EB] text-white" : "bg-[#F8FAFC] text-[#0F172A]"}`}
         >
           Khuyến mãi
-          {notifications.groups.promotion > 0
-            ? ` (${notifications.groups.promotion > 99 ? "99+" : notifications.groups.promotion})`
+          {unreadInPayloadByCategory.promotion > 0
+            ? ` (${unreadInPayloadByCategory.promotion > 99 ? "99+" : unreadInPayloadByCategory.promotion})`
             : ""}
         </button>
         <button
@@ -429,8 +572,8 @@ export function AccountNotificationsSection({
           className={`${swipeTabClass} ${filter === "system" ? "bg-[#2563EB] text-white" : "bg-[#F8FAFC] text-[#0F172A]"}`}
         >
           Hệ thống
-          {notifications.groups.system > 0
-            ? ` (${notifications.groups.system > 99 ? "99+" : notifications.groups.system})`
+          {unreadInPayloadByCategory.system > 0
+            ? ` (${unreadInPayloadByCategory.system > 99 ? "99+" : unreadInPayloadByCategory.system})`
             : ""}
         </button>
       </div>
@@ -515,39 +658,15 @@ export function AccountNotificationsSection({
         </div>
       ) : null}
 
-      {(() => {
-        const rangeCut = (createdAt: string): boolean => {
-          if (filter !== "commission") return true;
-          const t = new Date(createdAt).getTime();
-          const now = Date.now();
-          const day = 86400000;
-          if (commissionHistoryRange === "today") return t >= now - day;
-          if (commissionHistoryRange === "7d") return t >= now - 7 * day;
-          if (commissionHistoryRange === "30d") return t >= now - 30 * day;
-          const d = new Date();
-          const startMonth = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
-          return t >= startMonth;
-        };
-
-        const list: GroupedCommissionRow[] =
-          filter === "commission" && commissionDisplayRows
-            ? commissionDisplayRows.filter((row) => {
-                if (row.kind === "bundle") return rangeCut(row.latestAt);
-                return rangeCut(row.item.createdAt);
-              })
-            : filteredBase
-                .filter((row) => rangeCut(row.createdAt))
-                .map((item) => ({ kind: "single" as const, item }));
-
-        const display = list.slice(0, listTake);
-
-        if (!display.length) {
-          return <p className="mt-4 text-sm text-[#64748B]">Chưa có thông báo trong mục này.</p>;
-        }
-
-        return (
-          <ul className="mt-4 space-y-2" aria-label="Danh sách thông báo">
-            {display.map((entry, idx) => {
+      {!visibleNotificationRows.length ? (
+        <p className="mt-4 text-sm text-[#64748B]">
+          {filteredBase.length > 0 && filter === "commission"
+            ? "Không có thông báo trong khoảng thời gian đã chọn."
+            : "Chưa có thông báo trong mục này."}
+        </p>
+      ) : (
+        <ul className="mt-4 space-y-2" aria-label="Danh sách thông báo">
+          {visibleNotificationRows.map((entry, idx) => {
               if (entry.kind === "bundle") {
                 return (
                   <li key={`bundle-${idx}`}>
@@ -576,12 +695,13 @@ export function AccountNotificationsSection({
               const meta = referralMeta(item);
               const isRef = isReferralRow(item);
               const isPayout = isPayoutFlowRow(item);
+              const cat = tabCategoryOf(item);
               const badge =
-                item.category === "order"
+                cat === "order"
                   ? "Đơn hàng"
-                  : item.category === "promotion"
+                  : cat === "promotion"
                     ? "Khuyến mãi"
-                    : item.category === "commission"
+                    : cat === "commission"
                       ? "Hoa hồng"
                       : "Hệ thống";
               const img =
@@ -591,7 +711,7 @@ export function AccountNotificationsSection({
               const buyer =
                 commissionTab.maskedCustomerEnabled && typeof meta?.buyerLabel === "string" ? (meta.buyerLabel as string) : null;
 
-              if (isOrderCustomerRow(item) && meta) {
+              if (cat === "order" && isOrderCustomerUiVariant(item) && meta) {
                 const preview = typeof meta.previewImage === "string" ? (meta.previewImage as string) : null;
                 const code = typeof meta.orderCode === "string" ? (meta.orderCode as string) : "";
                 const st = typeof meta.orderStatus === "string" ? (meta.orderStatus as string) : "";
@@ -628,7 +748,7 @@ export function AccountNotificationsSection({
                             </span>
                           </div>
                           <p className="mt-1 text-[11px] font-medium text-[#2563EB]">Đơn hàng</p>
-                          <dl className="mt-1 grid grid-cols-1 gap-0.5 text-[11px] text-[#475569] sm:grid-cols-2">
+                          <dl className="mt-1 grid grid-cols-1 gap-0.5 text-[11px] text-[#64748B] sm:grid-cols-2">
                             {code ? (
                               <div className="flex justify-between gap-2 sm:block">
                                 <dt>Mã đơn</dt>
@@ -651,14 +771,20 @@ export function AccountNotificationsSection({
                             <button
                               type="button"
                               className="rounded-lg border border-[#E2E8F0] bg-white px-2 py-1 text-xs font-semibold text-[#2563EB]"
-                              onClick={() => onOpenItem(item, viewHref)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onOpenItem(item, viewHref);
+                              }}
                             >
                               Xem đơn
                             </button>
                             <button
                               type="button"
                               className="rounded-lg border border-[#E2E8F0] bg-white px-2 py-1 text-xs font-semibold text-[#2563EB]"
-                              onClick={() => onOpenItem(item, trackHref)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onOpenItem(item, trackHref);
+                              }}
                             >
                               Theo dõi đơn
                             </button>
@@ -670,11 +796,45 @@ export function AccountNotificationsSection({
                 );
               }
 
-              if (isPromotionCampaignRow(item) && meta) {
-                const banner = typeof meta.banner === "string" ? (meta.banner as string) : null;
-                const cta = typeof meta.ctaLabel === "string" ? (meta.ctaLabel as string) : "Xem ưu đãi";
-                const expireAt = typeof meta.expireAt === "string" ? (meta.expireAt as string) : null;
-                const deep = typeof meta.deepLink === "string" && meta.deepLink.startsWith("/") ? (meta.deepLink as string) : "/";
+              if (cat === "order") {
+                const href =
+                  typeof item.actionHref === "string" && item.actionHref.startsWith("/")
+                    ? item.actionHref
+                    : "/tai-khoan?tab=orders";
+                return (
+                  <li key={item.id}>
+                    <NotificationRowClickable
+                      onActivate={() => onOpenItem(item, href)}
+                      className={`w-full rounded-xl border px-3 py-3 text-left transition hover:bg-[#F8FAFC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] focus-visible:ring-offset-2 ${
+                        item.read ? "border-[#E2E8F0] bg-white" : "border-[#BFDBFE] bg-[#EFF6FF]"
+                      } cursor-pointer`}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-sm font-semibold text-[#0F172A]">{item.title}</span>
+                        <span className="text-[11px] text-[#64748B]">
+                          {new Date(item.createdAt).toLocaleString("vi-VN")}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-[11px] font-medium text-[#2563EB]">Đơn hàng</p>
+                      <p className="mt-1 whitespace-pre-wrap text-sm text-[#334155]">{item.body}</p>
+                      <p className="mt-2 text-xs font-semibold text-[#2563EB]">Xem chi tiết →</p>
+                    </NotificationRowClickable>
+                  </li>
+                );
+              }
+
+              if (cat === "promotion") {
+                const m = (meta && typeof meta === "object" ? meta : null) as Record<string, unknown> | null;
+                const banner = typeof m?.banner === "string" ? (m.banner as string) : null;
+                const cta = typeof m?.ctaLabel === "string" ? (m.ctaLabel as string) : "Xem ưu đãi";
+                const expireAt = typeof m?.expireAt === "string" ? (m.expireAt as string) : null;
+                const deep =
+                  (typeof m?.deepLink === "string" && (m.deepLink as string).startsWith("/")
+                    ? (m.deepLink as string)
+                    : typeof item.actionHref === "string" && item.actionHref.startsWith("/")
+                      ? item.actionHref
+                      : "/") || "/";
+
                 return (
                   <li key={item.id}>
                     <div
@@ -699,14 +859,20 @@ export function AccountNotificationsSection({
                         <button
                           type="button"
                           className="rounded-lg bg-fuchsia-600 px-3 py-1.5 text-xs font-semibold text-white"
-                          onClick={() => onOpenItem(item, deep)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onOpenItem(item, deep);
+                          }}
                         >
                           {cta}
                         </button>
                         <button
                           type="button"
                           className="rounded-lg border border-[#E2E8F0] bg-white px-3 py-1.5 text-xs font-semibold text-[#2563EB]"
-                          onClick={() => onOpenItem(item, "/")}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onOpenItem(item, "/");
+                          }}
                         >
                           Mua ngay
                         </button>
@@ -716,19 +882,128 @@ export function AccountNotificationsSection({
                 );
               }
 
-              if (isSystemCustomerRow(item) && meta) {
-                const sev = typeof meta.severity === "string" ? meta.severity : "info";
-                const tone = systemSeverityTone(sev);
+              if (cat === "system" && isSystemCustomerUiVariant(item) && meta) {
+                const sysType = metaString(meta as Record<string, unknown>, "systemType");
+                const sevRaw = typeof meta.severity === "string" ? meta.severity : "info";
+                const tone = systemSeverityTone(sevRaw);
                 const deep =
                   typeof meta.deepLink === "string" && meta.deepLink.startsWith("/") ? (meta.deepLink as string) : null;
+                const securityHref = "/tai-khoan?tab=security";
+                const m = meta as Record<string, unknown>;
+
+                if (sysType === "NEW_SIGN_IN") {
+                  const browser = metaString(m, "browser");
+                  const os = metaString(m, "os");
+                  const device = metaString(m, "device");
+                  const ip = metaString(m, "ip");
+                  const providerLabel =
+                    metaString(m, "providerLabelVi") || metaString(m, "provider") || "Đăng nhập";
+
+                  const browserOsLine = [browser, os].filter(Boolean).join(" · ") || "";
+                  const meHandler = (): void => {
+                    void markReadQuiet([item.id]);
+                  };
+
+                  return (
+                    <li key={item.id}>
+                      <article
+                        className={`relative w-full rounded-xl border px-3 py-3 text-left shadow-sm ring-1 ${tone.ring} ${tone.bg} ${
+                          item.read ? "border-[#E2E8F0] bg-white" : "border-[#E2E8F0]"
+                        }`}
+                      >
+                        <div className="absolute right-2 top-2">
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${tone.badgeClass}`}>
+                            {tone.labelVi}
+                          </span>
+                        </div>
+                        <div className="flex gap-3 pr-20">
+                          <span className="text-2xl leading-none text-violet-600" aria-hidden>
+                            🔐
+                          </span>
+                          <div className="min-w-0 flex-1 space-y-1">
+                            <p className="text-sm font-semibold text-[#0F172A]">{item.title}</p>
+                            {browserOsLine ? (
+                              <p className="text-[12px] font-medium text-[#1E293B]">{browserOsLine}</p>
+                            ) : null}
+                            {device ? (
+                              <p className="text-[11px] text-[#64748B]">
+                                Loại thiết bị: <span className="font-medium text-[#64748B]">{device}</span>
+                              </p>
+                            ) : null}
+                            <p className="text-[11px] text-[#64748B]">
+                              IP:{" "}
+                              <span className="font-semibold tabular-nums text-[#0F172A]">
+                                {ip || "—"}
+                              </span>
+                            </p>
+                            <p className="text-[11px] text-[#64748B]">
+                              Loại đăng nhập: <span className="font-semibold text-[#0F172A]">{providerLabel}</span>
+                            </p>
+                            <p className="text-[11px] text-[#64748B]">
+                              Thời gian:{" "}
+                              <RelativeTimeVi iso={item.createdAt} />{" "}
+                              <span className="opacity-75">({new Date(item.createdAt).toLocaleString("vi-VN")})</span>
+                            </p>
+                            <p className="mt-1 whitespace-pre-wrap text-sm text-[#334155]">{item.body}</p>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                className="rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-700"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  meHandler();
+                                  router.refresh();
+                                }}
+                              >
+                                Đây là tôi
+                              </button>
+                              <button
+                                type="button"
+                                className="rounded-lg border border-rose-300 bg-white px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-50"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  router.push(securityHref);
+                                }}
+                              >
+                                Không phải tôi
+                              </button>
+                              <button
+                                type="button"
+                                className="rounded-lg border border-[#E2E8F0] bg-white px-2.5 py-1 text-xs font-semibold text-[#2563EB] hover:bg-[#F8FAFC]"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  router.push(securityHref);
+                                }}
+                              >
+                                Đổi mật khẩu
+                              </button>
+                              {deep ? (
+                                <button
+                                  type="button"
+                                  className="rounded-lg border border-transparent px-2.5 py-1 text-xs font-semibold text-[#64748B] underline"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    router.push(deep);
+                                  }}
+                                >
+                                  Bảo mật tài khoản →
+                                </button>
+                              ) : null}
+                            </div>
+                          </div>
+                        </div>
+                      </article>
+                    </li>
+                  );
+                }
+
                 return (
                   <li key={item.id}>
-                    <button
-                      type="button"
-                      onClick={() => onOpenItem(item, deep ?? undefined)}
-                      className={`w-full rounded-xl border px-3 py-3 text-left transition hover:bg-[#F8FAFC] ring-1 ${tone.ring} ${tone.bg} ${
-                        item.read ? "border-[#E2E8F0] bg-white" : "border-slate-200"
-                      }`}
+                    <NotificationRowClickable
+                      onActivate={() => onOpenItem(item, deep ?? undefined)}
+                      className={`w-full rounded-xl border px-3 py-3 text-left transition hover:bg-[#F8FAFC]/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] focus-visible:ring-offset-2 ring-1 ${tone.ring} ${tone.bg} ${
+                        item.read ? "border-[#E2E8F0] bg-white" : "border-[#E2E8F0]"
+                      } cursor-pointer`}
                     >
                       <div className="flex gap-2">
                         <span className="text-lg" aria-hidden>
@@ -737,36 +1012,87 @@ export function AccountNotificationsSection({
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <span className="text-sm font-semibold text-[#0F172A]">{item.title}</span>
-                            <span className="text-[11px] text-[#64748B]">
-                              {new Date(item.createdAt).toLocaleString("vi-VN")}
+                            <span className="flex shrink-0 flex-wrap items-center gap-2">
+                              <span
+                                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${tone.badgeClass}`}
+                              >
+                                {tone.labelVi}
+                              </span>
+                              <span className="text-[11px] text-[#64748B]">
+                                <RelativeTimeVi iso={item.createdAt} />
+                              </span>
                             </span>
                           </div>
-                          <p className="mt-1 text-[11px] font-medium text-slate-700">Hệ thống · {String(meta.systemType ?? "")}</p>
+                          <p className="mt-1 text-[11px] font-medium text-[#334155]">
+                            Hệ thống · {systemTypeLabel(meta as Record<string, unknown>) || sysType || " — "}
+                          </p>
                           <p className="mt-1 whitespace-pre-wrap text-sm text-[#334155]">{item.body}</p>
                           {deep ? (
                             <p className="mt-2 text-xs font-semibold text-[#2563EB]">Mở chi tiết →</p>
                           ) : null}
                         </div>
                       </div>
-                    </button>
+                    </NotificationRowClickable>
+                  </li>
+                );
+              }
+
+              // promotion handled above (always)
+
+              if (cat === "system") {
+                const deep =
+                  typeof item.actionHref === "string" && item.actionHref.startsWith("/") ? item.actionHref : null;
+                const sevRaw = meta && typeof meta.severity === "string" ? meta.severity : "info";
+                const tone = systemSeverityTone(sevRaw);
+                return (
+                  <li key={item.id}>
+                    <NotificationRowClickable
+                      onActivate={() => onOpenItem(item, deep ?? undefined)}
+                      className={`w-full rounded-xl border px-3 py-3 text-left transition hover:bg-[#F8FAFC]/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] focus-visible:ring-offset-2 ring-1 ${tone.ring} ${tone.bg} ${
+                        item.read ? "border-[#E2E8F0] bg-white" : "border-[#E2E8F0]"
+                      } cursor-pointer`}
+                    >
+                      <div className="flex gap-2">
+                        <span className="text-lg" aria-hidden>
+                          {tone.icon}
+                        </span>
+                        <div className="min-w-0 flex-1 text-left">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="text-sm font-semibold text-[#0F172A]">{item.title}</span>
+                            <span className="flex shrink-0 flex-wrap items-center gap-2">
+                              <span
+                                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${tone.badgeClass}`}
+                              >
+                                {tone.labelVi}
+                              </span>
+                              <span className="text-[11px] text-[#64748B]">
+                                <RelativeTimeVi iso={item.createdAt} />
+                              </span>
+                            </span>
+                          </div>
+                          <p className="mt-1 text-[11px] font-medium text-[#334155]">Hệ thống</p>
+                          <p className="mt-1 whitespace-pre-wrap text-sm text-[#334155]">{item.body}</p>
+                          {deep ? <p className="mt-2 text-xs font-semibold text-[#2563EB]">Mở chi tiết →</p> : null}
+                        </div>
+                      </div>
+                    </NotificationRowClickable>
                   </li>
                 );
               }
 
               return (
                 <li key={item.id}>
-                  <button
-                    type="button"
-                    onClick={() => {
+                  <NotificationRowClickable
+                    onActivate={() => {
                       if (window.matchMedia("(max-width: 767px)").matches && (isRef || isPayout)) {
                         setActionSheet(item);
                         return;
                       }
                       onOpenItem(item);
                     }}
-                    className={`w-full rounded-xl border px-3 py-3 text-left transition hover:bg-[#F8FAFC] ${
+                    className={`w-full rounded-xl border px-3 py-3 text-left transition hover:bg-[#F8FAFC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] focus-visible:ring-offset-2 ${
                       item.read ? "border-[#E2E8F0] bg-white" : "border-[#BFDBFE] bg-[#EFF6FF]"
-                    }`}
+                    } cursor-pointer`}
                   >
                     <div className="flex gap-3">
                       {img ? (
@@ -795,7 +1121,7 @@ export function AccountNotificationsSection({
                           </p>
                         ) : null}
                         {isRef && meta ? (
-                          <dl className="mt-1 grid grid-cols-1 gap-0.5 text-[11px] text-[#475569] sm:grid-cols-2">
+                          <dl className="mt-1 grid grid-cols-1 gap-0.5 text-[11px] text-[#64748B] sm:grid-cols-2">
                             {typeof meta.orderCode === "string" ? (
                               <div className="flex justify-between gap-2 sm:block">
                                 <dt>Mã đơn</dt>
@@ -877,35 +1203,16 @@ export function AccountNotificationsSection({
                         )}
                       </div>
                     </div>
-                  </button>
+                  </NotificationRowClickable>
                 </li>
               );
-            })}
-          </ul>
-        );
-      })()}
+          })}
+        </ul>
+      )}
 
       {(() => {
         if (listTake >= 500) return null;
-        const rangeCut = (createdAt: string): boolean => {
-          if (filter !== "commission") return true;
-          const t = new Date(createdAt).getTime();
-          const now = Date.now();
-          const day = 86400000;
-          if (commissionHistoryRange === "today") return t >= now - day;
-          if (commissionHistoryRange === "7d") return t >= now - 7 * day;
-          if (commissionHistoryRange === "30d") return t >= now - 30 * day;
-          const d = new Date();
-          const startMonth = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
-          return t >= startMonth;
-        };
-        const listLen =
-          filter === "commission" && commissionDisplayRows
-            ? commissionDisplayRows.filter((row) => {
-                if (row.kind === "bundle") return rangeCut(row.latestAt);
-                return rangeCut(row.item.createdAt);
-              }).length
-            : filteredBase.filter((row) => rangeCut(row.createdAt)).length;
+        const listLen = notificationGroupedRows.length;
         return listLen > listTake ? (
           <button
             type="button"

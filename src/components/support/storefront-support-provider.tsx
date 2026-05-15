@@ -8,16 +8,18 @@ import {
   useMemo,
   type ReactNode,
 } from "react";
+import { usePathname } from "next/navigation";
 
 import { useSupportChatStore } from "@/stores/supportChatStore";
 
 import { useStorefrontSupportDisabledOnAdminRoute } from "../../lib/use-storefront-support-disabled-on-admin";
 import SupportChatPopup from "./support-chat-popup";
-
-const SUPPORT_PANEL_OPEN_STORAGE_KEY = "zendo.support.panel.open";
+import StorefrontSupportUnreadBootstrap from "./storefront-support-unread-bootstrap";
 
 export type SupportPanelContextValue = {
   open: boolean;
+  /** Luôn mở panel (idempotent) — dùng cho nút Hỗ trợ topbar / mobile. */
+  requestOpen: () => void;
   toggle: () => void;
   close: () => void;
 };
@@ -33,11 +35,17 @@ export function useSupportPanel(): SupportPanelContextValue {
 }
 
 export function StorefrontSupportProvider({ children }: { children: ReactNode }): JSX.Element {
+  const pathname = usePathname();
   const disabledOnAdminRoute = useStorefrontSupportDisabledOnAdminRoute();
   const open = useSupportChatStore((s) => s.isOpen);
   const storeOpen = useSupportChatStore((s) => s.open);
   const storeClose = useSupportChatStore((s) => s.close);
   const storeToggle = useSupportChatStore((s) => s.toggle);
+
+  const requestOpen = useCallback(() => {
+    if (disabledOnAdminRoute) return;
+    storeOpen();
+  }, [disabledOnAdminRoute, storeOpen]);
 
   const toggle = useCallback(() => {
     if (disabledOnAdminRoute) return;
@@ -50,50 +58,49 @@ export function StorefrontSupportProvider({ children }: { children: ReactNode })
   }, [disabledOnAdminRoute, storeClose]);
 
   useEffect(() => {
-    if (disabledOnAdminRoute) return;
     try {
       if (typeof window === "undefined") return;
-      if (localStorage.getItem(SUPPORT_PANEL_OPEN_STORAGE_KEY) === "1") storeOpen();
+      localStorage.removeItem("zendo.support.panel.open");
     } catch {
       /* ignore */
     }
-  }, [disabledOnAdminRoute, storeOpen]);
+  }, []);
+
+  useEffect(() => {
+    useSupportChatStore.getState().close();
+  }, [pathname]);
 
   useEffect(() => {
     if (disabledOnAdminRoute) storeClose();
   }, [disabledOnAdminRoute, storeClose]);
 
-  useEffect(() => {
-    if (disabledOnAdminRoute) return;
-    try {
-      if (typeof window === "undefined") return;
-      localStorage.setItem(SUPPORT_PANEL_OPEN_STORAGE_KEY, open ? "1" : "0");
-    } catch {
-      /* ignore */
-    }
-  }, [open, disabledOnAdminRoute]);
-
   const value = useMemo(
     () => ({
       open,
+      requestOpen,
       toggle,
       close,
     }),
-    [open, toggle, close],
+    [open, requestOpen, toggle, close],
   );
 
   const contextValue = useMemo(
     () =>
       disabledOnAdminRoute
-        ? { open: false, toggle, close }
+        ? { open: false, requestOpen, toggle, close }
         : value,
-    [disabledOnAdminRoute, value, toggle, close],
+    [disabledOnAdminRoute, value, requestOpen, toggle, close],
   );
 
   return (
     <SupportContext.Provider value={contextValue}>
       {children}
-      {disabledOnAdminRoute ? null : <SupportChatPopup />}
+      {disabledOnAdminRoute ? null : (
+        <>
+          <StorefrontSupportUnreadBootstrap />
+          <SupportChatPopup />
+        </>
+      )}
     </SupportContext.Provider>
   );
 }

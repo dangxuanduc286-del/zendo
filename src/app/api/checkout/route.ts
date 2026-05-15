@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import type { PaymentMethod } from "@prisma/client";
+import { revalidatePath } from "next/cache";
+import type { PaymentMethod, PaymentStatus } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { calcSubtotal, getUnitPrice, normalizeCartItem } from "../../../lib/cart";
 import { computeGuestCoupon } from "../../../lib/coupon";
@@ -285,6 +286,13 @@ export async function POST(request: Request): Promise<NextResponse> {
     const totalAmount = subtotal - discountAmount + shippingFee;
     const orderCode = await generateOrderCode();
 
+    /**
+     * Chưa có webhook cổng: thẻ/ví = PAID ngay; COD/CK chờ xác nhận.
+     */
+    const checkoutPaymentStatus: PaymentStatus =
+      paymentMethod === "COD" ? "UNPAID" : paymentMethod === "BANK_TRANSFER" ? "PENDING" : "PAID";
+    const checkoutPaidAt = checkoutPaymentStatus === "PAID" ? new Date() : null;
+
     const loggedInCustomerId = loggedUserIdCandidate;
 
     let customer: { id: string };
@@ -371,7 +379,8 @@ export async function POST(request: Request): Promise<NextResponse> {
           shippingFee,
           totalAmount,
           paymentMethod,
-          paymentStatus: paymentMethod === "COD" ? "UNPAID" : "PENDING",
+          paymentStatus: checkoutPaymentStatus,
+          paidAt: checkoutPaidAt,
           orderStatus: "PENDING",
           items: {
             create: pricedItems.map((item) => ({
@@ -421,6 +430,42 @@ export async function POST(request: Request): Promise<NextResponse> {
       await notifyCustomerOrderCreated(db, order.id);
     } catch {
       /* không chặn checkout */
+    }
+
+    if (checkoutPaymentStatus === "PAID") {
+      try {
+        const { applyOrderLoyaltyEffects } = await import("../../../lib/loyalty/order-loyalty");
+        await applyOrderLoyaltyEffects(db, order.id);
+      } catch (loyaltyErr) {
+        console.error("[CHECKOUT_LOYALTY]", loyaltyErr);
+      }
+      if (affiliateProfileIdForOrder) {
+        try {
+          const { notifyAffiliateReferralOrderPaid } = await import(
+            "../../../lib/affiliate/affiliate-referral-notifications"
+          );
+          await notifyAffiliateReferralOrderPaid(order.id);
+        } catch {
+          /* không chặn checkout */
+        }
+      }
+      revalidatePath("/tai-khoan");
+      await ghiSuKienAnalytics({
+        eventName: "paid_order",
+        pathname: "/thanh-toan",
+        orderId: order.id,
+        visitorKey: visitorKey || null,
+        sessionKey: sessionKey || null,
+        referrer: request.headers.get("referer"),
+        ipAddress: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? request.headers.get("x-real-ip"),
+        userAgent: request.headers.get("user-agent"),
+        metadata: {
+          orderCode: order.code,
+          paymentStatus: checkoutPaymentStatus,
+          orderStatus: "PENDING",
+          source: "checkout",
+        },
+      });
     }
 
     await ghiSuKienAnalytics({

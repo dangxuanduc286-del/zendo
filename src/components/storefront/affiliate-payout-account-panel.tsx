@@ -338,7 +338,7 @@ export default function AffiliatePayoutAccountPanel({
               <p className="text-xs font-semibold text-[#0F172A]">Yêu cầu thay đổi TK (gần đây)</p>
               <ul className="mt-2 space-y-2 text-xs text-[#334155]">
                 {state.account.changeRequests!.map((c) => (
-                  <li key={c.id} className="rounded-md border border-[#EEF2F6] bg-[#F8FAFC] p-2">
+                  <li key={c.id} className="rounded-md border border-[#F1F5F9] bg-[#F8FAFC] p-2">
                     <span className="font-semibold text-[#0F172A]">{changeStatusLabel(c.status)}</span>
                     {" · "}
                     {new Date(c.requestedAt).toLocaleString("vi-VN")}

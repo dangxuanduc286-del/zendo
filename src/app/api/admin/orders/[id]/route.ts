@@ -5,7 +5,10 @@ import { authOptions } from "../../../../../lib/auth";
 import { orderStatusUpdateSchema } from "../../../../../lib/admin-order";
 import { ghiSuKienAnalytics } from "../../../../../lib/analytics/event-service";
 import { syncAffiliateCommissionLifecycleForOrder } from "../../../../../lib/affiliate-commission-lifecycle";
-import { notifyAffiliateReferralOrderPaid } from "../../../../../lib/affiliate/affiliate-referral-notifications";
+import {
+  notifyAffiliateReferralOrderLifecycleAfterAdminPatch,
+  notifyAffiliateReferralOrderPaid,
+} from "../../../../../lib/affiliate/affiliate-referral-notifications";
 import { notifyCustomerOrderLifecycleAfterAdminPatch } from "../../../../../lib/order-customer-notifications";
 
 type ParamsInput = Promise<{ id: string }>;
@@ -63,6 +66,7 @@ export async function PATCH(
         paymentStatus: true,
         totalAmount: true,
         affiliateProfileId: true,
+        customerFullName: true,
         items: {
           take: 1,
           orderBy: { id: "asc" },
@@ -96,6 +100,17 @@ export async function PATCH(
 
     await syncAffiliateCommissionLifecycleForOrder(db, updated.id);
 
+    try {
+      const { applyOrderLoyaltyEffects } = await import("../../../../../lib/loyalty/order-loyalty");
+      await applyOrderLoyaltyEffects(db, updated.id);
+    } catch {
+      /* loyalty must not block admin order patch */
+    }
+
+    if (found.customerId) {
+      revalidatePath("/tai-khoan");
+    }
+
     if (
       found.affiliateProfileId &&
       found.paymentStatus !== "PAID" &&
@@ -104,8 +119,9 @@ export async function PATCH(
       await notifyAffiliateReferralOrderPaid(updated.id);
     }
 
+    const previewImage = found.items[0]?.product?.images[0]?.url ?? null;
+
     if (found.customerId) {
-      const previewImage = found.items[0]?.product?.images[0]?.url ?? null;
       await notifyCustomerOrderLifecycleAfterAdminPatch(
         db,
         {
@@ -116,6 +132,23 @@ export async function PATCH(
           paymentStatus: found.paymentStatus,
           totalAmount: Number(found.totalAmount),
           previewImage,
+        },
+        { orderStatus: updated.orderStatus, paymentStatus: updated.paymentStatus },
+      );
+    }
+
+    if (found.affiliateProfileId) {
+      await notifyAffiliateReferralOrderLifecycleAfterAdminPatch(
+        db,
+        {
+          orderId: found.id,
+          affiliateProfileId: found.affiliateProfileId,
+          code: found.code,
+          customerFullName: found.customerFullName,
+          totalAmount: Number(found.totalAmount),
+          previewImage,
+          orderStatus: found.orderStatus,
+          paymentStatus: found.paymentStatus,
         },
         { orderStatus: updated.orderStatus, paymentStatus: updated.paymentStatus },
       );

@@ -6,8 +6,8 @@ import { authOptions } from "../../../../../lib/auth";
 import { canViewPayoutAccounts } from "../../../../../lib/admin/permissions";
 import {
   adminCard,
+  adminContentShell,
   adminInput,
-  adminPage,
   adminPageHeader,
   adminPageSubtitle,
   adminPageTitle,
@@ -60,7 +60,8 @@ export default async function AdminAffiliatePayoutAccountsPage({
   };
 
   return (
-    <div className={adminPage}>
+    <div className="w-full bg-slate-50 py-6">
+      <div className={adminContentShell}>
       <header className={adminPageHeader}>
         <h1 className={adminPageTitle}>Tài khoản nhận tiền CTV</h1>
         <p className={adminPageSubtitle}>
@@ -69,7 +70,7 @@ export default async function AdminAffiliatePayoutAccountsPage({
       </header>
 
       <section className={adminCard}>
-        <div className="flex flex-col gap-3 border-b border-[#E2E8F0] p-4">
+        <div className="flex flex-col gap-3 border-b border-slate-200 p-4 sm:p-5">
           <div className="flex flex-wrap gap-2">
             <Link
               href={`/admin/affiliates/payout-accounts?${baseQuery("accounts")}`}
@@ -136,6 +137,7 @@ export default async function AdminAffiliatePayoutAccountsPage({
           )}
         </div>
       </section>
+      </div>
     </div>
   );
 }

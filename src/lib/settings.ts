@@ -1084,11 +1084,15 @@ const readSettingValueCached = unstable_cache(
   async (key: string): Promise<unknown | null> => {
     const db = await getDbClient();
     if (!db) return null;
-    const setting = await db.setting.findUnique({
-      where: { key },
-      select: { value: true },
-    });
-    return safeParseJson<unknown | null>(setting?.value, null, `settings:${key}`);
+    try {
+      const setting = await db.setting.findUnique({
+        where: { key },
+        select: { value: true },
+      });
+      return safeParseJson<unknown | null>(setting?.value, null, `settings:${key}`);
+    } catch {
+      return null;
+    }
   },
   ["setting-value-v1"],
   { revalidate: 60 },

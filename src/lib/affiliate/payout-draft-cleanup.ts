@@ -99,7 +99,7 @@ export async function runAffiliatePayoutDraftCleanup(input: {
   log?: (msg: string, meta?: Record<string, unknown>) => void;
 }): Promise<AffiliatePayoutDraftCleanupResult> {
   const env = input.env ?? resolveAffiliatePayoutDraftCleanupEnv();
-  const log = input.log ?? ((msg, meta) => console.log(msg, meta ? JSON.stringify(meta) : ""));
+  const log = input.log ?? (() => {});
   const prefix = AFFILIATE_PAYOUT_CHANGE_DRAFT_PREFIX;
   const now = Date.now();
   const minAgeMs = env.orphanTtlHours * 60 * 60 * 1000;

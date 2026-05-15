@@ -14,7 +14,7 @@ function resolveSafeCallbackUrl(callbackUrl: string | null | undefined): string 
   if (value.startsWith("/me")) return "/";
   if (value.startsWith("/profile")) return "/";
   if (value.startsWith("/admin")) return "/";
-  return value || "/tai-khoan";
+  return value || "/";
 }
 
 export default function CustomerAuthCard({
@@ -81,7 +81,7 @@ export default function CustomerAuthCard({
 
       if (!precheck?.ok) {
         if (precheck?.reason === "ADMIN_ACCOUNT") {
-          const adminCallbackUrl = `${window.location.origin}/admin`;
+          const adminCallbackUrl = `${window.location.origin}/`;
           const adminResult = await signIn("admin-credentials", {
             identifier,
             password,
@@ -93,7 +93,7 @@ export default function CustomerAuthCard({
             passwordInputRef.current?.focus();
             return;
           }
-          window.location.assign("/admin");
+          window.location.assign("/");
           return;
         } else if (precheck?.reason === "INTERNAL") {
           setError("Không thể đăng nhập. Vui lòng thử lại.");
@@ -118,7 +118,7 @@ export default function CustomerAuthCard({
         }
 
         setMessage("Đăng nhập thành công.");
-        window.location.replace(safeCallback || "/tai-khoan");
+        window.location.replace(safeCallback || "/");
         return;
       }
 
@@ -358,7 +358,7 @@ export default function CustomerAuthCard({
 
       {message ? <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{message}</p> : null}
       {accessDeniedNotice ? (
-        <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">{accessDeniedNotice}</p>
+        <p className="mt-3 rounded-lg bg-[#FFFDF8] px-3 py-2 text-sm text-amber-700">{accessDeniedNotice}</p>
       ) : null}
       {error ? <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p> : null}
     </section>

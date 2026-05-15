@@ -157,7 +157,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       },
       select: { id: true, createdAt: true },
     });
-    publishAffiliatePayoutAccountSubmitted({
+    await publishAffiliatePayoutAccountSubmitted({
       customerId: session.user.id,
       payoutAccountId: created.id,
     });

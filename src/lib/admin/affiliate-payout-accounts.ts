@@ -275,7 +275,7 @@ export async function approveAffiliatePayoutAccount(id: string, actor: AdminActo
 
   const customerId = before.affiliateProfile.customerId;
   if (customerId) {
-    publishAffiliatePayoutAccountApproved({ customerId, payoutAccountId: id });
+    await publishAffiliatePayoutAccountApproved({ customerId, payoutAccountId: id });
   }
 }
 
@@ -320,7 +320,7 @@ export async function rejectAffiliatePayoutAccount(
 
   const customerId = before.affiliateProfile.customerId;
   if (customerId) {
-    publishAffiliatePayoutAccountRejected({
+    await publishAffiliatePayoutAccountRejected({
       customerId,
       payoutAccountId: id,
       rejectionReason: trimmed.slice(0, 2000),

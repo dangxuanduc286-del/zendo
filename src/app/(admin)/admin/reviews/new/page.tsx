@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "../../../../../lib/auth";
 import AdminReviewForm from "../../../../../components/admin/admin-review-form";
+import { adminCardBody, adminPageSubtitle, adminPageTitle, adminSecondaryButton } from "../../../../../lib/admin-ui";
 
 export const metadata: Metadata = {
   title: "Tạo đánh giá | Quản trị Zendo.vn",
@@ -17,22 +18,19 @@ export default async function NewReviewPage(): Promise<JSX.Element> {
     redirect("/admin/login?callbackUrl=/admin/reviews/new");
   }
   return (
-    <main className="w-full max-w-none space-y-5 bg-[#F8FAFC]">
-      <header className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#E2E8F0] bg-white p-5 shadow-sm sm:p-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-900 sm:text-3xl">Tạo đánh giá</h1>
-          <p className="mt-1 text-sm text-zinc-600">
+    <main className="w-full min-w-0 max-w-none space-y-5">
+      <header className={`${adminCardBody} flex flex-wrap items-center justify-between gap-3`}>
+        <div className="min-w-0 space-y-1">
+          <h1 className={adminPageTitle}>Tạo đánh giá</h1>
+          <p className={adminPageSubtitle}>
             Dùng để tạo review mẫu phục vụ bán hàng/marketing. Storefront chỉ hiển thị review đã duyệt.
           </p>
         </div>
-        <Link
-          href="/admin/reviews"
-          className="inline-flex h-10 items-center rounded-md border border-zinc-300 px-4 text-sm font-medium text-zinc-700"
-        >
+        <Link href="/admin/reviews" className={adminSecondaryButton}>
           Quay lại danh sách
         </Link>
       </header>
-      <section className="w-full max-w-5xl">
+      <section className="w-full min-w-0">
         <AdminReviewForm mode="create" />
       </section>
     </main>

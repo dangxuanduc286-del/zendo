@@ -4,7 +4,7 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "../../../../../lib/auth";
 import AdminSitePolicyForm from "../../../../../components/admin/admin-site-policy-form";
-import { adminSecondaryButton } from "../../../../../lib/admin-ui";
+import { adminCardBody, adminPageTitle, adminSecondaryButton } from "../../../../../lib/admin-ui";
 
 export const metadata: Metadata = {
   title: "Chính sách mới | Quản trị Zendo.vn",
@@ -22,14 +22,14 @@ export default async function AdminSitePolicyNewPage(): Promise<JSX.Element> {
   }
 
   return (
-    <main className="mx-auto w-full max-w-4xl space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h1 className="text-xl font-bold text-slate-900">Thêm chính sách</h1>
+    <main className="w-full min-w-0 max-w-none space-y-5">
+      <div className={`${adminCardBody} flex flex-wrap items-center justify-between gap-2`}>
+        <h1 className={adminPageTitle}>Thêm chính sách</h1>
         <Link href="/admin/site-policies" className={adminSecondaryButton}>
           ← Danh sách
         </Link>
       </div>
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      <section className={adminCardBody}>
         <AdminSitePolicyForm mode="create" />
       </section>
     </main>

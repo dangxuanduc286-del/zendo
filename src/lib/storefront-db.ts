@@ -6,7 +6,13 @@ async function getStorefrontDbClientInternal(): Promise<
   if (!process.env.DATABASE_URL) return null;
   try {
     const dbModule = await import("./db");
-    return dbModule.db;
+    try {
+      // Ping to avoid crashing build-time static generation when DB is down.
+      await dbModule.db.$queryRaw`SELECT 1`;
+      return dbModule.db;
+    } catch {
+      return null;
+    }
   } catch {
     return null;
   }

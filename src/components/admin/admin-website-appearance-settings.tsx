@@ -587,7 +587,6 @@ function StorefrontCard({
   const [dealsHealth, setDealsHealth] = useState<Record<string, unknown> | null>(null);
   const [previewToken, setPreviewToken] = useState("");
   const [dealsPerf, setDealsPerf] = useState<Record<string, unknown> | null>(null);
-  const [dealsEvents, setDealsEvents] = useState<unknown[]>([]);
   const [compareA, setCompareA] = useState("");
   const [compareB, setCompareB] = useState("");
   const [compareResult, setCompareResult] = useState<Record<string, unknown> | null>(null);
@@ -721,20 +720,6 @@ function StorefrontCard({
         const obj = json && typeof json === "object" ? (json as Record<string, unknown>) : null;
         const items = Array.isArray(obj?.items) ? (obj?.items as unknown[]) : [];
         setDealsAudit(items);
-      } catch {
-        // ignore
-      }
-    })();
-  }, []);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch("/api/admin/settings/deals-events");
-        const json = (await res.json()) as unknown;
-        const obj = json && typeof json === "object" ? (json as Record<string, unknown>) : null;
-        const items = Array.isArray(obj?.items) ? (obj.items as unknown[]) : [];
-        setDealsEvents(items);
       } catch {
         // ignore
       }
@@ -1507,25 +1492,6 @@ function StorefrontCard({
                           </div>
                         ) : null}
                       </div>
-
-                      {dealsEvents.length ? (
-                        <div className="mt-2 rounded-lg border border-slate-200 bg-white p-2 text-slate-900">
-                          <div className="font-semibold">Recent deals events (debug)</div>
-                          <div className="mt-2 space-y-1 font-mono text-xs">
-                            {dealsEvents.slice(0, 8).map((e, idx) => {
-                              const o = e && typeof e === "object" ? (e as Record<string, unknown>) : null;
-                              const name = String(o?.eventName ?? "");
-                              const createdAt = String(o?.createdAt ?? "");
-                              const ctx = o?.ctx && typeof o.ctx === "object" ? (o.ctx as Record<string, unknown>) : null;
-                              return (
-                                <div key={idx} className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1">
-                                  {createdAt} {name} sec={String(ctx?.sectionId ?? "")} prod={String(ctx?.productId ?? "")}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      ) : null}
 
                       {dealsWarnings.length ? (
                         <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2 text-amber-900">

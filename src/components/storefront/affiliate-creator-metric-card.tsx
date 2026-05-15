@@ -1,0 +1,117 @@
+"use client";
+
+import { clsx } from "clsx";
+import type { LucideIcon } from "lucide-react";
+import { memo, type ReactNode } from "react";
+
+function Skeleton({ className }: { className: string }): JSX.Element {
+  return <div className={clsx("animate-pulse rounded-lg bg-slate-100/90", className)} />;
+}
+
+const toneRing: Record<"blue" | "emerald" | "fuchsia" | "slate" | "amber", string> = {
+  blue: "ring-blue-100/80 hover:ring-blue-200/90",
+  emerald: "ring-emerald-100/80 hover:ring-emerald-200/90",
+  fuchsia: "ring-fuchsia-100/80 hover:ring-fuchsia-200/90",
+  slate: "ring-slate-100/80 hover:ring-slate-200/90",
+  amber: "ring-amber-100/80 hover:ring-amber-200/90",
+};
+
+export type CreatorMetricCardProps = {
+  icon?: LucideIcon;
+  label: string;
+  value: string;
+  sub?: string;
+  tone?: keyof typeof toneRing;
+  loading?: boolean;
+  pulse?: boolean;
+  /** % so với lần tải trước (client-only). */
+  trendPct?: number | null;
+};
+
+function CreatorMetricCardInner(props: CreatorMetricCardProps): JSX.Element {
+  const tone = props.tone ?? "slate";
+  const Icon = props.icon;
+  const t = props.trendPct;
+  const trendColor =
+    t == null || !Number.isFinite(t) ? "text-slate-400" : t > 0 ? "text-emerald-600" : t < 0 ? "text-rose-600" : "text-slate-500";
+
+  return (
+    <div
+      className={clsx(
+        "flex h-full min-h-[5.25rem] flex-col rounded-xl border border-slate-200/70 bg-white p-3 shadow-sm ring-1 ring-slate-200/50 transition-shadow duration-200 hover:shadow-md sm:rounded-2xl sm:p-3.5",
+        toneRing[tone],
+      )}
+    >
+      <div className="flex items-start justify-between gap-1">
+        <div className="flex min-w-0 items-center gap-1">
+          {Icon ? (
+            <Icon className="h-3.5 w-3.5 shrink-0 text-slate-400" strokeWidth={1.75} aria-hidden />
+          ) : null}
+          <p className="truncate text-[9px] font-semibold uppercase tracking-wide text-slate-500 sm:text-[10px]">{props.label}</p>
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          {t != null && Number.isFinite(t) ? (
+            <span className={clsx("rounded-md bg-white/80 px-1 py-0.5 text-[9px] font-bold tabular-nums ring-1 ring-slate-100", trendColor)}>
+              {t > 0 ? "+" : ""}
+              {t.toFixed(0)}%
+            </span>
+          ) : null}
+          {props.pulse ? (
+            <span
+              className="motion-safe:animate-pulse inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_0_1px_rgba(16,185,129,0.12)] motion-reduce:shadow-none"
+              aria-hidden
+            />
+          ) : null}
+        </div>
+      </div>
+      {props.loading ? (
+        <Skeleton className="mt-auto h-8 w-24" />
+      ) : (
+        <p className="mt-auto pt-1 text-lg font-semibold tabular-nums tracking-tight text-slate-900 sm:text-xl">{props.value}</p>
+      )}
+      {props.sub ? <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-slate-500">{props.sub}</p> : null}
+    </div>
+  );
+}
+
+/** Thẻ số kiểu creator: metric nổi, label nhỏ, icon Lucide, trend tùy chọn. */
+export const CreatorMetricCard = memo(CreatorMetricCardInner);
+CreatorMetricCard.displayName = "CreatorMetricCard";
+
+export function CreatorSectionShell(props: {
+  title: string;
+  hint?: string;
+  children: ReactNode;
+  className?: string;
+}): JSX.Element {
+  return (
+    <div
+      className={clsx(
+        "flex flex-col rounded-2xl border border-slate-200/70 bg-white p-4 shadow-sm ring-1 ring-slate-200/50 sm:p-5",
+        props.className,
+      )}
+    >
+      <div className="flex shrink-0 flex-wrap items-start justify-between gap-2 border-b border-slate-100 pb-3">
+        <h3 className="text-[13px] font-semibold tracking-tight text-slate-900 sm:text-sm">{props.title}</h3>
+        {props.hint ? <span className="max-w-[16rem] text-right text-[11px] font-medium leading-snug text-slate-500">{props.hint}</span> : null}
+      </div>
+      <div className="flex min-h-0 flex-1 flex-col">{props.children}</div>
+    </div>
+  );
+}
+
+export function CreatorEmptyState(props: { title: string; hint: string; icon?: LucideIcon; className?: string }): JSX.Element {
+  const Icon = props.icon;
+  return (
+    <div
+      className={clsx(
+        "flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 px-4 py-8 text-center",
+        props.className,
+      )}
+    >
+      {Icon ? <Icon className="mb-2 h-8 w-8 text-slate-300" strokeWidth={1.25} aria-hidden /> : null}
+      <p className="text-sm font-semibold text-slate-700">{props.title}</p>
+      <p className="mt-1 max-w-xs text-xs leading-relaxed text-slate-500">{props.hint}</p>
+    </div>
+  );
+}

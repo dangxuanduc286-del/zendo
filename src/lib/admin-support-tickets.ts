@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "./auth";
 
 import { ADMIN_SUPPORT_TICKET_ROLES, isAdminSupportTicketRole } from "./admin-support-ticket-roles";
+import { supportTicketNotArchivedWhere } from "./support-ticket-archive";
 
 export { ADMIN_SUPPORT_TICKET_ROLES, isAdminSupportTicketRole };
 
@@ -80,10 +81,15 @@ export function buildAdminSupportTicketWhere(
   }
 
   const t = parseAdminSupportTicketListTag(tag ?? null);
-  if (!t) return base;
-  const tagClause: Prisma.SupportTicketWhereInput = { tags: { has: t } };
-  if (!base || Object.keys(base).length === 0) return tagClause;
-  return { AND: [base, tagClause] };
+  let merged: Prisma.SupportTicketWhereInput;
+  if (!t) merged = base;
+  else if (!base || Object.keys(base).length === 0) merged = { tags: { has: t } };
+  else merged = { AND: [base, { tags: { has: t } }] };
+
+  if (!merged || Object.keys(merged).length === 0) {
+    return { ...supportTicketNotArchivedWhere };
+  }
+  return { AND: [supportTicketNotArchivedWhere, merged] };
 }
 
 export function parseSupportTicketStatus(raw: unknown): SupportTicketStatus | null {
@@ -133,6 +139,17 @@ export function parseSupportTicketTags(
   return { ok: true, tags: out };
 }
 
+const MAX_SUPPORT_TICKET_BLOCK_REASON = 2000;
+
+/** Lý do chặn từ PATCH `blockReason` — chuỗi rỗng coi như không gửi (null). */
+export function parseSupportTicketBlockReason(raw: unknown): string | null {
+  if (raw === undefined || raw === null) return null;
+  if (typeof raw !== "string") return null;
+  const s = raw.trim();
+  if (!s) return null;
+  return s.slice(0, MAX_SUPPORT_TICKET_BLOCK_REASON);
+}
+
 async function assertAdminSupportLayoutSession(): Promise<void> {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id || !isAdminSupportTicketRole(session.user.role)) {
@@ -144,15 +161,21 @@ async function assertAdminSupportLayoutSession(): Promise<void> {
  * Tổng `adminUnreadCount` trên mọi ticket (số tin phía admin chưa đọc, không phải số ticket).
  * Chỉ gọi khi session là quản trị; không có quyền / lỗi → ném lỗi (để Safe bọc trả 0).
  */
-export async function getAdminSupportTicketUnreadCount(): Promise<number> {
-  await assertAdminSupportLayoutSession();
+/** Tổng `adminUnreadCount` (server-side, không cần session) — dùng Pusher inbox / API badge. */
+export async function getAdminSupportTicketUnreadTotalDb(): Promise<number> {
   if (!process.env.DATABASE_URL) return 0;
   const { db } = await import("./db");
   const agg = await db.supportTicket.aggregate({
+    where: { ...supportTicketNotArchivedWhere },
     _sum: { adminUnreadCount: true },
   });
   const n = agg._sum.adminUnreadCount ?? 0;
-  return Number.isFinite(n) && n >= 0 ? n : 0;
+  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0;
+}
+
+export async function getAdminSupportTicketUnreadCount(): Promise<number> {
+  await assertAdminSupportLayoutSession();
+  return getAdminSupportTicketUnreadTotalDb();
 }
 
 /** Sidebar / layout: mọi lỗi (quyền, DB, schema, bảng chưa tồn tại) → 0, không làm sập admin. */

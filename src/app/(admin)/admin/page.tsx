@@ -419,15 +419,13 @@ export default async function AdminDashboardPage(): Promise<JSX.Element> {
     },
   ];
   return (
-    <main className="min-h-screen w-full max-w-[1600px] bg-[#F8FAFC] px-4 py-6 sm:px-6 lg:px-8">
-      <section className="rounded-2xl border border-[#E2E8F0] bg-white p-6 sm:p-8">
-        <h1 className="text-2xl font-bold tracking-tight text-[#0F172A] sm:text-3xl">
-          Bảng điều khiển quản trị
-        </h1>
-        <p className="mt-3 text-sm leading-6 text-[#64748B] sm:text-base">
+    <main className="w-full min-w-0 max-w-none space-y-5">
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900">Bảng điều khiển quản trị</h1>
+        <p className="mt-2 text-sm text-slate-500">
           Xin chào {session.user.name ?? session.user.email ?? "Quản trị viên"} — {siteName}.
         </p>
-        <p className="mt-1 text-xs text-[#64748B]">
+        <p className="mt-1 text-xs text-slate-500">
           Tiền tệ: {currency} • Múi giờ: {timezone} • Theo dõi analytics:{" "}
           {analyticsEnabled ? "Đang bật" : "Đang tắt"}
         </p>
@@ -438,66 +436,66 @@ export default async function AdminDashboardPage(): Promise<JSX.Element> {
         ) : null}
       </section>
 
-      <section className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <article className="rounded-2xl border border-[#E2E8F0] bg-white p-4 transition hover:shadow-sm">
-          <p className="text-xs text-[#64748B]">Đơn hàng</p>
-          <p className="mt-1 text-3xl font-bold text-[#0F172A]">{totalOrders}</p>
-          <p className="text-xs text-[#64748B]">Theo dữ liệu hiện tại</p>
+      <section className="grid grid-cols-1 items-stretch gap-5 sm:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3">
+        <article className="flex min-h-[120px] flex-col justify-center gap-1 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md md:p-6">
+          <p className="text-xs text-slate-500">Đơn hàng</p>
+          <p className="text-3xl font-bold tracking-tight text-slate-900 tabular-nums">{totalOrders}</p>
+          <p className="text-xs text-slate-500">Theo dữ liệu hiện tại</p>
         </article>
-        <article className="rounded-2xl border border-[#E2E8F0] bg-white p-4 transition hover:shadow-sm">
-          <p className="text-xs text-[#64748B]">Doanh thu đã thanh toán</p>
-          <p className="mt-1 text-3xl font-bold text-[#0F172A]">{revenueText}</p>
-          <p className="text-xs text-[#64748B]">Theo dữ liệu hiện tại</p>
+        <article className="flex min-h-[120px] flex-col justify-center gap-1 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md md:p-6">
+          <p className="text-xs text-slate-500">Doanh thu đã thanh toán</p>
+          <p className="text-3xl font-bold tracking-tight text-slate-900 tabular-nums">{revenueText}</p>
+          <p className="text-xs text-slate-500">Theo dữ liệu hiện tại</p>
         </article>
-        <article className="rounded-2xl border border-[#E2E8F0] bg-white p-4 transition hover:shadow-sm">
-          <p className="text-xs text-[#64748B]">Khách hàng</p>
-          <p className="mt-1 text-3xl font-bold text-[#0F172A]">{totalCustomers}</p>
-          <p className="text-xs text-[#64748B]">Theo dữ liệu hiện tại</p>
+        <article className="flex min-h-[120px] flex-col justify-center gap-1 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md md:p-6">
+          <p className="text-xs text-slate-500">Khách hàng</p>
+          <p className="text-3xl font-bold tracking-tight text-slate-900 tabular-nums">{totalCustomers}</p>
+          <p className="text-xs text-slate-500">Theo dữ liệu hiện tại</p>
         </article>
-        <article className="rounded-2xl border border-[#E2E8F0] bg-white p-4 transition hover:shadow-sm">
-          <p className="text-xs text-[#64748B]">Sản phẩm</p>
-          <p className="mt-1 text-3xl font-bold text-[#0F172A]">{totalProducts}</p>
-          <p className="text-xs text-[#64748B]">Theo dữ liệu hiện tại</p>
+        <article className="flex min-h-[120px] flex-col justify-center gap-1 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md md:p-6">
+          <p className="text-xs text-slate-500">Sản phẩm</p>
+          <p className="text-3xl font-bold tracking-tight text-slate-900 tabular-nums">{totalProducts}</p>
+          <p className="text-xs text-slate-500">Theo dữ liệu hiện tại</p>
         </article>
-        <article className="rounded-2xl border border-[#E2E8F0] bg-white p-4 transition hover:shadow-sm">
-          <p className="text-xs text-[#64748B]">Đơn chờ xử lý</p>
-          <p className="mt-1 text-3xl font-bold text-[#0F172A]">{pendingOrders}</p>
-          <p className="text-xs text-[#64748B]">Theo dữ liệu hiện tại</p>
+        <article className="flex min-h-[120px] flex-col justify-center gap-1 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md md:p-6">
+          <p className="text-xs text-slate-500">Đơn chờ xử lý</p>
+          <p className="text-3xl font-bold tracking-tight text-slate-900 tabular-nums">{pendingOrders}</p>
+          <p className="text-xs text-slate-500">Theo dữ liệu hiện tại</p>
         </article>
-        <article className="rounded-2xl border border-[#E2E8F0] bg-white p-4 transition hover:shadow-sm">
-          <p className="text-xs text-[#64748B]">Sản phẩm sắp hết hàng</p>
-          <p className="mt-1 text-3xl font-bold text-[#0F172A]">{lowStockProducts}</p>
-          <p className="text-xs text-[#64748B]">Theo dữ liệu hiện tại</p>
+        <article className="flex min-h-[120px] flex-col justify-center gap-1 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md md:p-6">
+          <p className="text-xs text-slate-500">Sản phẩm sắp hết hàng</p>
+          <p className="text-3xl font-bold tracking-tight text-slate-900 tabular-nums">{lowStockProducts}</p>
+          <p className="text-xs text-slate-500">Theo dữ liệu hiện tại</p>
         </article>
       </section>
 
-      <section className="mt-5 rounded-2xl border border-[#E2E8F0] bg-white p-4 sm:p-5">
-        <h2 className="text-lg font-semibold text-[#0F172A]">Thao tác nhanh</h2>
-        <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+        <h2 className="text-lg font-semibold text-slate-900">Thao tác nhanh</h2>
+        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
           {quickActions
             .filter((item) => item.available)
             .map((item) => (
               <Link
                 key={item.key}
                 href={item.href}
-                className="rounded-xl border border-[#E2E8F0] bg-white p-3 transition hover:shadow-sm"
+                className="rounded-xl border border-slate-200 bg-white p-3 transition hover:shadow-sm"
               >
-                <svg viewBox="0 0 24 24" className="h-5 w-5 text-[#0F172A]" fill="none" stroke="currentColor">
+                <svg viewBox="0 0 24 24" className="h-5 w-5 text-slate-900" fill="none" stroke="currentColor">
                   <path d={item.iconPath} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-                <p className="mt-2 text-sm font-semibold text-[#0F172A]">{item.title}</p>
-                <p className="text-xs text-[#64748B]">{item.description}</p>
+                <p className="mt-2 text-sm font-semibold text-slate-900">{item.title}</p>
+                <p className="text-xs text-slate-500">{item.description}</p>
               </Link>
             ))}
         </div>
       </section>
 
-      <section className="mt-5 rounded-2xl border border-[#E2E8F0] bg-white p-4 sm:p-5">
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="text-lg font-semibold text-[#0F172A]">Đơn mới nhất</h2>
+          <h2 className="text-lg font-semibold text-slate-900">Đơn mới nhất</h2>
           <Link
             href="/admin/orders"
-            className="inline-flex h-9 items-center rounded-md border border-[#E2E8F0] px-3 text-sm font-medium text-[#64748B] transition hover:border-zinc-400 hover:text-[#0F172A]"
+            className="inline-flex h-11 items-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 shadow-sm transition hover:border-slate-300 hover:text-slate-900"
           >
             Xem tất cả
           </Link>
@@ -507,7 +505,7 @@ export default async function AdminDashboardPage(): Promise<JSX.Element> {
           <>
             <div className="mt-3 hidden overflow-x-auto md:block">
               <table className="w-full min-w-[760px] text-left text-sm">
-                <thead className="border-b border-[#E2E8F0] bg-[#F8FAFC] text-[#64748B]">
+                <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
                   <tr>
                     <th className="px-3 py-2 font-semibold">Mã đơn</th>
                     <th className="px-3 py-2 font-semibold">Khách hàng</th>
@@ -519,16 +517,16 @@ export default async function AdminDashboardPage(): Promise<JSX.Element> {
                 </thead>
                 <tbody>
                   {latestOrders.map((order) => (
-                    <tr key={order.id} className="border-b border-[#E2E8F0] last:border-none">
-                      <td className="px-3 py-3 font-semibold text-[#0F172A]">{order.code}</td>
-                      <td className="px-3 py-3 text-[#0F172A]">{order.customerName}</td>
-                      <td className="px-3 py-3 font-semibold text-[#0F172A]">{order.totalText}</td>
-                      <td className="px-3 py-3 text-[#64748B]">{order.statusLabel}</td>
-                      <td className="px-3 py-3 text-[#64748B]">{order.createdAtText}</td>
+                    <tr key={order.id} className="border-b border-slate-200 last:border-none">
+                      <td className="px-3 py-3 font-semibold text-slate-900">{order.code}</td>
+                      <td className="px-3 py-3 text-slate-900">{order.customerName}</td>
+                      <td className="px-3 py-3 font-semibold text-slate-900">{order.totalText}</td>
+                      <td className="px-3 py-3 text-slate-500">{order.statusLabel}</td>
+                      <td className="px-3 py-3 text-slate-500">{order.createdAtText}</td>
                       <td className="px-3 py-3 text-right">
                         <Link
                           href={`/admin/orders/${order.id}`}
-                          className="text-sm font-semibold text-[#0F172A] transition hover:text-zinc-700"
+                          className="text-sm font-semibold text-slate-900 transition hover:text-zinc-700"
                         >
                           Xem chi tiết
                         </Link>
@@ -541,15 +539,15 @@ export default async function AdminDashboardPage(): Promise<JSX.Element> {
 
             <div className="mt-3 space-y-2 md:hidden">
               {latestOrders.map((order) => (
-                <article key={order.id} className="rounded-xl border border-[#E2E8F0] p-3">
-                  <p className="text-sm font-semibold text-[#0F172A]">{order.code}</p>
-                  <p className="mt-1 text-sm text-[#0F172A]">{order.customerName}</p>
-                  <p className="text-sm font-semibold text-[#0F172A]">{order.totalText}</p>
-                  <p className="text-xs text-[#64748B]">Trạng thái: {order.statusLabel}</p>
-                  <p className="text-xs text-[#64748B]">{order.createdAtText}</p>
+                <article key={order.id} className="rounded-xl border border-slate-200 p-3">
+                  <p className="text-sm font-semibold text-slate-900">{order.code}</p>
+                  <p className="mt-1 text-sm text-slate-900">{order.customerName}</p>
+                  <p className="text-sm font-semibold text-slate-900">{order.totalText}</p>
+                  <p className="text-xs text-slate-500">Trạng thái: {order.statusLabel}</p>
+                  <p className="text-xs text-slate-500">{order.createdAtText}</p>
                   <Link
                     href={`/admin/orders/${order.id}`}
-                    className="mt-2 inline-flex text-sm font-semibold text-[#0F172A]"
+                    className="mt-2 inline-flex text-sm font-semibold text-slate-900"
                   >
                     Xem chi tiết
                   </Link>
@@ -558,23 +556,23 @@ export default async function AdminDashboardPage(): Promise<JSX.Element> {
             </div>
           </>
         ) : (
-          <p className="mt-3 rounded-xl border border-[#E2E8F0] px-3 py-4 text-sm text-[#64748B]">
+          <p className="mt-3 rounded-xl border border-slate-200 px-3 py-4 text-sm text-slate-500">
             Chưa có đơn hàng nào.
           </p>
         )}
       </section>
 
-      <section className="mt-5 rounded-2xl border border-[#E2E8F0] bg-white p-4 sm:p-5">
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="text-lg font-semibold text-[#0F172A]">Sản phẩm sắp hết hàng</h2>
-          <p className="text-xs text-[#64748B]">Ngưỡng cảnh báo: {lowStockThreshold}</p>
+          <h2 className="text-lg font-semibold text-slate-900">Sản phẩm sắp hết hàng</h2>
+          <p className="text-xs text-slate-500">Ngưỡng cảnh báo: {lowStockThreshold}</p>
         </div>
 
         {lowStockItems.length ? (
           <>
             <div className="mt-3 hidden overflow-x-auto md:block">
               <table className="w-full min-w-[780px] text-left text-sm">
-                <thead className="border-b border-[#E2E8F0] bg-[#F8FAFC] text-[#64748B]">
+                <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
                   <tr>
                     <th className="px-3 py-2 font-semibold">Tên sản phẩm</th>
                     <th className="px-3 py-2 font-semibold">SKU</th>
@@ -586,11 +584,11 @@ export default async function AdminDashboardPage(): Promise<JSX.Element> {
                 </thead>
                 <tbody>
                   {lowStockItems.map((product) => (
-                    <tr key={product.id} className="border-b border-[#E2E8F0] last:border-none">
-                      <td className="px-3 py-3 font-medium text-[#0F172A]">{product.name}</td>
-                      <td className="px-3 py-3 text-[#64748B]">{product.sku}</td>
-                      <td className="px-3 py-3 font-semibold text-[#0F172A]">{product.stock}</td>
-                      <td className="px-3 py-3 text-[#64748B]">{product.statusLabel}</td>
+                    <tr key={product.id} className="border-b border-slate-200 last:border-none">
+                      <td className="px-3 py-3 font-medium text-slate-900">{product.name}</td>
+                      <td className="px-3 py-3 text-slate-500">{product.sku}</td>
+                      <td className="px-3 py-3 font-semibold text-slate-900">{product.stock}</td>
+                      <td className="px-3 py-3 text-slate-500">{product.statusLabel}</td>
                       <td className="px-3 py-3">
                         <span
                           className={
@@ -605,7 +603,7 @@ export default async function AdminDashboardPage(): Promise<JSX.Element> {
                       <td className="px-3 py-3 text-right">
                         <Link
                           href={`/admin/products/${product.id}`}
-                          className="text-sm font-semibold text-[#0F172A] transition hover:text-zinc-700"
+                          className="text-sm font-semibold text-slate-900 transition hover:text-zinc-700"
                         >
                           Sửa sản phẩm
                         </Link>
@@ -618,11 +616,11 @@ export default async function AdminDashboardPage(): Promise<JSX.Element> {
 
             <div className="mt-3 space-y-2 md:hidden">
               {lowStockItems.map((product) => (
-                <article key={product.id} className="rounded-xl border border-[#E2E8F0] p-3">
-                  <p className="text-sm font-semibold text-[#0F172A]">{product.name}</p>
-                  <p className="text-xs text-[#64748B]">SKU: {product.sku}</p>
-                  <p className="mt-1 text-sm font-semibold text-[#0F172A]">Tồn kho: {product.stock}</p>
-                  <p className="text-xs text-[#64748B]">Trạng thái: {product.statusLabel}</p>
+                <article key={product.id} className="rounded-xl border border-slate-200 p-3">
+                  <p className="text-sm font-semibold text-slate-900">{product.name}</p>
+                  <p className="text-xs text-slate-500">SKU: {product.sku}</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-900">Tồn kho: {product.stock}</p>
+                  <p className="text-xs text-slate-500">Trạng thái: {product.statusLabel}</p>
                   <span
                     className={
                       product.stock <= 3
@@ -634,7 +632,7 @@ export default async function AdminDashboardPage(): Promise<JSX.Element> {
                   </span>
                   <Link
                     href={`/admin/products/${product.id}`}
-                    className="mt-2 inline-flex text-sm font-semibold text-[#0F172A]"
+                    className="mt-2 inline-flex text-sm font-semibold text-slate-900"
                   >
                     Sửa sản phẩm
                   </Link>
@@ -643,18 +641,18 @@ export default async function AdminDashboardPage(): Promise<JSX.Element> {
             </div>
           </>
         ) : (
-          <p className="mt-3 rounded-xl border border-[#E2E8F0] px-3 py-4 text-sm text-[#64748B]">
+          <p className="mt-3 rounded-xl border border-slate-200 px-3 py-4 text-sm text-slate-500">
             Không có cảnh báo.
           </p>
         )}
       </section>
 
-      <section className="mt-5 rounded-2xl border border-[#E2E8F0] bg-white p-4 sm:p-5">
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="text-lg font-semibold text-[#0F172A]">Top sản phẩm bán chạy</h2>
+          <h2 className="text-lg font-semibold text-slate-900">Top sản phẩm bán chạy</h2>
           <Link
             href="/admin/products"
-            className="inline-flex h-9 items-center rounded-md border border-[#E2E8F0] px-3 text-sm font-medium text-[#64748B] transition hover:border-zinc-400 hover:text-[#0F172A]"
+            className="inline-flex h-11 items-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 shadow-sm transition hover:border-slate-300 hover:text-slate-900"
           >
             Xem tất cả sản phẩm
           </Link>
@@ -663,7 +661,7 @@ export default async function AdminDashboardPage(): Promise<JSX.Element> {
           <>
             <div className="mt-3 hidden overflow-x-auto md:block">
               <table className="w-full min-w-[920px] text-left text-sm">
-                <thead className="border-b border-[#E2E8F0] bg-[#F8FAFC] text-[#64748B]">
+                <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
                   <tr>
                     <th className="px-3 py-2 font-semibold">Sản phẩm</th>
                     <th className="px-3 py-2 font-semibold">SKU</th>
@@ -675,27 +673,27 @@ export default async function AdminDashboardPage(): Promise<JSX.Element> {
                 </thead>
                 <tbody>
                   {topSellingProducts.map((item) => (
-                    <tr key={`${item.productId}-${item.name}`} className="border-b border-[#E2E8F0] last:border-none">
+                    <tr key={`${item.productId}-${item.name}`} className="border-b border-slate-200 last:border-none">
                       <td className="px-3 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="relative h-12 w-12 overflow-hidden rounded-md border border-[#E2E8F0] bg-white">
+                          <div className="relative h-12 w-12 overflow-hidden rounded-md border border-slate-200 bg-white">
                             {item.imageUrl ? (
                               <Image src={item.imageUrl} alt={item.name} fill sizes="48px" className="object-cover" />
                             ) : (
-                              <div className="flex h-full w-full items-center justify-center text-[10px] text-[#64748B]">
+                              <div className="flex h-full w-full items-center justify-center text-[10px] text-slate-500">
                                 Không ảnh
                               </div>
                             )}
                           </div>
-                          <p className="font-medium text-[#0F172A]">{item.name}</p>
+                          <p className="font-medium text-slate-900">{item.name}</p>
                         </div>
                       </td>
-                      <td className="px-3 py-3 text-[#64748B]">{item.sku}</td>
-                      <td className="px-3 py-3 font-semibold text-[#0F172A]">{item.quantitySold}</td>
-                      <td className="px-3 py-3 font-semibold text-[#0F172A]">{item.revenueText}</td>
-                      <td className="px-3 py-3 text-[#64748B]">{item.stockQuantity}</td>
+                      <td className="px-3 py-3 text-slate-500">{item.sku}</td>
+                      <td className="px-3 py-3 font-semibold text-slate-900">{item.quantitySold}</td>
+                      <td className="px-3 py-3 font-semibold text-slate-900">{item.revenueText}</td>
+                      <td className="px-3 py-3 text-slate-500">{item.stockQuantity}</td>
                       <td className="px-3 py-3 text-right">
-                        <Link href={item.editHref} className="text-sm font-semibold text-[#0F172A] transition hover:text-zinc-700">
+                        <Link href={item.editHref} className="text-sm font-semibold text-slate-900 transition hover:text-zinc-700">
                           {item.hasProductLink ? "Sửa sản phẩm" : "Xem sản phẩm"}
                         </Link>
                       </td>
@@ -706,26 +704,26 @@ export default async function AdminDashboardPage(): Promise<JSX.Element> {
             </div>
             <div className="mt-3 space-y-2 md:hidden">
               {topSellingProducts.map((item) => (
-                <article key={`${item.productId}-${item.name}-mobile`} className="rounded-xl border border-[#E2E8F0] p-3">
+                <article key={`${item.productId}-${item.name}-mobile`} className="rounded-xl border border-slate-200 p-3">
                   <div className="flex items-center gap-3">
-                    <div className="relative h-14 w-14 overflow-hidden rounded-md border border-[#E2E8F0] bg-white">
+                    <div className="relative h-14 w-14 overflow-hidden rounded-md border border-slate-200 bg-white">
                       {item.imageUrl ? (
                         <Image src={item.imageUrl} alt={item.name} fill sizes="56px" className="object-cover" />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center text-[10px] text-[#64748B]">
+                        <div className="flex h-full w-full items-center justify-center text-[10px] text-slate-500">
                           Không ảnh
                         </div>
                       )}
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-[#0F172A]">{item.name}</p>
-                      <p className="text-xs text-[#64748B]">SKU: {item.sku}</p>
+                      <p className="text-sm font-semibold text-slate-900">{item.name}</p>
+                      <p className="text-xs text-slate-500">SKU: {item.sku}</p>
                     </div>
                   </div>
-                  <p className="mt-2 text-sm text-[#0F172A]">Đã bán: <span className="font-semibold">{item.quantitySold}</span></p>
-                  <p className="text-sm text-[#0F172A]">Doanh thu: <span className="font-semibold">{item.revenueText}</span></p>
-                  <p className="text-xs text-[#64748B]">Tồn kho hiện tại: {item.stockQuantity}</p>
-                  <Link href={item.editHref} className="mt-2 inline-flex text-sm font-semibold text-[#0F172A]">
+                  <p className="mt-2 text-sm text-slate-900">Đã bán: <span className="font-semibold">{item.quantitySold}</span></p>
+                  <p className="text-sm text-slate-900">Doanh thu: <span className="font-semibold">{item.revenueText}</span></p>
+                  <p className="text-xs text-slate-500">Tồn kho hiện tại: {item.stockQuantity}</p>
+                  <Link href={item.editHref} className="mt-2 inline-flex text-sm font-semibold text-slate-900">
                     {item.hasProductLink ? "Sửa sản phẩm" : "Xem sản phẩm"}
                   </Link>
                 </article>
@@ -733,28 +731,28 @@ export default async function AdminDashboardPage(): Promise<JSX.Element> {
             </div>
           </>
         ) : (
-          <p className="mt-3 rounded-xl border border-[#E2E8F0] px-3 py-4 text-sm text-[#64748B]">
+          <p className="mt-3 rounded-xl border border-slate-200 px-3 py-4 text-sm text-slate-500">
             Chưa có dữ liệu bán hàng để phân tích.
           </p>
         )}
       </section>
 
-      <section className="mt-5 rounded-2xl border border-[#E2E8F0] bg-white p-4 sm:p-5">
-        <h2 className="text-lg font-semibold text-[#0F172A]">Trạng thái hệ thống</h2>
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+        <h2 className="text-lg font-semibold text-slate-900">Trạng thái hệ thống</h2>
         <div className="mt-3 space-y-2">
           {systemStatusRows.map((row) => (
             <article
               key={row.key}
-              className="rounded-xl border border-[#E2E8F0] bg-white p-3"
+              className="rounded-xl border border-slate-200 bg-white p-3"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <p className="text-sm font-semibold text-[#0F172A]">{row.name}</p>
-                  <p className="text-xs text-[#64748B]">{row.description}</p>
+                  <p className="text-sm font-semibold text-slate-900">{row.name}</p>
+                  <p className="text-xs text-slate-500">{row.description}</p>
                 </div>
                 <span className={statusBadgeClass(row.statusLabel)}>{row.statusLabel}</span>
               </div>
-              <p className="mt-2 text-xs text-[#64748B]">{row.note}</p>
+              <p className="mt-2 text-xs text-slate-500">{row.note}</p>
             </article>
           ))}
         </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { customerNotificationsPollMs } from "@/lib/next-dev-stability";
 
 export type CustomerNotificationsPollBundle = {
   unread: number;
@@ -18,9 +19,6 @@ export type CustomerNotificationsPollBundle = {
 };
 
 type UnreadSummary = { unread: number; groups: CustomerNotificationsPollBundle["groups"] };
-
-const POLL_ACTIVE_MS = 15_000;
-const POLL_IDLE_MS = 60_000;
 
 function sameSummary(a: UnreadSummary, b: UnreadSummary): boolean {
   return (
@@ -55,6 +53,7 @@ export function useCustomerNotificationsPoll(
     let disposed = false;
     let intervalId: number | undefined;
     const abortRef = { current: undefined as AbortController | undefined };
+    let tickInFlight = false;
 
     const schedule = (ms: number): void => {
       if (intervalId != null) window.clearInterval(intervalId);
@@ -112,13 +111,21 @@ export function useCustomerNotificationsPoll(
 
     async function tick(): Promise<void> {
       if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+      if (tickInFlight) return;
+      tickInFlight = true;
 
-      abortRef.current?.abort();
-      const ac = new AbortController();
-      abortRef.current = ac;
-      const signal = ac.signal;
+      try {
+        abortRef.current?.abort();
+        const ac = new AbortController();
+        abortRef.current = ac;
+        const signal = ac.signal;
 
-      if (notificationsTabActive) {
+        // Tab Thông báo đang mở: luôn tải full list để không lệch items vs UI (commission realtime chỉ áp khi tab khác → tiết kiệm)
+        if (notificationsTabActive) {
+          await fetchFull(signal);
+          return;
+        }
+
         if (affiliateCommissionRealtime) {
           const summary = await fetchUnreadSummary(signal);
           if (disposed || signal.aborted) return;
@@ -127,17 +134,14 @@ export function useCustomerNotificationsPoll(
           }
           return;
         }
-        await fetchFull(signal);
-        return;
-      }
 
-      await fetchFull(signal);
+        await fetchFull(signal);
+      } finally {
+        tickInFlight = false;
+      }
     }
 
-    const pickInterval = (): number => {
-      if (notificationsTabActive) return POLL_ACTIVE_MS;
-      return POLL_IDLE_MS;
-    };
+    const pickInterval = (): number => customerNotificationsPollMs(notificationsTabActive);
 
     const onVis = (): void => {
       if (document.visibilityState === "visible") {

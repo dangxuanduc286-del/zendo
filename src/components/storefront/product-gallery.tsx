@@ -44,8 +44,8 @@ export default function ProductGallery({
 
 
   return (
-    <section className="space-y-3" aria-label="Hình ảnh sản phẩm">
-      <div className="relative aspect-square overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100">
+    <section className="space-y-3 lg:sticky lg:top-6 lg:self-start" aria-label="Hình ảnh sản phẩm">
+      <div className="group relative aspect-[4/3] overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-100 md:aspect-square md:rounded-xl lg:rounded-[28px] lg:border lg:bg-white lg:shadow-sm">
         <MediaImage
           src={active?.url ?? ""}
           alt={active?.altText ?? productName}
@@ -53,7 +53,7 @@ export default function ProductGallery({
           fill
           priority
           sizes="(max-width: 768px) 100vw, 50vw"
-          className="object-cover"
+          className="object-cover lg:transition-transform lg:duration-300 lg:group-hover:scale-[1.02]"
         />
       </div>
 
@@ -70,7 +70,7 @@ export default function ProductGallery({
                   setActiveId(image.id);
                   if (showOverflowOverlay) setExpandedThumbs(true);
                 }}
-                className={`relative h-16 w-16 shrink-0 snap-start overflow-hidden rounded-md border bg-zinc-100 transition sm:h-[70px] sm:w-[70px] ${
+                className={`relative h-14 w-14 shrink-0 snap-start overflow-hidden rounded-md border bg-zinc-100 transition-colors sm:h-[70px] sm:w-[70px] lg:rounded-2xl lg:border-2 lg:hover:border-zinc-800 ${
                   isActive ? "border-zinc-900 ring-1 ring-zinc-900" : "border-zinc-200 hover:border-zinc-400"
                 }`}
                 aria-label={showOverflowOverlay ? `Xem them ${hiddenCount} anh` : `Xem anh ${image.altText}`}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
 import { useAccountMobileMenuStore } from "@/stores/accountMobileMenuStore";
 
 export type AccountMobileNavItem =
@@ -14,6 +14,7 @@ export default function AccountMobileMenuDrawer({
   onOpenSupport,
   onSignOut,
   supportUnreadTotal,
+  customNav,
 }: {
   items: AccountMobileNavItem[];
   activeTab: string;
@@ -21,6 +22,8 @@ export default function AccountMobileMenuDrawer({
   onOpenSupport: () => void;
   onSignOut: () => void;
   supportUnreadTotal: number;
+  /** Khi có (ví dụ CTV subpage), thay thế danh sách tab mặc định. */
+  customNav?: ReactNode;
 }): JSX.Element | null {
   const open = useAccountMobileMenuStore((s) => s.open);
   const close = useAccountMobileMenuStore((s) => s.close);
@@ -79,6 +82,9 @@ export default function AccountMobileMenuDrawer({
           </div>
 
           <nav aria-label="Điều hướng tài khoản" className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+            {customNav ? (
+              <div className="min-h-0">{customNav}</div>
+            ) : (
             <div className="flex flex-col gap-2">
               {rows.map((item) => {
                 if (item.kind === "support") {
@@ -140,6 +146,7 @@ export default function AccountMobileMenuDrawer({
                 );
               })}
             </div>
+            )}
           </nav>
 
           <div className="border-t border-[#E2E8F0] p-3">

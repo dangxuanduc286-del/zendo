@@ -1,6 +1,5 @@
-import { notFound } from "next/navigation";
+import type { ReactNode } from "react";
 
-export default function AdminSupportTicketsLayout({ children }: { children: React.ReactNode }): never {
-  void children;
-  notFound();
+export default function AdminSupportTicketsLayout({ children }: { children: ReactNode }): JSX.Element {
+  return <>{children}</>;
 }

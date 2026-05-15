@@ -1,9 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
-import { useSupportChatStore } from "../../stores/supportChatStore";
+import { useEffect, useState, type MouseEvent } from "react";
+import {
+  STOREFRONT_SUPPORT_UNREAD_UPDATED_EVENT,
+  formatSupportUnreadBadge,
+} from "../../lib/storefront-support-sync";
+import { MARKETING_FRAME } from "../../lib/storefront-frame";
+import { useStorefrontSupportUnreadTotal } from "../../lib/use-storefront-support-unread-total";
+import { useSupportPanel } from "../support/storefront-support-provider";
 
 type MobileNavCategory = {
   id: string;
@@ -70,12 +77,21 @@ function IconSupport({ active }: { active: boolean }): JSX.Element {
   );
 }
 
+const BOTTOM_NAV_SUPPORT_UNREAD_BADGE =
+  "pointer-events-none absolute -right-1.5 -top-1.5 z-[2] flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#ef4444] px-1 text-[11px] font-semibold tabular-nums text-white shadow-sm ring-1 ring-black/[0.08]";
+
 export default function MobileBottomNav({
   categories,
 }: {
   categories: MobileNavCategory[];
 }): JSX.Element {
   const pathname = usePathname() ?? "/";
+  const { status, data: session } = useSession();
+  const isStorefrontCustomer = status === "authenticated" && session?.user?.role === "USER";
+  const supportUnreadTotal = useStorefrontSupportUnreadTotal(isStorefrontCustomer);
+  const [, forceUnreadRender] = useState(0);
+  const supportPanel = useSupportPanel();
+  const supportChatOpen = supportPanel.open;
   const [hash, setHash] = useState("");
   const [categorySheetOpen, setCategorySheetOpen] = useState(false);
   const [expandedParentId, setExpandedParentId] = useState<string | null>(null);
@@ -108,6 +124,14 @@ export default function MobileBottomNav({
     };
   }, [categorySheetOpen]);
 
+  useEffect(() => {
+    const onUnreadEvent = (): void => {
+      forceUnreadRender((v) => v + 1);
+    };
+    window.addEventListener(STOREFRONT_SUPPORT_UNREAD_UPDATED_EVENT, onUnreadEvent);
+    return () => window.removeEventListener(STOREFRONT_SUPPORT_UNREAD_UPDATED_EVENT, onUnreadEvent);
+  }, []);
+
   const onHome = pathname === "/" && hash !== "#uu-dai";
   const onDeals = pathname === "/uu-dai";
   const onCategory = pathname.startsWith("/danh-muc") || pathname === "/cua-hang";
@@ -122,8 +146,22 @@ export default function MobileBottomNav({
     { kind: "link", href: "/", label: "Trang chủ", active: onHome, Icon: IconHome },
     { kind: "sheet", href: "/cua-hang", label: "Danh mục", active: onCategory, Icon: IconGrid },
     { kind: "link", href: "/uu-dai", label: "Ưu đãi", active: onDeals, Icon: IconTag },
-    { kind: "support", label: "Hỗ trợ", active: false, Icon: IconSupport },
+    { kind: "support", label: "Hỗ trợ", active: supportChatOpen, Icon: IconSupport },
   ];
+
+  const showSupportUnreadBadge = isStorefrontCustomer && supportUnreadTotal > 0;
+  const supportBadgeText = formatSupportUnreadBadge(supportUnreadTotal);
+  const supportAriaLabel =
+    status === "authenticated"
+      ? showSupportUnreadBadge
+        ? `Hỗ trợ — ${supportUnreadTotal > 99 ? "hơn 99" : supportUnreadTotal} tin chưa đọc`
+        : "Hỗ trợ — mở chat"
+      : "Hỗ trợ — mở chat (đăng nhập trong khung chat nếu cần)";
+
+  const onOpenSupport = (e: MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    supportPanel.requestOpen();
+  };
 
   return (
     <>
@@ -220,7 +258,7 @@ export default function MobileBottomNav({
         style={{ paddingBottom: "max(0px, env(safe-area-inset-bottom))" }}
         aria-label="Menu điều hướng dưới"
       >
-        <div className="mx-auto flex h-14 max-w-[1360px] items-stretch px-1">
+        <div className={`${MARKETING_FRAME} flex h-14 items-stretch px-1 sm:px-2`}>
           {items.map((item) => {
             if (item.kind === "sheet") {
               return (
@@ -246,16 +284,19 @@ export default function MobileBottomNav({
                 <button
                   key={item.label}
                   type="button"
-                  onClick={() => {
-                    useSupportChatStore.getState().open();
-                  }}
+                  data-support-panel-trigger
+                  aria-label={supportAriaLabel}
+                  aria-expanded={supportChatOpen}
+                  onClick={onOpenSupport}
                   className={`relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-0.5 text-[11px] font-semibold transition-colors ${
                     item.active ? "text-[#2563EB]" : "text-[#64748B] hover:bg-[#EFF6FF]"
                   }`}
-                  aria-label="Hỗ trợ"
                 >
                   <span className="relative inline-flex">
                     <item.Icon active={item.active} />
+                    {showSupportUnreadBadge ? (
+                      <span className={BOTTOM_NAV_SUPPORT_UNREAD_BADGE}>{supportBadgeText}</span>
+                    ) : null}
                   </span>
                   <span className="max-w-full truncate">{item.label}</span>
                 </button>

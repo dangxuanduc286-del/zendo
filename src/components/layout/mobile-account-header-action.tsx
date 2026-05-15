@@ -2,21 +2,14 @@
 
 import Link from "next/link";
 
-export function MobileAccountHeaderAction({
-  isAuthenticated,
-  myAccountHref,
-}: {
-  isAuthenticated: boolean;
-  myAccountHref: string;
-}): JSX.Element {
-  void isAuthenticated;
-  void myAccountHref;
+export function MobileAccountHeaderAction({ href }: { href: string }): JSX.Element {
   return (
     <Link
-      href="/tai-khoan"
+      href={href}
+      prefetch
       aria-label="Tài khoản"
       data-mobile-account-action="account"
-      className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[#E2E8F0] bg-white text-[#0F172A] shadow-sm transition hover:bg-[#F8FAFC] active:bg-[#F1F5F9]"
+      className="relative z-10 inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[#E2E8F0] bg-white text-[#0F172A] shadow-sm transition hover:bg-[#F8FAFC] active:bg-[#F1F5F9] pointer-events-auto"
     >
       <svg viewBox="0 0 24 24" fill="none" className="h-[19px] w-[19px] shrink-0 text-[#64748B]" aria-hidden>
         <circle cx="12" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.65" />
@@ -30,4 +23,3 @@ export function MobileAccountHeaderAction({
     </Link>
   );
 }
-

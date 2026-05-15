@@ -3,6 +3,7 @@ import {
   ZENDO_AF_REF_COOKIE,
   referralCookieMaxAgeSeconds,
 } from "../../../../../lib/affiliate-referral-cookie";
+import { refreshAffiliateTrackingSessionCookies } from "../../../../../lib/affiliate-tracking";
 import { getWebsiteSettings } from "../../../../../lib/settings";
 
 const CLICK_DEBOUNCE_MS = 20 * 60 * 1000;
@@ -84,6 +85,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         },
       });
     }
+
+    await refreshAffiliateTrackingSessionCookies(res);
 
     return res;
   } catch (e) {

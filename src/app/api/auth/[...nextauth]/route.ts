@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
+import { runWithAuthSignInSnapshot, snapshotAuthRequestFromHeaders } from "@/lib/auth-signin-request-context";
 import { authOptions } from "../../../../lib/auth";
 
 export const runtime = "nodejs";
@@ -31,7 +32,8 @@ export async function GET(
   }
   try {
     const params = buildNextauthParamsFromUrl(request);
-    return handler(request, { params });
+    const snap = snapshotAuthRequestFromHeaders(request.headers);
+    return runWithAuthSignInSnapshot(snap, () => handler(request, { params }));
   } catch (error) {
     void error;
     return NextResponse.json({ message: "Auth handler error" }, { status: 500 });
@@ -46,7 +48,8 @@ export async function POST(
   }
   try {
     const params = buildNextauthParamsFromUrl(request);
-    return handler(request, { params });
+    const snap = snapshotAuthRequestFromHeaders(request.headers);
+    return runWithAuthSignInSnapshot(snap, () => handler(request, { params }));
   } catch (error) {
     void error;
     return NextResponse.json({ message: "Auth handler error" }, { status: 500 });

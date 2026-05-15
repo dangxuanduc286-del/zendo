@@ -98,12 +98,12 @@ export default function AffiliateWithdrawalPanel({
       {withdrawnEnabled ? (
         <>
           {!payoutAccount ? (
-            <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            <p className="mt-3 rounded-lg border border-amber-200 bg-[#FFFDF8] p-3 text-sm text-amber-900">
               Bạn chưa đăng ký <span className="font-semibold">Tài khoản nhận tiền</span>. Vui lòng đăng ký trước khi rút
               tiền.
             </p>
           ) : payoutAccount.verificationStatus === "PENDING" ? (
-            <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            <p className="mt-3 rounded-lg border border-amber-200 bg-[#FFFDF8] p-3 text-sm text-amber-900">
               Tài khoản nhận tiền đang <span className="font-semibold">chờ xác minh</span>. Bạn chưa thể rút tiền.
             </p>
           ) : payoutAccount.verificationStatus === "REJECTED" ? (
@@ -122,7 +122,7 @@ export default function AffiliateWithdrawalPanel({
             <span className="font-semibold text-[#0F172A]">{fmtMoney(effectiveMin)}</span>
           </p>
           {!busy && availableAmount < effectiveMin ? (
-            <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            <p className="mt-3 rounded-lg border border-amber-200 bg-[#FFFDF8] p-3 text-sm text-amber-900">
               Số dư chưa đủ để rút ({fmtMoney(availableAmount)} / tối thiểu {fmtMoney(effectiveMin)}).
             </p>
           ) : null}

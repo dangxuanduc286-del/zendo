@@ -6,7 +6,7 @@ import AccountMobileHamburgerButton from "@/components/storefront/account-mobile
 import MediaImage from "../shared/media-image";
 import HeaderDesktopCategoryMenu from "./header-desktop-category-menu";
 import AccountMenu from "../storefront/account-menu";
-import { STOREFRONT_FRAME } from "@/lib/storefront-frame";
+import { MARKETING_FRAME } from "@/lib/storefront-frame";
 import { TopbarSupportButton } from "./topbar-support-button";
 import { Z_INDEX } from "../../lib/z-index";
 import { MobileAccountHeaderAction } from "./mobile-account-header-action";
@@ -36,6 +36,8 @@ interface StoreHeaderProps {
   showHeaderCartIcon: boolean;
   showHeaderAdminMenu: boolean;
   isAuthenticated: boolean;
+  /** `getAccountRoute(session)` — mobile icon + menu «Tài khoản của tôi» (khách `/dang-nhap`, admin `/admin`, USER `/tai-khoan`). */
+  mobileStorefrontAccountHref: string;
   desktopCategoryLimit: number;
   mobileCategoryLimit: number;
 }
@@ -153,7 +155,7 @@ function StorefrontTopBar({
 
   return (
     <div className="border-b border-[#E2E8F0] bg-white text-[#0F172A] lg:border-slate-900/70 lg:bg-[#031327] lg:text-white">
-      <div className={`${STOREFRONT_FRAME}`}>
+      <div className={`${MARKETING_FRAME}`}>
         {/* Desktop: 5 cụm theo thứ tự mẫu, nằm trong đúng 1 hàng */}
         <div className="hidden lg:block">
           <div
@@ -262,6 +264,7 @@ export default function StoreHeader({
   showHeaderCartIcon,
   showHeaderAdminMenu,
   isAuthenticated,
+  mobileStorefrontAccountHref,
   desktopCategoryLimit,
   mobileCategoryLimit,
 }: StoreHeaderProps): JSX.Element {
@@ -278,10 +281,10 @@ export default function StoreHeader({
     .filter((item) => item.href !== "/tra-cuu-don-hang")
     .sort((a, b) => a.sortOrder - b.sortOrder)
     .slice(0, 3);
-  const myAccountHref = isAdmin ? "/admin/account" : "/tai-khoan";
+  const myAccountHref = mobileStorefrontAccountHref;
   const danhMucHref = categoryRows[0]?.slug ? `/danh-muc/${categoryRows[0].slug}` : "/cua-hang";
   const navItemClass =
-    "inline-flex h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-[var(--z-border)] bg-[var(--z-card)] px-3.5 text-sm font-semibold leading-none text-[var(--z-text-main)] shadow-sm transition hover:border-[var(--z-primary)] hover:text-[var(--z-text-main)] active:bg-slate-50";
+    "relative overflow-visible inline-flex h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-[var(--z-border)] bg-[var(--z-card)] px-3.5 text-sm font-semibold leading-none text-[var(--z-text-main)] shadow-sm transition hover:border-[var(--z-primary)] hover:text-[var(--z-text-main)] active:bg-slate-50";
 
   return (
     <header className="w-full lg:sticky lg:top-0" style={{ zIndex: Z_INDEX.header }}>
@@ -296,7 +299,7 @@ export default function StoreHeader({
 
       <div className="border-b border-[var(--z-border)] bg-[var(--z-card)] shadow-[0_1px_0_rgba(15,23,42,0.05)]">
         {/* Desktop: giữ nguyên layout hiện tại */}
-        <div className={`${STOREFRONT_FRAME} hidden w-full flex-nowrap items-center gap-2 py-2 sm:h-14 sm:gap-3 sm:py-0 lg:flex lg:h-[4.25rem] lg:gap-4`}>
+        <div className={`${MARKETING_FRAME} hidden w-full flex-nowrap items-center gap-2 py-2 sm:h-14 sm:gap-3 sm:py-0 lg:flex lg:h-[4.25rem] lg:gap-4`}>
           <Link href="/" className="shrink-0" aria-label={`Trang chủ ${siteName}`}>
             <span className="relative block h-8 w-[100px] sm:h-9 sm:w-[118px] lg:h-10 lg:w-[132px]">
               {logoUrl ? (
@@ -336,13 +339,13 @@ export default function StoreHeader({
             <TopbarSupportButton className={navItemClass} variant="headerPill" />
             {showHeaderCartIcon ? <CartIcon withLabel className={navItemClass} /> : null}
             {showAdminNav && showHeaderAdminMenu ? (
-              <AccountMenu isAuthenticated={isAuthenticated} isAdmin={isAdmin} myAccountHref={myAccountHref} loginHref="/tai-khoan" />
+              <AccountMenu isAuthenticated={isAuthenticated} isAdmin={isAdmin} myAccountHref={myAccountHref} loginHref="/dang-nhap" />
             ) : null}
           </nav>
         </div>
 
         {/* Mobile: 3 hàng giống app TMĐT mẫu */}
-        <div className={`${STOREFRONT_FRAME} lg:hidden`} style={{ paddingTop: "env(safe-area-inset-top)" }}>
+        <div className={`${MARKETING_FRAME} lg:hidden`} style={{ paddingTop: "env(safe-area-inset-top)" }}>
           <div className="flex h-12 items-center justify-between gap-2 py-1.5">
             <Link href="/" className="min-w-0 flex-1" aria-label={`Trang chủ ${siteName}`}>
               <span className="relative mx-auto block h-7 w-[106px]">
@@ -364,12 +367,14 @@ export default function StoreHeader({
               </span>
             </Link>
             <div className="shrink-0">
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 pointer-events-none">
                 {showHeaderCartIcon ? (
-                  <CartIcon className="h-9 w-9 rounded-xl border border-[#E2E8F0] bg-white px-0 text-[#0F172A] shadow-sm" />
+                  <span className="pointer-events-auto">
+                    <CartIcon className="h-9 w-9 rounded-xl border border-[#E2E8F0] bg-white px-0 text-[#0F172A] shadow-sm" />
+                  </span>
                 ) : null}
                 {showAdminNav && showHeaderAdminMenu ? (
-                  <MobileAccountHeaderAction isAuthenticated={isAuthenticated} myAccountHref={myAccountHref} />
+                  <MobileAccountHeaderAction href={mobileStorefrontAccountHref} />
                 ) : null}
               </div>
             </div>

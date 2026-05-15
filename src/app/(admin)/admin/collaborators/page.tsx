@@ -436,7 +436,7 @@ export default async function AdminCollaboratorsPage({
   const ctvAvgOrderText = formatCurrency(Math.round(ctvOrderKpis.averageOrderValue));
 
   return (
-    <main className="w-full max-w-[1600px] space-y-5 bg-[#F8FAFC] py-2 sm:py-3">
+    <main className="w-full min-w-0 max-w-none space-y-5">
       <header className="rounded-2xl border border-[#E2E8F0] bg-white px-4 py-4 sm:px-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-[#0F172A] sm:text-3xl">Cộng tác viên</h1>

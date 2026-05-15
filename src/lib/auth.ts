@@ -283,13 +283,14 @@ export const authOptions: NextAuthOptions = {
       if (!account || account.provider === "admin-credentials") return;
       try {
         const { publishCustomerNewSignIn } = await import("./system-account-notifications");
-        const hint =
-          account.provider === "google"
-            ? "Google"
-            : account.provider === "customer-credentials"
-              ? "Email / SĐT + mật khẩu"
-              : account.provider;
-        publishCustomerNewSignIn({ customerId: user.id, deviceHint: hint });
+        const { getAuthSignInSnapshot } = await import("./auth-signin-request-context");
+        const snap = getAuthSignInSnapshot();
+        await publishCustomerNewSignIn({
+          customerId: user.id,
+          accountProvider: account.provider,
+          forwardedIp: snap?.forwardedIp ?? null,
+          userAgent: snap?.userAgent ?? null,
+        });
       } catch {
         /* noop */
       }

@@ -1,13 +1,22 @@
 import type { PrismaClient } from "@prisma/client";
-import { publishCustomerAccountNotification, sanitizeCustomerNotificationText } from "@/lib/customer-account-notifications";
+import {
+  publishCustomerAccountNotification,
+  sanitizeCustomerNotificationText,
+} from "@/lib/customer-account-notifications";
 import { broadcastCustomerNotifications } from "@/lib/customer-notification-broadcast";
+import {
+  loginProviderFromAccountProvider,
+  loginProviderLabelVi,
+  maskIpForCustomerNotification,
+  parseUserAgentHints,
+} from "@/lib/sign-in-notification-hints";
 
 export const SYSTEM_NOTIFICATION_VERSION = 1;
 
 export type SystemNotificationSeverity = "info" | "warning" | "critical";
 
-export function publishCustomerPasswordChanged(args: { customerId: string }): void {
-  publishCustomerAccountNotification({
+export async function publishCustomerPasswordChanged(args: { customerId: string }): Promise<void> {
+  await publishCustomerAccountNotification({
     customerId: args.customerId,
     category: "SYSTEM",
     dedupeKey: `system:pwd:${args.customerId}:${Date.now()}`.slice(0, 180),
@@ -24,23 +33,49 @@ export function publishCustomerPasswordChanged(args: { customerId: string }): vo
   });
 }
 
-export function publishCustomerNewSignIn(args: { customerId: string; deviceHint?: string | null }): void {
-  const hint = sanitizeCustomerNotificationText(args.deviceHint ?? "", 120);
-  const hourBucket = new Date().toISOString().slice(0, 13);
-  publishCustomerAccountNotification({
+export async function publishCustomerNewSignIn(args: {
+  customerId: string;
+  /** NextAuth Account.provider — google, facebook, customer-credentials, … */
+  accountProvider?: string | null;
+  forwardedIp?: string | null;
+  userAgent?: string | null;
+}): Promise<void> {
+  const { browser, os, device } = parseUserAgentHints(args.userAgent ?? null);
+  const ipMasked = maskIpForCustomerNotification(args.forwardedIp);
+  const providerKind = loginProviderFromAccountProvider(args.accountProvider ?? null);
+  const providerVi = loginProviderLabelVi(providerKind);
+
+  const lineMain = sanitizeCustomerNotificationText([browser, os].join(" · "), 180);
+  const lineIp = ipMasked ? sanitizeCustomerNotificationText(`IP: ${ipMasked}`, 80) : "";
+  const hintProvider = sanitizeCustomerNotificationText(providerVi, 120);
+  const body = sanitizeCustomerNotificationText(
+    `${lineMain}${lineIp ? ` · ${lineIp}` : ""}${hintProvider ? ` · ${hintProvider}` : ""}`,
+    8000,
+  );
+
+  const dedupeBase = `${args.customerId}:${Date.now()}`;
+  await publishCustomerAccountNotification({
     customerId: args.customerId,
     category: "SYSTEM",
-    dedupeKey: `system:signin:${args.customerId}:${hourBucket}`.slice(0, 180),
+    dedupeKey: `system:signin:${dedupeBase}`.slice(0, 180),
     title: "Đăng nhập mới",
-    body: hint ? `Phát hiện đăng nhập mới: ${hint}.` : "Có phiên đăng nhập mới vào tài khoản của bạn.",
+    body:
+      body || "Có phiên đăng nhập mới vào tài khoản của bạn. Nếu đó không phải là bạn, hãy đổi mật khẩu ngay.",
     actionHref: "/tai-khoan?tab=security",
     metadata: {
       type: "SYSTEM_CUSTOMER",
+      /** Đối chiếu UI account center variant NEW_SIGN_IN */
+      signalType: "NEW_SIGN_IN",
       systemType: "NEW_SIGN_IN",
-      severity: "info",
+      severity: "info" satisfies SystemNotificationSeverity,
       deepLink: "/tai-khoan?tab=security",
-      deviceHint: hint || undefined,
       notificationVersion: SYSTEM_NOTIFICATION_VERSION,
+      browser,
+      os,
+      device,
+      ip: ipMasked,
+      provider: providerKind,
+      providerLabelVi: hintProvider || providerVi,
     },
   });
 }

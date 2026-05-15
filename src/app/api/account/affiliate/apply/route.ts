@@ -3,11 +3,13 @@ import type { AffiliateApplicationStatus } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../../../../lib/auth";
 import { db } from "../../../../../lib/db";
+import { applySharedRateLimit, rateLimitRetryAfter } from "../../../../../lib/rate-limit-shared";
 
 const MAX_FULLNAME = 200;
 const MAX_PHONE = 40;
 const MAX_SOCIAL = 500;
 const MAX_NOTE = 4000;
+const MAX_EXPERIENCE = 4000;
 const MAX_TRAFFIC_SOURCE = 120;
 const MAX_SELLING_CATEGORIES = 300;
 const MAX_FOLLOWER_COUNT = 100_000_000;
@@ -19,6 +21,7 @@ const ALLOWED_POST_KEYS = new Set([
   "phone",
   "email",
   "socialLink",
+  "experience",
   "note",
   "trafficSource",
   "followerCount",
@@ -46,6 +49,13 @@ function safeHttpUrl(raw: string): string | null {
   }
 }
 
+function normalizeSocialHttpUrl(raw: string): string | null {
+  const t = raw.trim();
+  if (!t) return null;
+  const candidate = /^https?:\/\//i.test(t) ? t : `https://${t.replace(/^\/+/, "")}`;
+  return safeHttpUrl(candidate);
+}
+
 export type AffiliateApplicationPublicPayload = {
   status: AffiliateApplicationStatus;
   adminNote: string | null;
@@ -54,6 +64,9 @@ export type AffiliateApplicationPublicPayload = {
   trafficSource: string | null;
   followerCount: number | null;
   sellingCategories: string | null;
+  experience: string | null;
+  score: number | null;
+  scoreReason: string | null;
 };
 
 function serializePublicApplication(row: {
@@ -64,6 +77,9 @@ function serializePublicApplication(row: {
   trafficSource: string | null;
   followerCount: number | null;
   sellingCategories: string | null;
+  experience: string | null;
+  score: number | null;
+  scoreReason: string | null;
 }): AffiliateApplicationPublicPayload {
   return {
     status: row.status,
@@ -73,6 +89,9 @@ function serializePublicApplication(row: {
     trafficSource: row.trafficSource?.trim() ? row.trafficSource.trim() : null,
     followerCount: row.followerCount ?? null,
     sellingCategories: row.sellingCategories?.trim() ? row.sellingCategories.trim() : null,
+    experience: row.experience?.trim() ? row.experience.trim() : null,
+    score: row.score ?? null,
+    scoreReason: row.scoreReason?.trim() ? row.scoreReason.trim() : null,
   };
 }
 
@@ -161,6 +180,9 @@ const applicationPublicSelect = {
   trafficSource: true,
   followerCount: true,
   sellingCategories: true,
+  experience: true,
+  score: true,
+  scoreReason: true,
 } as const;
 
 export async function GET(): Promise<NextResponse> {
@@ -214,6 +236,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   const emailRaw = typeof payload.email === "string" ? payload.email.trim() : "";
   const socialRaw = typeof payload.socialLink === "string" ? payload.socialLink.trim() : "";
   const noteRaw = typeof payload.note === "string" ? payload.note.trim() : "";
+  const experienceRaw = typeof payload.experience === "string" ? payload.experience.trim() : "";
   const trafficRaw = typeof payload.trafficSource === "string" ? payload.trafficSource.trim() : "";
   const sellingRaw = typeof payload.sellingCategories === "string" ? payload.sellingCategories.trim() : "";
 
@@ -248,11 +271,19 @@ export async function POST(request: Request): Promise<NextResponse> {
     if (socialRaw.length > MAX_SOCIAL) {
       return NextResponse.json({ ok: false, message: "Liên kết mạng xã hội quá dài." }, { status: 400 });
     }
-    const okUrl = safeHttpUrl(socialRaw);
+    const okUrl = normalizeSocialHttpUrl(socialRaw);
     if (!okUrl) {
-      return NextResponse.json({ ok: false, message: "Liên kết mạng xã hội phải là URL http(s)." }, { status: 400 });
+      return NextResponse.json(
+        { ok: false, message: "Liên kết mạng xã hội không hợp lệ (ví dụ: https://facebook.com/... hoặc https://tiktok.com/...)." },
+        { status: 400 },
+      );
     }
     socialSaved = okUrl;
+  }
+
+  const experienceSaved: string | null = experienceRaw.length > 0 ? experienceRaw : null;
+  if (experienceSaved && experienceSaved.length > MAX_EXPERIENCE) {
+    return NextResponse.json({ ok: false, message: "Mô tả kinh nghiệm quá dài." }, { status: 400 });
   }
 
   const noteSaved: string | null = noteRaw.length > 0 ? noteRaw : null;
@@ -268,24 +299,31 @@ export async function POST(request: Request): Promise<NextResponse> {
     select: { email: true },
   });
 
+  const emailFromBody = emailRaw.trim();
+  const emailFromSession =
+    typeof session.user.email === "string" ? session.user.email.trim().toLowerCase() : "";
+  const emailFromCustomer = customerRecord?.email?.trim().toLowerCase() ?? "";
+
   let resolvedEmail: string | null = null;
-  if (emailRaw) {
-    if (!isValidEmail(emailRaw)) {
+  if (emailFromBody) {
+    if (!isValidEmail(emailFromBody)) {
       return NextResponse.json({ ok: false, message: "Email không hợp lệ." }, { status: 400 });
     }
-    resolvedEmail = emailRaw.toLowerCase();
-  } else {
-    const fromSession =
-      typeof session.user.email === "string" ? session.user.email.trim().toLowerCase() : "";
-    const fromDb = customerRecord?.email?.trim().toLowerCase() ?? "";
-    resolvedEmail = fromSession || fromDb || null;
+    resolvedEmail = emailFromBody.toLowerCase();
+  } else if (emailFromSession) {
+    if (!isValidEmail(emailFromSession)) {
+      return NextResponse.json({ ok: false, message: "Email liên hệ trên phiên đăng nhập không hợp lệ." }, { status: 400 });
+    }
+    resolvedEmail = emailFromSession;
+  } else if (emailFromCustomer) {
+    if (!isValidEmail(emailFromCustomer)) {
+      return NextResponse.json({ ok: false, message: "Email trên tài khoản không hợp lệ. Vui lòng nhập email liên hệ." }, { status: 400 });
+    }
+    resolvedEmail = emailFromCustomer;
   }
 
   if (!resolvedEmail) {
-    return NextResponse.json(
-      { ok: false, message: "Vui lòng nhập email (tài khoản chưa có email)." },
-      { status: 400 },
-    );
+    return NextResponse.json({ ok: false, message: "Vui lòng nhập email liên hệ." }, { status: 400 });
   }
 
   const activeAff = await db.affiliateProfile.findFirst({
@@ -293,7 +331,11 @@ export async function POST(request: Request): Promise<NextResponse> {
     select: { id: true },
   });
   if (activeAff) {
-    return NextResponse.json({ ok: true, outcome: "already_ctv_active" as const });
+    return NextResponse.json({
+      ok: true,
+      outcome: "already_ctv_active" as const,
+      message: "Tài khoản của bạn đã là CTV đang hoạt động.",
+    });
   }
 
   const pendingExisting = await db.affiliateApplication.findFirst({
@@ -306,8 +348,25 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({
       ok: true,
       outcome: "pending_exists",
+      message: "Bạn đã gửi yêu cầu đăng ký trước đó.",
       application: serializePublicApplication(pendingExisting),
     });
+  }
+
+  const rl = await applySharedRateLimit({
+    scope: "affiliate_apply_v1",
+    key: customerId,
+    windowMs: 60 * 60 * 1000,
+    max: 3,
+  });
+  if (!rl.ok) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message: `Bạn đã gửi quá nhiều yêu cầu. Vui lòng thử lại sau khoảng ${rateLimitRetryAfter(rl)} giây.`,
+      },
+      { status: 429 },
+    );
   }
 
   const { score, scoreReason, quickReviewNote } = computeCtvApplicationScore({
@@ -315,7 +374,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     socialUrlPresent: Boolean(socialSaved),
     trafficNonEmpty: Boolean(trafficSaved),
     sellingNonEmpty: Boolean(sellingSaved),
-    noteLen: noteSaved?.length ?? 0,
+    noteLen: (noteSaved?.length ?? 0) + (experienceSaved?.length ?? 0),
   });
 
   try {
@@ -326,6 +385,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         phone: phoneRaw,
         email: resolvedEmail,
         socialLink: socialSaved,
+        experience: experienceSaved,
         note: noteSaved,
         trafficSource: trafficSaved,
         followerCount: followerSaved,
@@ -340,9 +400,28 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     const publicPart = serializePublicApplication(created);
 
+    try {
+      await db.auditLog.create({
+        data: {
+          customerId,
+          action: "AFFILIATE_APPLICATION_SUBMITTED",
+          entity: "AffiliateApplication",
+          entityId: created.id,
+          metadata: {
+            title: "Yêu cầu đăng ký CTV mới",
+            applicantName: fullNameRaw,
+            actionHref: "/admin/affiliate-applications",
+          },
+        },
+      });
+    } catch {
+      /* audit không chặn luồng đăng ký */
+    }
+
     return NextResponse.json(
       {
         ok: true,
+        message: "Đăng ký CTV thành công. Vui lòng chờ quản trị viên xét duyệt.",
         outcome: "created" as const,
         application: {
           id: created.id,

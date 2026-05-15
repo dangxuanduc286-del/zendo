@@ -1,9 +1,17 @@
 import "server-only";
 
-import type { AffiliateCommissionStatus, PaymentStatus } from "@prisma/client";
+import type { AffiliateCommissionStatus, OrderStatus, PaymentStatus, PrismaClient } from "@prisma/client";
 import { formatVnd } from "@/lib/currency";
-import { publishCustomerAccountNotification } from "@/lib/customer-account-notifications";
+import {
+  publishCustomerAccountNotification,
+  sanitizeCustomerNotificationText,
+} from "@/lib/customer-account-notifications";
+import { formatPaymentStatus } from "@/lib/admin-order";
 import { db } from "@/lib/db";
+
+export const AFFILIATE_ORDER_NOTIFICATION_VERSION = 1;
+
+export type AffiliateOrderNotifyLifecycle = "created" | "paid" | "shipping" | "delivered" | "cancelled";
 
 const AFFILIATE_ORDERS_HREF = "/tai-khoan?tab=affiliate&sub=orders";
 const AFFILIATE_EARNINGS_HREF = "/tai-khoan?tab=affiliate&sub=earnings";
@@ -40,13 +48,64 @@ function maskBuyerName(fullName: string): string {
   return `${parts[0] ?? ""} ${(parts[parts.length - 1] ?? "").slice(0, 1)}.`;
 }
 
-async function resolveAffiliateCustomerId(affiliateProfileId: string): Promise<string | null> {
-  const row = await db.affiliateProfile.findUnique({
+async function resolveAffiliateCustomerId(
+  prisma: PrismaClient,
+  affiliateProfileId: string,
+): Promise<string | null> {
+  const row = await prisma.affiliateProfile.findUnique({
     where: { id: affiliateProfileId },
     select: { customerId: true, status: true },
   });
   if (!row?.customerId || row.status !== "ACTIVE") return null;
   return row.customerId;
+}
+
+function affiliateOrderDeepLink(orderCode: string): string {
+  const qs = new URLSearchParams({ highlightOrder: orderCode });
+  return `${AFFILIATE_ORDERS_HREF}&${qs.toString()}`;
+}
+
+async function publishAffiliateOrderReferralNotification(args: {
+  affiliateCustomerId: string;
+  affiliateProfileId: string;
+  orderId: string;
+  orderCode: string;
+  orderStatus: OrderStatus;
+  paymentStatus: PaymentStatus;
+  totalAmount: number;
+  commissionAmount: number;
+  buyerLabel: string;
+  previewImage: string | null;
+  lifecycle: AffiliateOrderNotifyLifecycle;
+  title: string;
+  body: string;
+}): Promise<void> {
+  const actionHref = affiliateOrderDeepLink(args.orderCode);
+  const meta: Record<string, unknown> = {
+    type: "AFFILIATE_ORDER",
+    notificationVersion: AFFILIATE_ORDER_NOTIFICATION_VERSION,
+    lifecycle: args.lifecycle,
+    orderId: args.orderId,
+    orderCode: args.orderCode,
+    customerName: args.buyerLabel,
+    totalAmount: args.totalAmount,
+    estimatedCommission: args.commissionAmount,
+    orderStatus: args.orderStatus,
+    paymentStatus: args.paymentStatus,
+    deepLink: actionHref,
+    previewImage: args.previewImage,
+    affiliateProfileId: args.affiliateProfileId,
+  };
+
+  await publishCustomerAccountNotification({
+    customerId: args.affiliateCustomerId,
+    category: "ORDER",
+    dedupeKey: sanitizeCustomerNotificationText(`aff_ord:${args.orderId}:${args.lifecycle}`, 180),
+    title: sanitizeCustomerNotificationText(args.title, 240),
+    body: sanitizeCustomerNotificationText(args.body, 8000),
+    actionHref,
+    metadata: meta,
+  });
 }
 
 async function firstPrimaryProductImageForOrder(orderId: string): Promise<string | null> {
@@ -102,7 +161,6 @@ function buildReferralMeta(args: {
   buyerLabel: string;
   firstProductImageUrl: string | null;
 }): ReferralMeta {
-  const qs = new URLSearchParams({ highlightOrder: args.orderCode });
   return {
     type: "AFFILIATE_REFERRAL",
     event: args.event,
@@ -116,7 +174,7 @@ function buildReferralMeta(args: {
     paymentStatusVi: paymentLabelVi(args.paymentStatus),
     buyerLabel: args.buyerLabel,
     firstProductImageUrl: args.firstProductImageUrl,
-    actionOrderHref: `${AFFILIATE_ORDERS_HREF}&${qs.toString()}`,
+    actionOrderHref: affiliateOrderDeepLink(args.orderCode),
     actionWalletHref: AFFILIATE_EARNINGS_HREF,
     actionWithdrawHref: AFFILIATE_WITHDRAWAL_HREF,
   };
@@ -130,6 +188,7 @@ export async function notifyAffiliateReferralOrderPlaced(orderId: string): Promi
       id: true,
       code: true,
       totalAmount: true,
+      orderStatus: true,
       paymentStatus: true,
       affiliateProfileId: true,
       customerFullName: true,
@@ -137,7 +196,7 @@ export async function notifyAffiliateReferralOrderPlaced(orderId: string): Promi
   });
   if (!order?.affiliateProfileId) return;
 
-  const customerId = await resolveAffiliateCustomerId(order.affiliateProfileId);
+  const customerId = await resolveAffiliateCustomerId(db, order.affiliateProfileId);
   if (!customerId) return;
 
   const [comm, firstImage] = await Promise.all([
@@ -175,7 +234,7 @@ export async function notifyAffiliateReferralOrderPlaced(orderId: string): Promi
     firstProductImageUrl: firstImage,
   });
 
-  publishCustomerAccountNotification({
+  await publishCustomerAccountNotification({
     customerId,
     category: "COMMISSION",
     dedupeKey: `aff:ord:${order.id}:placed`,
@@ -183,6 +242,28 @@ export async function notifyAffiliateReferralOrderPlaced(orderId: string): Promi
     body,
     actionHref: metadata.actionOrderHref,
     metadata: metadata as unknown as Record<string, unknown>,
+  });
+
+  await publishAffiliateOrderReferralNotification({
+    affiliateCustomerId: customerId,
+    affiliateProfileId: order.affiliateProfileId,
+    orderId: order.id,
+    orderCode: order.code,
+    orderStatus: order.orderStatus,
+    paymentStatus: order.paymentStatus,
+    totalAmount: orderAmount,
+    commissionAmount,
+    buyerLabel,
+    previewImage: firstImage,
+    lifecycle: "created",
+    title: `Đơn giới thiệu ${order.code}`,
+    body: [
+      `Đơn mới qua link CTV: ${order.code}.`,
+      `Khách: ${buyerLabel}.`,
+      `Tổng: ${formatVnd(orderAmount)}.`,
+      `Hoa hồng (ước tính): ${formatVnd(commissionAmount)}.`,
+      `Trạng thái đơn: ${order.orderStatus}. Thanh toán: ${formatPaymentStatus(order.paymentStatus)}.`,
+    ].join("\n"),
   });
 }
 
@@ -194,6 +275,7 @@ export async function notifyAffiliateReferralOrderPaid(orderId: string): Promise
       id: true,
       code: true,
       totalAmount: true,
+      orderStatus: true,
       paymentStatus: true,
       affiliateProfileId: true,
       customerFullName: true,
@@ -201,7 +283,7 @@ export async function notifyAffiliateReferralOrderPaid(orderId: string): Promise
   });
   if (!order?.affiliateProfileId || order.paymentStatus !== "PAID") return;
 
-  const customerId = await resolveAffiliateCustomerId(order.affiliateProfileId);
+  const customerId = await resolveAffiliateCustomerId(db, order.affiliateProfileId);
   if (!customerId) return;
 
   const [comm, firstImage] = await Promise.all([
@@ -239,7 +321,7 @@ export async function notifyAffiliateReferralOrderPaid(orderId: string): Promise
     firstProductImageUrl: firstImage,
   });
 
-  publishCustomerAccountNotification({
+  await publishCustomerAccountNotification({
     customerId,
     category: "COMMISSION",
     dedupeKey: `aff:ord:${order.id}:paid`,
@@ -247,6 +329,28 @@ export async function notifyAffiliateReferralOrderPaid(orderId: string): Promise
     body,
     actionHref: metadata.actionOrderHref,
     metadata: metadata as unknown as Record<string, unknown>,
+  });
+
+  await publishAffiliateOrderReferralNotification({
+    affiliateCustomerId: customerId,
+    affiliateProfileId: order.affiliateProfileId,
+    orderId: order.id,
+    orderCode: order.code,
+    orderStatus: order.orderStatus,
+    paymentStatus: order.paymentStatus,
+    totalAmount: orderAmount,
+    commissionAmount,
+    buyerLabel,
+    previewImage: firstImage,
+    lifecycle: "paid",
+    title: `Đơn ${order.code} — đã thanh toán`,
+    body: [
+      `Đơn ${order.code} đã được thanh toán.`,
+      `Khách: ${buyerLabel}.`,
+      `Tổng: ${formatVnd(orderAmount)}.`,
+      `Hoa hồng (ước tính): ${formatVnd(commissionAmount)}.`,
+      `Trạng thái đơn: ${order.orderStatus}. Thanh toán: ${formatPaymentStatus(order.paymentStatus)}.`,
+    ].join("\n"),
   });
 }
 
@@ -265,7 +369,7 @@ export async function notifyAffiliateCommissionApproved(orderId: string): Promis
   });
   if (!order?.affiliateProfileId) return;
 
-  const customerId = await resolveAffiliateCustomerId(order.affiliateProfileId);
+  const customerId = await resolveAffiliateCustomerId(db, order.affiliateProfileId);
   if (!customerId) return;
 
   const comm = await db.affiliateCommission.findUnique({
@@ -302,7 +406,7 @@ export async function notifyAffiliateCommissionApproved(orderId: string): Promis
     firstProductImageUrl: firstImage,
   });
 
-  publishCustomerAccountNotification({
+  await publishCustomerAccountNotification({
     customerId,
     category: "COMMISSION",
     dedupeKey: `aff:comm:${comm.id}:approved`,
@@ -335,7 +439,7 @@ export async function notifyAffiliateCommissionPaid(commissionId: string): Promi
   });
   if (!comm || comm.status !== "PAID" || !comm.order) return;
 
-  const customerId = await resolveAffiliateCustomerId(comm.affiliateProfileId);
+  const customerId = await resolveAffiliateCustomerId(db, comm.affiliateProfileId);
   if (!customerId) return;
 
   const order = comm.order;
@@ -361,7 +465,7 @@ export async function notifyAffiliateCommissionPaid(commissionId: string): Promi
     firstProductImageUrl: firstImage,
   });
 
-  publishCustomerAccountNotification({
+  await publishCustomerAccountNotification({
     customerId,
     category: "COMMISSION",
     dedupeKey: `aff:comm:${comm.id}:paid`,
@@ -370,4 +474,83 @@ export async function notifyAffiliateCommissionPaid(commissionId: string): Promi
     actionHref: metadata.actionWithdrawHref,
     metadata: metadata as unknown as Record<string, unknown>,
   });
+}
+
+export type AffiliateReferralOrderAdminLifecycleSnapshot = {
+  orderId: string;
+  affiliateProfileId: string;
+  code: string;
+  customerFullName: string | null;
+  totalAmount: number;
+  previewImage: string | null;
+  orderStatus: OrderStatus;
+  paymentStatus: PaymentStatus;
+};
+
+/**
+ * Đơn có ref CTV — ORDER tab: giao / hoàn tất / hủy.
+ * created + paid xử lý ở notifyAffiliateReferralOrderPlaced / notifyAffiliateReferralOrderPaid.
+ */
+export async function notifyAffiliateReferralOrderLifecycleAfterAdminPatch(
+  prisma: PrismaClient,
+  before: AffiliateReferralOrderAdminLifecycleSnapshot,
+  after: { orderStatus: OrderStatus; paymentStatus: PaymentStatus },
+): Promise<void> {
+  const affiliateCustomerId = await resolveAffiliateCustomerId(prisma, before.affiliateProfileId);
+  if (!affiliateCustomerId) return;
+  if (before.orderStatus === after.orderStatus) return;
+
+  const comm = await prisma.affiliateCommission.findUnique({
+    where: {
+      affiliateProfileId_orderId: { affiliateProfileId: before.affiliateProfileId, orderId: before.orderId },
+    },
+    select: { amount: true },
+  });
+  const commissionAmount = comm ? Number(comm.amount ?? 0) : 0;
+  const buyerLabel = maskBuyerName(before.customerFullName ?? "");
+
+  const emit = async (lifecycle: AffiliateOrderNotifyLifecycle, title: string, bodyLines: string[]) => {
+    await publishAffiliateOrderReferralNotification({
+      affiliateCustomerId,
+      affiliateProfileId: before.affiliateProfileId,
+      orderId: before.orderId,
+      orderCode: before.code,
+      orderStatus: after.orderStatus,
+      paymentStatus: after.paymentStatus,
+      totalAmount: before.totalAmount,
+      commissionAmount,
+      buyerLabel,
+      previewImage: before.previewImage,
+      lifecycle,
+      title,
+      body: bodyLines.join("\n"),
+    });
+  };
+
+  const lines = (extra: string): string[] => [
+    extra,
+    `Khách: ${buyerLabel}.`,
+    `Tổng: ${formatVnd(before.totalAmount)}.`,
+    `Hoa hồng (ước tính): ${formatVnd(commissionAmount)}.`,
+    `Trạng thái đơn: ${after.orderStatus}. Thanh toán: ${formatPaymentStatus(after.paymentStatus)}.`,
+  ];
+
+  switch (after.orderStatus) {
+    case "SHIPPING":
+      await emit("shipping", `Đơn ${before.code} đang giao`, lines(`Đơn ${before.code} chuyển sang đang vận chuyển.`));
+      break;
+    case "DELIVERED":
+      await emit("delivered", `Đơn ${before.code} đã giao`, lines(`Đơn ${before.code} đã giao tới khách.`));
+      break;
+    case "COMPLETED":
+      if (before.orderStatus !== "DELIVERED") {
+        await emit("delivered", `Đơn ${before.code} hoàn tất`, lines(`Đơn ${before.code} đã hoàn tất.`));
+      }
+      break;
+    case "CANCELED":
+      await emit("cancelled", `Đơn ${before.code} đã hủy`, lines(`Đơn ${before.code} đã bị hủy.`));
+      break;
+    default:
+      break;
+  }
 }

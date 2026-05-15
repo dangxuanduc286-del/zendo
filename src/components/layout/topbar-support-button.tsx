@@ -1,10 +1,17 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useCallback, type MouseEvent } from "react";
+import { useCallback, useEffect, useState, type MouseEvent } from "react";
 import { useSupportPanel } from "@/components/support/storefront-support-provider";
-import { useStorefrontSupportUnreadTotal } from "@/lib/use-storefront-support-unread-total";
-import { formatSupportUnreadBadge } from "@/lib/storefront-support-sync";
+import {
+  STOREFRONT_SUPPORT_UNREAD_UPDATED_EVENT,
+  formatSupportUnreadBadge,
+} from "@/lib/storefront-support-sync";
+import { useSupportInboxStore } from "@/stores/supportInboxStore";
+
+/** Badge pill — absolute, không bị overflow che (header dùng relative + z-50). */
+const TOPBAR_SUPPORT_UNREAD_BADGE_PILL =
+  "pointer-events-none absolute -right-1.5 -top-1.5 z-50 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#ef4444] px-1 text-[11px] font-semibold tabular-nums text-white shadow-sm animate-pulse motion-reduce:animate-none";
 
 function ChatBubbleIcon({ className }: { className?: string }): JSX.Element {
   return (
@@ -38,24 +45,34 @@ export function TopbarSupportButton({
 }): JSX.Element {
   const { status, data: session } = useSession();
   const supportPanel = useSupportPanel();
-  const unreadTotal = useStorefrontSupportUnreadTotal(true);
+  const unread = useSupportInboxStore((s) => s.storefrontSupportUnreadTotal);
+  const [, forceRender] = useState(0);
+
+  useEffect(() => {
+    const handler = (): void => {
+      forceRender((v) => v + 1);
+    };
+    window.addEventListener(STOREFRONT_SUPPORT_UNREAD_UPDATED_EVENT, handler);
+    return () => window.removeEventListener(STOREFRONT_SUPPORT_UNREAD_UPDATED_EVENT, handler);
+  }, []);
 
   const handleOpenChat = useCallback(
     (e: MouseEvent<HTMLButtonElement>) => {
       e.preventDefault();
       e.stopPropagation();
       onClick?.();
-      supportPanel.toggle();
+      supportPanel.requestOpen();
     },
     [onClick, supportPanel],
   );
 
-  const showUnreadBadge = status === "authenticated" && session?.user?.role === "USER" && unreadTotal > 0;
-  const badgeText = formatSupportUnreadBadge(unreadTotal);
+  const hasUnread = Number.isFinite(unread) && unread > 0;
+  const showUnreadBadge = status === "authenticated" && session?.user?.role === "USER" && hasUnread;
+  const badgeText = formatSupportUnreadBadge(unread);
   const ariaLabel =
     status === "authenticated"
       ? showUnreadBadge
-        ? `Hỗ trợ — ${unreadTotal > 99 ? "hơn 99" : unreadTotal} tin chưa đọc`
+        ? `Hỗ trợ — ${unread > 99 ? "hơn 99" : unread} tin chưa đọc`
         : "Hỗ trợ — mở chat"
       : "Hỗ trợ — mở chat (đăng nhập trong khung chat nếu cần)";
 
@@ -75,13 +92,14 @@ export function TopbarSupportButton({
       >
         <span className="flex min-w-0 items-center justify-center gap-1.5">
           <ChatBubbleIcon className={iconClassTile} />
-          <span className="min-w-0 truncate">Hỗ trợ</span>
-        </span>
-        {showUnreadBadge ? (
-          <span className="absolute -right-0.5 -top-0.5 inline-flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold tabular-nums text-white ring-2 ring-white">
-            {badgeText}
+          <span className="min-w-0 truncate">
+            Hỗ trợ
+            {showUnreadBadge ? (
+              <span className="font-semibold text-[#ef4444]"> ({badgeText})</span>
+            ) : null}
           </span>
-        ) : null}
+        </span>
+        {showUnreadBadge ? <span className={TOPBAR_SUPPORT_UNREAD_BADGE_PILL}>{badgeText}</span> : null}
       </button>
     );
   }
@@ -97,12 +115,11 @@ export function TopbarSupportButton({
         className={`relative z-[9999] pointer-events-auto inline-flex min-h-[40px] items-center gap-1.5 rounded-md px-3 py-2 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-100 hover:text-zinc-900 ${className}`}
       >
         <ChatBubbleIcon className={iconClassMega} />
-        <span>Hỗ trợ</span>
-        {showUnreadBadge ? (
-          <span className="absolute -right-0.5 -top-0.5 inline-flex min-h-[16px] min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-0.5 text-[9px] font-bold tabular-nums text-white ring-2 ring-white">
-            {badgeText}
-          </span>
-        ) : null}
+        <span>
+          Hỗ trợ
+          {showUnreadBadge ? <span className="font-semibold text-[#ef4444]"> ({badgeText})</span> : null}
+        </span>
+        {showUnreadBadge ? <span className={TOPBAR_SUPPORT_UNREAD_BADGE_PILL}>{badgeText}</span> : null}
       </button>
     );
   }
@@ -118,11 +135,7 @@ export function TopbarSupportButton({
         className={`relative z-[9999] pointer-events-auto inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[#E2E8F0] bg-white text-[#0F172A] shadow-sm transition hover:bg-[#F8FAFC] active:bg-[#F1F5F9] ${className}`}
       >
         <ChatBubbleIcon className="h-[19px] w-[19px] shrink-0 text-[#64748B]" />
-        {showUnreadBadge ? (
-          <span className="absolute -right-0.5 -top-0.5 inline-flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold tabular-nums text-white ring-2 ring-white">
-            {badgeText}
-          </span>
-        ) : null}
+        {showUnreadBadge ? <span className={TOPBAR_SUPPORT_UNREAD_BADGE_PILL}>{badgeText}</span> : null}
       </button>
     );
   }
@@ -134,15 +147,14 @@ export function TopbarSupportButton({
       aria-label={ariaLabel}
       aria-expanded={supportPanel.open}
       onClick={handleOpenChat}
-      className={`relative z-[9999] pointer-events-auto inline-flex max-w-full min-h-[44px] min-w-0 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-[var(--z-border)] bg-[var(--z-card)] px-2.5 text-sm font-semibold leading-none text-[var(--z-text-main)] shadow-sm transition hover:border-[var(--z-primary)] hover:text-[var(--z-text-main)] active:bg-slate-50 sm:min-h-10 sm:px-3.5 ${className}`}
+      className={`relative z-[9999] pointer-events-auto inline-flex max-w-full min-h-[44px] min-w-0 shrink-0 items-center justify-center gap-1.5 overflow-visible whitespace-nowrap rounded-xl border border-[var(--z-border)] bg-[var(--z-card)] px-2.5 text-sm font-semibold leading-none text-[var(--z-text-main)] shadow-sm transition hover:border-[var(--z-primary)] hover:text-[var(--z-text-main)] active:bg-slate-50 sm:min-h-10 sm:px-3.5 ${className}`}
     >
       <ChatBubbleIcon className={iconClassHeader} />
-      <span className="max-w-[4.5rem] truncate sm:max-w-none">Hỗ trợ</span>
-      {showUnreadBadge ? (
-        <span className="absolute -right-0.5 -top-0.5 inline-flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold tabular-nums text-white ring-2 ring-[var(--z-card)]">
-          {badgeText}
-        </span>
-      ) : null}
+      <span className="max-w-[4.5rem] truncate sm:max-w-none">
+        Hỗ trợ
+        {showUnreadBadge ? <span className="font-semibold text-[#ef4444]"> ({badgeText})</span> : null}
+      </span>
+      {showUnreadBadge ? <span className={TOPBAR_SUPPORT_UNREAD_BADGE_PILL}>{badgeText}</span> : null}
     </button>
   );
 }

@@ -91,7 +91,7 @@ async function loadOrderCustomerContext(
   };
 }
 
-function publishOrderCustomerEvent(
+async function publishOrderCustomerEvent(
   ctx: {
     orderId: string;
     customerId: string;
@@ -104,9 +104,9 @@ function publishOrderCustomerEvent(
   event: OrderCustomerNotifyEvent,
   title: string,
   body: string,
-): void {
+): Promise<void> {
   const deepLink = event === "created" || event === "paid" ? ORDER_DEEP_LIST : ORDER_DEEP_TRACKING;
-  publishCustomerAccountNotification({
+  await publishCustomerAccountNotification({
     customerId: ctx.customerId,
     category: "ORDER",
     dedupeKey: dedupeKey(ctx.orderId, event),
@@ -129,7 +129,7 @@ function publishOrderCustomerEvent(
 export async function notifyCustomerOrderCreated(db: PrismaClient, orderId: string): Promise<void> {
   const ctx = await loadOrderCustomerContext(db, orderId);
   if (!ctx) return;
-  publishOrderCustomerEvent(
+  await publishOrderCustomerEvent(
     ctx,
     "created",
     `Đơn ${ctx.code} đã được tạo`,
@@ -146,7 +146,7 @@ export async function notifyCustomerOrderCancelledByCustomer(
   const ctx = await loadOrderCustomerContext(db, orderId);
   if (!ctx) return;
   const extra = reason ? ` Lý do: ${sanitizeCustomerNotificationText(reason, 400)}` : "";
-  publishOrderCustomerEvent(
+  await publishOrderCustomerEvent(
     { ...ctx, orderStatus: "CANCELED" },
     "cancelled",
     `Đơn ${ctx.code} đã hủy`,
@@ -179,20 +179,20 @@ export async function notifyCustomerOrderLifecycleAfterAdminPatch(
   if (before.orderStatus !== after.orderStatus) {
     switch (after.orderStatus) {
       case "CONFIRMED":
-        publishOrderCustomerEvent(ctx, "confirmed", `Đơn ${ctx.code} đã xác nhận`, `Shop đã xác nhận đơn hàng của bạn.`);
+        await publishOrderCustomerEvent(ctx, "confirmed", `Đơn ${ctx.code} đã xác nhận`, `Shop đã xác nhận đơn hàng của bạn.`);
         break;
       case "PROCESSING":
-        publishOrderCustomerEvent(ctx, "processing", `Đơn ${ctx.code} đang xử lý`, `Đơn hàng đang được chuẩn bị.`);
+        await publishOrderCustomerEvent(ctx, "processing", `Đơn ${ctx.code} đang xử lý`, `Đơn hàng đang được chuẩn bị.`);
         break;
       case "SHIPPING":
-        publishOrderCustomerEvent(ctx, "shipping", `Đơn ${ctx.code} đang giao`, `Đơn hàng đang được vận chuyển.`);
+        await publishOrderCustomerEvent(ctx, "shipping", `Đơn ${ctx.code} đang giao`, `Đơn hàng đang được vận chuyển.`);
         break;
       case "DELIVERED":
-        publishOrderCustomerEvent(ctx, "completed", `Đơn ${ctx.code} đã giao`, `Đơn đã giao tới bạn. Vui lòng kiểm tra hàng.`);
+        await publishOrderCustomerEvent(ctx, "completed", `Đơn ${ctx.code} đã giao`, `Đơn đã giao tới bạn. Vui lòng kiểm tra hàng.`);
         break;
       case "COMPLETED":
         if (before.orderStatus !== "DELIVERED") {
-          publishOrderCustomerEvent(
+          await publishOrderCustomerEvent(
             ctx,
             "completed",
             `Đơn ${ctx.code} hoàn tất`,
@@ -201,10 +201,10 @@ export async function notifyCustomerOrderLifecycleAfterAdminPatch(
         }
         break;
       case "CANCELED":
-        publishOrderCustomerEvent(ctx, "cancelled", `Đơn ${ctx.code} đã hủy`, `Đơn hàng đã bị hủy.`);
+        await publishOrderCustomerEvent(ctx, "cancelled", `Đơn ${ctx.code} đã hủy`, `Đơn hàng đã bị hủy.`);
         break;
       case "REFUNDED":
-        publishOrderCustomerEvent(ctx, "refunded", `Đơn ${ctx.code} — hoàn tiền`, `Đơn hàng đã được hoàn tiền.`);
+        await publishOrderCustomerEvent(ctx, "refunded", `Đơn ${ctx.code} — hoàn tiền`, `Đơn hàng đã được hoàn tiền.`);
         break;
       default:
         break;
@@ -213,7 +213,7 @@ export async function notifyCustomerOrderLifecycleAfterAdminPatch(
 
   if (before.paymentStatus !== after.paymentStatus) {
     if (after.paymentStatus === "PAID") {
-      publishOrderCustomerEvent(
+      await publishOrderCustomerEvent(
         ctx,
         "paid",
         `Thanh toán đơn ${ctx.code} thành công`,
@@ -221,7 +221,7 @@ export async function notifyCustomerOrderLifecycleAfterAdminPatch(
       );
     }
     if (after.paymentStatus === "REFUNDED" || after.paymentStatus === "PARTIALLY_REFUNDED") {
-      publishOrderCustomerEvent(
+      await publishOrderCustomerEvent(
         ctx,
         "refunded",
         `Hoàn tiền đơn ${ctx.code}`,

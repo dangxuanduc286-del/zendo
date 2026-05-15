@@ -1,17 +1,18 @@
 import OrderLookup from "../../../../../components/storefront/order-lookup";
+import { adminCardBody, adminPageHeader, adminPageSubtitle, adminPageTitle } from "../../../../../lib/admin-ui";
 
 export default function AdminOrderLookupPage(): JSX.Element {
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
-      <header className="space-y-1">
-        <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">Tra cứu đơn</h1>
-        <p className="text-sm leading-6 text-slate-600">
+    <main className="w-full min-w-0 max-w-none space-y-5">
+      <header className={adminPageHeader}>
+        <h1 className={adminPageTitle}>Tra cứu đơn</h1>
+        <p className={adminPageSubtitle}>
           Nhập mã đơn hàng và số điện thoại đặt hàng — cùng biểu mẫu tra cứu công khai trên cửa hàng.
         </p>
       </header>
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+      <div className={adminCardBody}>
         <OrderLookup />
       </div>
-    </div>
+    </main>
   );
 }

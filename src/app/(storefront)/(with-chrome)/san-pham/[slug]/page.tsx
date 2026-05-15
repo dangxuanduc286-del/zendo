@@ -348,7 +348,6 @@ export default async function ProductDetailPage({
   const displayPrice = hasSale ? product.salePrice ?? product.basePrice : product.basePrice;
   const discountPercent = getDiscountPercent(product, hasSale);
   const stockLabel = product.stockQuantity > 0 ? "Còn hàng" : "Tạm hết hàng";
-  const stockColor = product.stockQuantity > 0 ? "text-emerald-700" : "text-rose-700";
   const warrantyPolicy = getPolicyText(product.specifications, ["warrantyPolicy", "warranty"]);
   const returnPolicy = getPolicyText(product.specifications, [
     "returnPolicy",
@@ -387,7 +386,7 @@ export default async function ProductDetailPage({
   ];
   return (
     <div
-      className="mx-auto w-full max-w-7xl px-4 py-5 sm:px-6 lg:px-8"
+      className="mx-auto w-full max-w-7xl px-3 py-3 md:px-6 md:py-5 lg:px-8 xl:max-w-[1400px] xl:px-6 2xl:px-8"
       style={{ backgroundColor: themeSettings.pageBackground }}
     >
       <AnalyticsProductViewTracker pathname={`/san-pham/${product.slug}`} productId={product.id} />
@@ -399,21 +398,27 @@ export default async function ProductDetailPage({
         ]}
       />
 
-      <article className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1fr] lg:gap-6">
+      <article className="grid grid-cols-1 gap-3 md:gap-4 lg:grid-cols-[1.1fr_1fr] lg:items-start lg:gap-8">
         <ProductGallery images={product.images} productName={product.name} />
 
         <section
-          className="space-y-4 rounded-2xl border bg-white p-4 shadow-sm sm:p-5"
+          className="space-y-3 rounded-2xl border bg-white p-3 shadow-sm md:space-y-4 md:rounded-2xl md:p-4 md:shadow-sm lg:space-y-5 lg:rounded-[28px] lg:p-7 lg:shadow-sm"
           style={{ borderColor: themeSettings.cardBorderColor }}
         >
-          <header className="space-y-2">
-            <h1 className="text-xl font-bold tracking-tight text-zinc-900 sm:text-2xl lg:text-3xl">
+          <header className="space-y-2 max-md:space-y-1.5">
+            <h1 className="my-2 line-clamp-3 break-words text-[26px] font-semibold leading-snug tracking-tight text-zinc-900 max-md:my-2 md:my-0 md:text-2xl md:font-bold md:leading-tight md:line-clamp-none lg:mb-4 lg:max-w-[820px] lg:text-[42px] lg:font-bold lg:leading-[1.12] lg:tracking-[-0.03em]">
               {product.name}
             </h1>
-            <div className="flex flex-wrap items-center gap-2 text-sm text-zinc-600">
+            <div className="flex flex-wrap items-center gap-1.5 text-xs leading-tight text-zinc-600 max-md:gap-1.5 md:gap-2 md:text-sm md:leading-normal lg:gap-x-4 lg:gap-y-2 lg:text-sm lg:text-slate-600">
               <span>SKU: {product.sku}</span>
               <span aria-hidden>•</span>
-              <span className={stockColor}>{stockLabel}</span>
+              <span
+                className={
+                  product.stockQuantity > 0 ? "text-emerald-700 lg:text-emerald-600 lg:font-medium" : "text-rose-700"
+                }
+              >
+                {stockLabel}
+              </span>
               <span aria-hidden>•</span>
               <span className="inline-flex items-center gap-1" style={{ color: themeSettings.ratingColor }}>
                 ★ {reviewAverage.toFixed(1)}{" "}
@@ -426,16 +431,21 @@ export default async function ProductDetailPage({
             </div>
           </header>
 
-          <div className="rounded-xl border bg-white p-3 shadow-sm sm:p-4" style={{ borderColor: themeSettings.cardBorderColor }}>
-            <div className="flex flex-wrap items-end gap-x-3 gap-y-1.5">
-              <span className="text-xl font-bold leading-none text-[#2563EB] sm:text-xl lg:text-2xl">
+          <div
+            className="rounded-2xl border bg-white p-2.5 shadow-sm md:rounded-xl md:p-4 lg:mt-5 lg:rounded-2xl lg:border lg:bg-slate-50 lg:p-5"
+            style={{ borderColor: themeSettings.cardBorderColor }}
+          >
+            <div className="flex flex-wrap items-end gap-x-2 gap-y-1 md:gap-x-3 md:gap-y-1.5">
+              <span className="text-2xl font-bold leading-none text-[#2563EB] md:text-xl lg:text-[42px] lg:font-extrabold lg:leading-none lg:tracking-[-0.03em]">
                 {formatVnd(displayPrice)}
               </span>
               {hasSale ? (
-                <span className="text-sm text-zinc-500 line-through">{formatVnd(product.basePrice)}</span>
+                <span className="text-sm leading-none text-zinc-500 line-through lg:text-lg lg:text-slate-400">
+                  {formatVnd(product.basePrice)}
+                </span>
               ) : null}
               {detailSettings.showDiscountBadge && discountPercent > 0 ? (
-                <span className="inline-flex items-center rounded-md bg-[#FFF1E6] px-2 py-1 text-xs font-semibold text-[#F97316]">
+                <span className="inline-flex items-center rounded-lg bg-[#FFF1E6] px-2 py-1 text-xs font-semibold text-[#F97316] lg:rounded-xl lg:px-3 lg:py-1.5 lg:text-sm">
                   -{discountPercent}%
                 </span>
               ) : null}
@@ -457,7 +467,7 @@ export default async function ProductDetailPage({
           </div>
 
           {product.shortDescription ? (
-            <div className="whitespace-pre-line break-words text-sm leading-6 text-zinc-700 sm:text-base">
+            <div className="whitespace-pre-line break-words text-sm font-normal leading-relaxed text-zinc-700 max-md:text-sm max-md:leading-relaxed md:text-base md:leading-6">
               {product.shortDescription}
             </div>
           ) : null}
@@ -478,7 +488,7 @@ export default async function ProductDetailPage({
           ) : null}
 
           {canPurchaseOnPdp ? (
-            <div className="grid grid-cols-1 gap-2.5 pt-1 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 pt-1 sm:grid-cols-2 sm:gap-2.5 md:gap-2.5 lg:mt-6 lg:gap-4">
               <BuyNowButton
                 item={{
                   id: product.id,
@@ -491,7 +501,7 @@ export default async function ProductDetailPage({
                   salePrice: product.salePrice,
                   stockQuantity: product.stockQuantity,
                 }}
-                className="inline-flex h-11 w-full items-center justify-center rounded-xl px-5 text-sm font-semibold text-white transition"
+                className="inline-flex h-11 w-full items-center justify-center rounded-xl px-5 text-sm font-semibold text-white transition duration-200 hover:opacity-95 lg:h-14 lg:rounded-2xl lg:text-base lg:shadow-sm lg:transition-transform lg:hover:scale-[1.01]"
                 label={detailSettings.buyNowLabel}
                 style={{
                   backgroundColor: themeSettings.ctaColor,
@@ -510,7 +520,7 @@ export default async function ProductDetailPage({
                   stockQuantity: product.stockQuantity,
                 }}
                 label={detailSettings.addToCartLabel}
-                className="inline-flex h-11 w-full items-center justify-center rounded-xl border bg-white px-5 text-sm font-semibold transition"
+                className="inline-flex h-11 w-full items-center justify-center rounded-xl border bg-white px-5 text-sm font-semibold transition duration-200 hover:bg-zinc-50 lg:h-14 lg:rounded-2xl lg:border-2 lg:text-base lg:shadow-sm lg:transition-transform lg:hover:scale-[1.01]"
                 style={{
                   borderColor: themeSettings.primaryColor,
                   color: themeSettings.primaryColor,
@@ -524,34 +534,34 @@ export default async function ProductDetailPage({
           )}
 
           {detailSettings.showPolicyRow ? (
-            <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 lg:mt-5 lg:gap-3">
               {policyItems.map((label, index) => (
                 <span
                   key={label}
-                  className="inline-flex min-w-0 items-center justify-center gap-1.5 rounded-xl border bg-white px-2.5 py-2 text-[12px] font-medium leading-tight text-zinc-700 lg:whitespace-nowrap"
+                  className="inline-flex min-w-0 items-center justify-center gap-1 rounded-xl border bg-white px-2 py-1.5 text-[11px] font-medium leading-tight text-zinc-700 max-md:gap-1 max-md:px-2 max-md:py-1.5 max-md:text-[11px] md:gap-1.5 md:px-2.5 md:py-2 md:text-[12px] lg:gap-2.5 lg:rounded-2xl lg:px-4 lg:py-3 lg:text-sm lg:font-medium lg:shadow-sm lg:transition-colors lg:hover:border-zinc-400"
                   style={{ borderColor: themeSettings.cardBorderColor }}
                 >
                   {index === 0 ? (
-                    <svg viewBox="0 0 20 20" className="h-4 w-4 shrink-0" aria-hidden style={{ color: themeSettings.primaryColor }}>
+                    <svg viewBox="0 0 20 20" className="h-3.5 w-3.5 shrink-0 md:h-4 md:w-4 lg:h-5 lg:w-5" aria-hidden style={{ color: themeSettings.primaryColor }}>
                       <path d="M10 2.5l5.5 2v5.1c0 3.4-2.3 6.4-5.5 7.3-3.2-.9-5.5-3.9-5.5-7.3V4.5l5.5-2z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                       <path d="M7.4 10.2l1.7 1.7 3.5-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   ) : null}
                   {index === 1 ? (
-                    <svg viewBox="0 0 20 20" className="h-4 w-4 shrink-0" aria-hidden style={{ color: themeSettings.primaryColor }}>
+                    <svg viewBox="0 0 20 20" className="h-3.5 w-3.5 shrink-0 md:h-4 md:w-4 lg:h-5 lg:w-5" aria-hidden style={{ color: themeSettings.primaryColor }}>
                       <path d="M15.3 7.2A6.2 6.2 0 1 0 16 10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                       <path d="M15.3 3.8v3.6h-3.6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   ) : null}
                   {index === 2 ? (
-                    <svg viewBox="0 0 20 20" className="h-4 w-4 shrink-0" aria-hidden style={{ color: themeSettings.primaryColor }}>
+                    <svg viewBox="0 0 20 20" className="h-3.5 w-3.5 shrink-0 md:h-4 md:w-4 lg:h-5 lg:w-5" aria-hidden style={{ color: themeSettings.primaryColor }}>
                       <path d="M2.5 11.5h10.8l1.8 2.2h2.4V9.5l-2-2h-3.6l-1.6-2H6.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                       <circle cx="6.5" cy="14.5" r="1.4" fill="none" stroke="currentColor" strokeWidth="1.8" />
                       <circle cx="14.5" cy="14.5" r="1.4" fill="none" stroke="currentColor" strokeWidth="1.8" />
                     </svg>
                   ) : null}
                   {index === 3 ? (
-                    <svg viewBox="0 0 20 20" className="h-4 w-4 shrink-0" aria-hidden style={{ color: themeSettings.primaryColor }}>
+                    <svg viewBox="0 0 20 20" className="h-3.5 w-3.5 shrink-0 md:h-4 md:w-4 lg:h-5 lg:w-5" aria-hidden style={{ color: themeSettings.primaryColor }}>
                       <path d="M10 2.8l1.9 3.9 4.3.6-3.1 3 0.7 4.3-3.8-2-3.8 2 0.7-4.3-3.1-3 4.3-.6L10 2.8z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   ) : null}
@@ -562,7 +572,10 @@ export default async function ProductDetailPage({
           ) : null}
 
           {product.brand ? (
-            <div className="rounded-xl border bg-zinc-50 p-4 text-sm text-zinc-700" style={{ borderColor: themeSettings.cardBorderColor }}>
+            <div
+              className="rounded-xl border bg-zinc-50 p-3 text-sm text-zinc-700 md:p-4"
+              style={{ borderColor: themeSettings.cardBorderColor }}
+            >
               <p>
                 Thương hiệu:{" "}
                 <Link href={`/thuong-hieu/${product.brand.slug}`} className="font-semibold text-zinc-900">
@@ -574,33 +587,44 @@ export default async function ProductDetailPage({
         </section>
       </article>
 
-      <section className="mt-8 grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr] lg:gap-6">
-        <article className="space-y-6">
-          <section className="rounded-xl border bg-white p-5" style={{ borderColor: themeSettings.cardBorderColor }}>
-            <h2 className="text-lg font-semibold text-zinc-900">{detailSettings.descriptionTitle}</h2>
-            <details open className="mt-3">
+      <section className="mt-6 grid grid-cols-1 gap-3 md:mt-8 md:gap-4 lg:mt-8 lg:grid-cols-[2fr_1fr] lg:gap-8">
+        <article className="space-y-4 md:space-y-6">
+          <section
+            className="rounded-2xl border bg-white p-3 shadow-sm md:rounded-xl md:p-5 md:shadow-none lg:rounded-[28px] lg:p-8 lg:shadow-sm"
+            style={{ borderColor: themeSettings.cardBorderColor }}
+          >
+            <h2 className="text-lg font-semibold text-zinc-900 lg:text-3xl lg:font-bold">
+              {detailSettings.descriptionTitle}
+            </h2>
+            <details open className="mt-2 md:mt-3">
               <summary className="cursor-pointer text-sm font-medium" style={{ color: themeSettings.primaryColor }}>
                 {detailSettings.readMoreLabel}
               </summary>
-              <div className="prose prose-zinc mt-2 max-w-none whitespace-pre-line break-words text-sm leading-7 text-zinc-700">
+              <div className="prose prose-sm prose-zinc mt-2 max-w-none whitespace-pre-line break-words text-sm leading-relaxed text-zinc-700 md:prose-base md:leading-7 lg:prose-slate lg:text-[15px] lg:leading-8">
                 {product.description ?? product.shortDescription ?? "Thông tin đang cập nhật."}
               </div>
             </details>
           </section>
         </article>
 
-        <aside className="space-y-4">
+        <aside className="space-y-3 md:space-y-4">
           {warrantyPolicy ? (
-            <section className="rounded-xl border bg-white p-5" style={{ borderColor: themeSettings.cardBorderColor }}>
+            <section
+              className="rounded-2xl border bg-white p-3 shadow-sm md:rounded-xl md:p-5 md:shadow-none lg:rounded-[28px] lg:p-6 lg:shadow-sm"
+              style={{ borderColor: themeSettings.cardBorderColor }}
+            >
               <h2 className="text-base font-semibold text-zinc-900">Chinh sach bao hanh</h2>
-              <p className="mt-2 text-sm leading-6 text-zinc-600">{warrantyPolicy}</p>
+              <p className="mt-2 text-sm leading-relaxed text-zinc-600 md:leading-6">{warrantyPolicy}</p>
             </section>
           ) : null}
 
           {returnPolicy ? (
-            <section className="rounded-xl border bg-white p-5" style={{ borderColor: themeSettings.cardBorderColor }}>
+            <section
+              className="rounded-2xl border bg-white p-3 shadow-sm md:rounded-xl md:p-5 md:shadow-none lg:rounded-[28px] lg:p-6 lg:shadow-sm"
+              style={{ borderColor: themeSettings.cardBorderColor }}
+            >
               <h2 className="text-base font-semibold text-zinc-900">Chinh sach doi tra</h2>
-              <p className="mt-2 text-sm leading-6 text-zinc-600">{returnPolicy}</p>
+              <p className="mt-2 text-sm leading-relaxed text-zinc-600 md:leading-6">{returnPolicy}</p>
             </section>
           ) : null}
         </aside>
@@ -635,8 +659,11 @@ export default async function ProductDetailPage({
       ) : null}
 
       {detailSettings.showRelatedProducts ? (
-        <section className="mt-10">
-          <div className="rounded-2xl border bg-white p-4 shadow-sm sm:p-5" style={{ borderColor: themeSettings.cardBorderColor }}>
+        <section className="mt-6 md:mt-10 lg:mt-10">
+          <div
+            className="rounded-2xl border bg-white p-3 shadow-sm sm:p-4 md:p-5 lg:rounded-[28px] lg:p-8 lg:shadow-sm"
+            style={{ borderColor: themeSettings.cardBorderColor }}
+          >
             <SectionHeading title="Sản phẩm lien quan" />
             {relatedProducts.length ? (
               <ProductGrid products={relatedProducts} desktopColumns={storefrontSettings.website.productGridColumnsDesktop} />

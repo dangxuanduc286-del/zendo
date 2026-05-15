@@ -3,7 +3,9 @@ import type { NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../../../lib/auth";
 import { isAdminSupportTicketRole } from "../../../../lib/admin-support-ticket-roles";
+import { isSupportAdminInboxChannel } from "../../../../lib/support-ticket-admin-inbox-channel";
 import { ticketIdFromSupportTicketChatChannel } from "../../../../lib/support-ticket-chat-channel";
+import { conversationIdFromSupportDmChatChannel } from "../../../../lib/support-dm-chat-channel";
 import { getPusherServer } from "../../../../lib/support-ticket-pusher";
 
 async function readSocketAndChannel(req: NextRequest): Promise<{ socketId: string; channelName: string } | null> {
@@ -47,6 +49,35 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const isAdmin = isAdminSupportTicketRole(role);
   if (role !== "USER" && !isAdmin) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  }
+
+  if (isSupportAdminInboxChannel(parsed.channelName)) {
+    if (!isAdmin) {
+      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+    }
+    const auth = pusher.authorizeChannel(parsed.socketId, parsed.channelName);
+    return NextResponse.json(auth);
+  }
+
+  const dmConversationId = conversationIdFromSupportDmChatChannel(parsed.channelName);
+  if (dmConversationId) {
+    if (!process.env.DATABASE_URL) {
+      return NextResponse.json({ message: "Service unavailable" }, { status: 503 });
+    }
+    const { db } = await import("../../../../lib/db");
+    const conv = await db.supportDmConversation.findFirst({
+      where: { id: dmConversationId },
+      select: { customerId: true },
+    });
+    if (!conv) {
+      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+    }
+    const isOwner = conv.customerId === session.user.id;
+    if (!isOwner && !isAdmin) {
+      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+    }
+    const auth = pusher.authorizeChannel(parsed.socketId, parsed.channelName);
+    return NextResponse.json(auth);
   }
 
   const ticketId = ticketIdFromSupportTicketChatChannel(parsed.channelName);

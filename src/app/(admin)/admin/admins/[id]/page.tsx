@@ -27,7 +27,7 @@ export default async function EditAdminUserPage({
 
   const resolvedParams = await Promise.resolve(params);
   return (
-    <main className="w-full max-w-[1600px] space-y-4 py-2 sm:py-3">
+    <main className="w-full min-w-0 max-w-none space-y-5">
       <AdminAccountDetail accountId={resolvedParams.id} />
     </main>
   );

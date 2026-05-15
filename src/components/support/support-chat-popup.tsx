@@ -1,14 +1,19 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useSupportChatStore } from "@/stores/supportChatStore";
 
-import SupportPanel from "./support-panel";
+const SupportDmPanel = dynamic(
+  () => import("./support-dm-panel").then((m) => ({ default: m.SupportDmPanel })),
+  { ssr: false, loading: () => null },
+);
 
 /**
- * Popup chat toàn cục (floating phải). State mở/đóng dùng chung với {@link useSupportPanel}.
+ * Popup chat toàn cục — chỉ mount chunk + panel khi mở (giảm JS/Pusher khi đóng).
  */
-export default function SupportChatPopup(): JSX.Element {
+export default function SupportChatPopup(): JSX.Element | null {
   const isOpen = useSupportChatStore((s) => s.isOpen);
   const close = useSupportChatStore((s) => s.close);
-  return <SupportPanel open={isOpen} onClose={close} />;
+  if (!isOpen) return null;
+  return <SupportDmPanel open={isOpen} onClose={close} />;
 }

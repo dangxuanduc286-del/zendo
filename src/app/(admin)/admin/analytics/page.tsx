@@ -86,15 +86,15 @@ function KpiCard({
         ? formatPercent(metric.previousValue, 2)
         : formatNumber(metric.previousValue);
   return (
-    <article className="rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm">
+    <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-2">
-        <p className="text-xs font-medium uppercase tracking-wide text-[#64748B]">{title}</p>
+        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{title}</p>
         <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${badge.className}`}>
           {badge.label}
         </span>
       </div>
-      <p className="mt-3 text-2xl font-extrabold text-[#0F172A]">{value}</p>
-      <div className="mt-2 space-y-0.5 text-xs text-[#64748B]">
+      <p className="mt-3 text-2xl font-extrabold text-slate-900">{value}</p>
+      <div className="mt-2 space-y-0.5 text-xs text-slate-500">
         <p>Kỳ trước: {previous}</p>
         <p>Chênh lệch: {kind === "money" ? formatMoney(metric.diff, currency) : formatNumber(metric.diff)}</p>
         <p>Biến động: {formatPercent(metric.percentChange, 2)}</p>
@@ -111,14 +111,14 @@ function BreakdownCard({
   rows: AdminAnalyticsDashboardV2["breakdown"]["sourceBreakdown"];
 }): JSX.Element {
   return (
-    <section className="rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm">
-      <h3 className="text-sm font-semibold text-[#0F172A]">{title}</h3>
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
       <div className="mt-3 space-y-2">
         {rows.map((item) => (
           <div key={item.key}>
             <div className="flex items-center justify-between text-xs">
-              <span className="text-[#0F172A]">{item.label}</span>
-              <span className="text-[#64748B]">
+              <span className="text-slate-900">{item.label}</span>
+              <span className="text-slate-500">
                 {formatNumber(item.visits)} ({formatPercent(item.share, 1)})
               </span>
             </div>
@@ -175,15 +175,14 @@ export default async function AdminAnalyticsPage({
   ];
 
   return (
-    <main className="min-h-screen bg-[#F8FAFC]">
-      <div className="mx-auto w-full max-w-[1600px] space-y-5 px-4 py-6 sm:px-6 lg:px-8">
-        <header className="space-y-4 rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-[#0F172A] sm:text-3xl">
-              Analytics bán hàng - {dashboard.settingsState.siteName}
-            </h1>
-            <p className="mt-1 text-sm text-[#64748B]">Dashboard tổng hợp KPI bán hàng, phễu chuyển đổi và nguồn truy cập.</p>
-          </div>
+    <main className="w-full min-w-0 max-w-none space-y-5">
+      <header className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+            Analytics bán hàng - {dashboard.settingsState.siteName}
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">Dashboard tổng hợp KPI bán hàng, phễu chuyển đổi và nguồn truy cập.</p>
+        </div>
           <div className="flex flex-wrap items-center gap-2">
             {[
               { key: "today", label: "Hôm nay" },
@@ -228,7 +227,7 @@ export default async function AdminAnalyticsPage({
               Tracking đang tắt. Dashboard vẫn hiển thị dữ liệu đã thu thập trước đó.
             </div>
           ) : null}
-          <form method="get" className="grid grid-cols-1 gap-2 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3 md:grid-cols-3 xl:grid-cols-7">
+          <form method="get" className="grid grid-cols-1 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 md:grid-cols-3 xl:grid-cols-7">
             <input type="hidden" name="range" value={dashboard.range.preset} />
             <input name="from" type="date" defaultValue={params.from ?? ""} className="h-9 rounded-md border border-zinc-300 px-2 text-sm" />
             <input name="to" type="date" defaultValue={params.to ?? ""} className="h-9 rounded-md border border-zinc-300 px-2 text-sm" />
@@ -248,22 +247,22 @@ export default async function AdminAnalyticsPage({
 
         {!hasAnyData ? (
           <section className="rounded-2xl border border-dashed border-sky-300 bg-gradient-to-b from-sky-50 to-white p-8 text-center shadow-sm">
-            <h2 className="text-lg font-semibold text-[#0F172A]">Chưa đủ dữ liệu để phân tích</h2>
+            <h2 className="text-lg font-semibold text-slate-900">Chưa đủ dữ liệu để phân tích</h2>
             <p className="mt-2 text-sm text-zinc-600">Hãy mở storefront public để hệ thống bắt đầu ghi nhận.</p>
           </section>
         ) : (
           <>
-            <section className="rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm">
-              <h2 className="text-sm font-semibold text-[#0F172A]">Độ khớp dữ liệu</h2>
+            <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <h2 className="text-sm font-semibold text-slate-900">Độ khớp dữ liệu</h2>
               <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3"><p className="text-xs text-[#64748B]">Total card</p><p className="mt-1 text-2xl font-bold text-[#0F172A]">{formatNumber(dashboard.dataQuality.totalCard)}</p></div>
-                <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3"><p className="text-xs text-[#64748B]">Tổng chart</p><p className="mt-1 text-2xl font-bold text-[#0F172A]">{formatNumber(dashboard.dataQuality.chartTotal)}</p></div>
-                <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3"><p className="text-xs text-[#64748B]">Raw count</p><p className="mt-1 text-2xl font-bold text-[#0F172A]">{formatNumber(dashboard.dataQuality.rawCount)}</p></div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3"><p className="text-xs text-slate-500">Total card</p><p className="mt-1 text-2xl font-bold text-slate-900">{formatNumber(dashboard.dataQuality.totalCard)}</p></div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3"><p className="text-xs text-slate-500">Tổng chart</p><p className="mt-1 text-2xl font-bold text-slate-900">{formatNumber(dashboard.dataQuality.chartTotal)}</p></div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3"><p className="text-xs text-slate-500">Raw count</p><p className="mt-1 text-2xl font-bold text-slate-900">{formatNumber(dashboard.dataQuality.rawCount)}</p></div>
               </div>
             </section>
 
             <section className="space-y-3">
-              <h2 className="text-base font-bold text-[#0F172A]">Tổng quan truy cập</h2>
+              <h2 className="text-base font-bold text-slate-900">Tổng quan truy cập</h2>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 <KpiCard title="Hôm nay" metric={dashboard.trafficOverview.today} currency={currency} />
                 <KpiCard title="7 ngày" metric={dashboard.trafficOverview.sevenDays} currency={currency} />
@@ -278,7 +277,7 @@ export default async function AdminAnalyticsPage({
             </section>
 
             <section className="space-y-3">
-              <h2 className="text-base font-bold text-[#0F172A]">Tổng quan kinh doanh</h2>
+              <h2 className="text-base font-bold text-slate-900">Tổng quan kinh doanh</h2>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <KpiCard title="Đơn hàng" metric={dashboard.businessOverview.orders} currency={currency} />
                 <KpiCard title="Đơn đã thanh toán" metric={dashboard.businessOverview.paidOrders} currency={currency} />
@@ -300,25 +299,25 @@ export default async function AdminAnalyticsPage({
               <div className="xl:col-span-2">
                 <VisitsLineChart data={chartRows} totalVisits={dashboard.dataQuality.totalCard} timezone={dashboard.settingsState.timezone} showMismatchWarning />
               </div>
-              <section className="rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm">
-                <h3 className="text-sm font-semibold text-[#0F172A]">Truy cập theo ngày trong kỳ đã chọn</h3>
-                <div className="mt-2 space-y-1 text-sm text-[#64748B]">
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <h3 className="text-sm font-semibold text-slate-900">Truy cập theo ngày trong kỳ đã chọn</h3>
+                <div className="mt-2 space-y-1 text-sm text-slate-500">
                   {chartRows.slice(-7).map((row) => (
-                    <div key={row.key} className="flex items-center justify-between"><span>{row.label}</span><span className="font-medium text-[#0F172A]">{formatNumber(row.visits)} lượt</span></div>
+                    <div key={row.key} className="flex items-center justify-between"><span>{row.label}</span><span className="font-medium text-slate-900">{formatNumber(row.visits)} lượt</span></div>
                   ))}
                 </div>
               </section>
             </section>
 
-            <section className="rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm">
-              <h3 className="text-sm font-semibold text-[#0F172A]">Phễu chuyển đổi: truy cập → đơn hàng</h3>
+            <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <h3 className="text-sm font-semibold text-slate-900">Phễu chuyển đổi: truy cập → đơn hàng</h3>
               <div className="mt-3 space-y-2">
                 {funnelRows.map((step) => {
                   const strongest = dashboard.funnel.strongestDropOffStep === step.key;
                   return (
-                    <div key={step.key} className={`rounded-xl border p-3 ${strongest ? "border-rose-300 bg-rose-50" : "border-[#E2E8F0] bg-[#F8FAFC]"}`}>
-                      <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-semibold text-[#0F172A]">{step.label}</p><p className="text-sm font-bold text-[#0F172A]">{step.key === "paidRevenue" ? formatMoney(step.value, currency) : formatNumber(step.value)}</p></div>
-                      <div className="mt-1 flex flex-wrap gap-3 text-xs text-[#64748B]"><span>Chuyển đổi: {formatPercent(step.conversionFromPrevious, 1)}</span><span>Rơi rớt: {formatPercent(step.dropOffFromPrevious, 1)}</span>{strongest ? <span className="font-semibold text-rose-700">Bước rớt mạnh nhất</span> : null}</div>
+                    <div key={step.key} className={`rounded-xl border p-3 ${strongest ? "border-rose-300 bg-rose-50" : "border-slate-200 bg-slate-50"}`}>
+                      <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-semibold text-slate-900">{step.label}</p><p className="text-sm font-bold text-slate-900">{step.key === "paidRevenue" ? formatMoney(step.value, currency) : formatNumber(step.value)}</p></div>
+                      <div className="mt-1 flex flex-wrap gap-3 text-xs text-slate-500"><span>Chuyển đổi: {formatPercent(step.conversionFromPrevious, 1)}</span><span>Rơi rớt: {formatPercent(step.dropOffFromPrevious, 1)}</span>{strongest ? <span className="font-semibold text-rose-700">Bước rớt mạnh nhất</span> : null}</div>
                     </div>
                   );
                 })}
@@ -326,12 +325,12 @@ export default async function AdminAnalyticsPage({
             </section>
 
             <section className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-              <section className="rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm">
-                <h2 className="text-sm font-semibold text-[#0F172A]">Điểm rơi funnel</h2>
+              <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <h2 className="text-sm font-semibold text-slate-900">Điểm rơi funnel</h2>
                 <div className="mt-3 space-y-2 text-sm">
-                  <div className="rounded-lg border border-[#E2E8F0] p-3"><p className="text-[#64748B]">Thêm giỏ nhưng chưa checkout</p><p className="mt-1 text-xl font-bold text-[#0F172A]">{formatNumber(dashboard.abandonment.addToCartWithoutCheckout)}</p></div>
-                  <div className="rounded-lg border border-[#E2E8F0] p-3"><p className="text-[#64748B]">Checkout nhưng chưa gửi đơn</p><p className="mt-1 text-xl font-bold text-[#0F172A]">{formatNumber(dashboard.abandonment.checkoutWithoutSubmit)}</p></div>
-                  <div className="rounded-lg border border-[#E2E8F0] p-3"><p className="text-[#64748B]">Gửi đơn nhưng chưa thanh toán</p><p className="mt-1 text-xl font-bold text-[#0F172A]">{formatNumber(dashboard.abandonment.submitWithoutPaid)}</p></div>
+                  <div className="rounded-lg border border-slate-200 p-3"><p className="text-slate-500">Thêm giỏ nhưng chưa checkout</p><p className="mt-1 text-xl font-bold text-slate-900">{formatNumber(dashboard.abandonment.addToCartWithoutCheckout)}</p></div>
+                  <div className="rounded-lg border border-slate-200 p-3"><p className="text-slate-500">Checkout nhưng chưa gửi đơn</p><p className="mt-1 text-xl font-bold text-slate-900">{formatNumber(dashboard.abandonment.checkoutWithoutSubmit)}</p></div>
+                  <div className="rounded-lg border border-slate-200 p-3"><p className="text-slate-500">Gửi đơn nhưng chưa thanh toán</p><p className="mt-1 text-xl font-bold text-slate-900">{formatNumber(dashboard.abandonment.submitWithoutPaid)}</p></div>
                 </div>
               </section>
               <div className="space-y-4 xl:col-span-2">
@@ -345,18 +344,18 @@ export default async function AdminAnalyticsPage({
 
             <section className="space-y-4">
               <header>
-                <h2 className="text-base font-bold text-[#0F172A]">Phân tích nâng cao</h2>
-                <p className="mt-1 text-sm text-[#64748B]">Top trang, nguồn và sản phẩm theo chuyển đổi / doanh thu.</p>
+                <h2 className="text-base font-bold text-slate-900">Phân tích nâng cao</h2>
+                <p className="mt-1 text-sm text-slate-500">Top trang, nguồn và sản phẩm theo chuyển đổi / doanh thu.</p>
               </header>
 
               <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                <section className="overflow-x-auto rounded-2xl border border-[#E2E8F0] bg-white shadow-sm">
+                <section className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
                   <header className="border-b border-zinc-200 px-4 py-3">
-                    <h3 className="text-sm font-semibold text-[#0F172A]">Top landing page theo chuyển đổi</h3>
-                    <p className="text-xs text-[#64748B]">Hiệu quả chuyển đổi theo điểm vào đầu tiên.</p>
+                    <h3 className="text-sm font-semibold text-slate-900">Top landing page theo chuyển đổi</h3>
+                    <p className="text-xs text-slate-500">Hiệu quả chuyển đổi theo điểm vào đầu tiên.</p>
                   </header>
                   <table className="w-full min-w-[860px] text-left text-sm">
-                    <thead className="bg-[#F8FAFC] text-[#64748B]">
+                    <thead className="bg-slate-50 text-slate-500">
                       <tr>
                         <th className="px-4 py-2 font-medium">Đường dẫn</th>
                         <th className="px-4 py-2 text-right font-medium">Lượt truy cập</th>
@@ -384,13 +383,13 @@ export default async function AdminAnalyticsPage({
                   </table>
                 </section>
 
-                <section className="overflow-x-auto rounded-2xl border border-[#E2E8F0] bg-white shadow-sm">
+                <section className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
                   <header className="border-b border-zinc-200 px-4 py-3">
-                    <h3 className="text-sm font-semibold text-[#0F172A]">Top pages theo chuyển đổi</h3>
-                    <p className="text-xs text-[#64748B]">Hiệu quả chuyển đổi theo từng trang.</p>
+                    <h3 className="text-sm font-semibold text-slate-900">Top pages theo chuyển đổi</h3>
+                    <p className="text-xs text-slate-500">Hiệu quả chuyển đổi theo từng trang.</p>
                   </header>
                   <table className="w-full min-w-[860px] text-left text-sm">
-                    <thead className="bg-[#F8FAFC] text-[#64748B]">
+                    <thead className="bg-slate-50 text-slate-500">
                       <tr>
                         <th className="px-4 py-2 font-medium">Đường dẫn</th>
                         <th className="px-4 py-2 text-right font-medium">Lượt truy cập</th>
@@ -420,13 +419,13 @@ export default async function AdminAnalyticsPage({
               </div>
 
               <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                <section className="overflow-x-auto rounded-2xl border border-[#E2E8F0] bg-white shadow-sm">
+                <section className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
                   <header className="border-b border-zinc-200 px-4 py-3">
-                    <h3 className="text-sm font-semibold text-[#0F172A]">Nguồn giới thiệu theo đơn hàng / doanh thu</h3>
-                    <p className="text-xs text-[#64748B]">Đánh giá nguồn theo hiệu quả đơn hàng.</p>
+                    <h3 className="text-sm font-semibold text-slate-900">Nguồn giới thiệu theo đơn hàng / doanh thu</h3>
+                    <p className="text-xs text-slate-500">Đánh giá nguồn theo hiệu quả đơn hàng.</p>
                   </header>
                   <table className="w-full min-w-[820px] text-left text-sm">
-                    <thead className="bg-[#F8FAFC] text-[#64748B]">
+                    <thead className="bg-slate-50 text-slate-500">
                       <tr>
                         <th className="px-4 py-2 font-medium">Nguồn</th>
                         <th className="px-4 py-2 text-right font-medium">Lượt truy cập</th>
@@ -452,13 +451,13 @@ export default async function AdminAnalyticsPage({
                   </table>
                 </section>
 
-                <section className="overflow-x-auto rounded-2xl border border-[#E2E8F0] bg-white shadow-sm">
+                <section className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
                   <header className="border-b border-zinc-200 px-4 py-3">
-                    <h3 className="text-sm font-semibold text-[#0F172A]">Top sản phẩm theo đơn hàng / doanh thu</h3>
-                    <p className="text-xs text-[#64748B]">Sản phẩm nổi bật theo đơn và doanh thu.</p>
+                    <h3 className="text-sm font-semibold text-slate-900">Top sản phẩm theo đơn hàng / doanh thu</h3>
+                    <p className="text-xs text-slate-500">Sản phẩm nổi bật theo đơn và doanh thu.</p>
                   </header>
                   <table className="w-full min-w-[860px] text-left text-sm">
-                    <thead className="bg-[#F8FAFC] text-[#64748B]">
+                    <thead className="bg-slate-50 text-slate-500">
                       <tr>
                         <th className="px-4 py-2 font-medium">Sản phẩm</th>
                         <th className="px-4 py-2 text-right font-medium">Lượt xem</th>
@@ -486,13 +485,13 @@ export default async function AdminAnalyticsPage({
               </div>
 
               <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                <section className="overflow-x-auto rounded-2xl border border-[#E2E8F0] bg-white shadow-sm">
+                <section className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
                   <header className="border-b border-zinc-200 px-4 py-3">
-                    <h3 className="text-sm font-semibold text-[#0F172A]">Top pages</h3>
-                    <p className="text-xs text-[#64748B]">Top trang theo lượt xem và tỷ trọng.</p>
+                    <h3 className="text-sm font-semibold text-slate-900">Top pages</h3>
+                    <p className="text-xs text-slate-500">Top trang theo lượt xem và tỷ trọng.</p>
                   </header>
                   <table className="w-full min-w-[680px] text-left text-sm">
-                    <thead className="bg-[#F8FAFC] text-[#64748B]">
+                    <thead className="bg-slate-50 text-slate-500">
                       <tr>
                         <th className="px-4 py-2 font-medium">Đường dẫn</th>
                         <th className="px-4 py-2 text-right font-medium">Lượt xem</th>
@@ -516,13 +515,13 @@ export default async function AdminAnalyticsPage({
                   </table>
                 </section>
 
-                <section className="overflow-x-auto rounded-2xl border border-[#E2E8F0] bg-white shadow-sm">
+                <section className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
                   <header className="border-b border-zinc-200 px-4 py-3">
-                    <h3 className="text-sm font-semibold text-[#0F172A]">Top landing pages</h3>
-                    <p className="text-xs text-[#64748B]">Điểm vào đầu tiên có tỷ trọng cao.</p>
+                    <h3 className="text-sm font-semibold text-slate-900">Top landing pages</h3>
+                    <p className="text-xs text-slate-500">Điểm vào đầu tiên có tỷ trọng cao.</p>
                   </header>
                   <table className="w-full min-w-[640px] text-left text-sm">
-                    <thead className="bg-[#F8FAFC] text-[#64748B]">
+                    <thead className="bg-slate-50 text-slate-500">
                       <tr>
                         <th className="px-4 py-2 font-medium">Đường dẫn</th>
                         <th className="px-4 py-2 text-right font-medium">Lượt vào đầu tiên</th>
@@ -552,7 +551,7 @@ export default async function AdminAnalyticsPage({
               </header>
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[1160px] text-left text-sm">
-                  <thead className="bg-[#F8FAFC] text-[#64748B]">
+                  <thead className="bg-slate-50 text-slate-500">
                     <tr>
                       <th className="px-4 py-2 font-medium">Thời gian</th>
                       <th className="px-4 py-2 font-medium">Đường dẫn</th>
@@ -581,7 +580,6 @@ export default async function AdminAnalyticsPage({
             </section>
           </>
         )}
-      </div>
     </main>
   );
 }

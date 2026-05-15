@@ -6,7 +6,7 @@ import MobileBottomNav from "../../../components/storefront/mobile-bottom-nav";
 import AnalyticsPageViewTracker from "../../../components/storefront/analytics-page-view-tracker";
 import StorefrontPopup from "../../../components/storefront/storefront-popup";
 import { resolveMediaUrl } from "../../../lib/media";
-import { STOREFRONT_FRAME } from "../../../lib/storefront-frame";
+import { MARKETING_FRAME } from "../../../lib/storefront-frame";
 import {
   getHeaderCategories,
   getHeaderPages,
@@ -18,6 +18,7 @@ import {
   sanitizeGtmId,
   sanitizeMetaPixelId,
 } from "../_storefront-layout-shared";
+import { getAccountRoute } from "../../../lib/account-route";
 
 interface Props {
   children: ReactNode;
@@ -35,6 +36,7 @@ export default async function StorefrontChromeLayout({ children }: Props): Promi
     session?.user?.role === "CONTENT_MANAGER" ||
     session?.user?.role === "ADMIN";
   const showAdminNav = websiteSettings.showHeaderAdminMenu;
+  const mobileStorefrontAccountHref = getAccountRoute(session);
 
   const trackingEnabled = websiteSettings.trackingEnabled;
   const gaId =
@@ -155,63 +157,66 @@ export default async function StorefrontChromeLayout({ children }: Props): Promi
           {`(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window, document, "clarity", "script", "${clarityId}");`}
         </Script>
       ) : null}
-      {websiteSettings.showAnnouncementBar && websiteSettings.announcementText.trim() ? (
-        <div className="border-b border-teal-800 bg-teal-900 px-3 py-2 text-center text-xs font-medium text-white sm:text-sm">
-          {websiteSettings.announcementText}
-        </div>
-      ) : null}
-      <div className="relative z-10">
-        <StoreHeader
-          logoUrl={logoUrl}
-          siteName={siteName}
-          hotline={websiteSettings.hotline}
-          categories={categories}
-          pages={pages}
-          headerNavItems={websiteSettings.headerNavItems}
-          isAdmin={isAdminRole}
-          showAdminNav={showAdminNav}
-          searchPlaceholder={searchPlaceholder}
-          showTopbar={websiteSettings.showStorefrontTopbar}
-          topbarLeftText={websiteSettings.topbarLeftText}
-          topbarShippingText={websiteSettings.topbarShippingText}
-          topbarCommitmentText={websiteSettings.topbarCommitmentText}
-          showHeaderSearch={websiteSettings.showHeaderSearch}
-          showHeaderCartIcon={websiteSettings.showHeaderCartIcon}
-          showHeaderAdminMenu={websiteSettings.showHeaderAdminMenu}
-          isAuthenticated={Boolean(session?.user?.id)}
-          desktopCategoryLimit={websiteSettings.headerDesktopCategoryLimit}
-          mobileCategoryLimit={websiteSettings.headerMobileCategoryLimit}
-        />
-        {websiteSettings.showTopHighlights && trustItems.length ? (
-          <div className="border-b border-zinc-200 bg-zinc-50">
-            <div className={`${STOREFRONT_FRAME} grid grid-cols-2 gap-3 py-3 sm:grid-cols-4`}>
-              {trustItems.map((item, index) => (
-                <div key={`${item.title}-${index}`} className="min-w-0 text-center">
-                  <p className="text-xs font-semibold text-zinc-900 sm:text-sm">{item.title}</p>
-                  {item.description.trim() ? (
-                    <p className="mt-0.5 text-[11px] leading-snug text-zinc-600 sm:text-xs">
-                      {item.description}
-                    </p>
-                  ) : null}
-                </div>
-              ))}
-            </div>
+      <div className="relative z-10 flex min-h-[100dvh] w-full min-w-0 flex-col">
+        {websiteSettings.showAnnouncementBar && websiteSettings.announcementText.trim() ? (
+          <div className="border-b border-teal-800 bg-teal-900 px-3 py-2 text-center text-xs font-medium text-white sm:text-sm">
+            {websiteSettings.announcementText}
           </div>
         ) : null}
-        <Suspense fallback={null}>
-          <AnalyticsPageViewTracker />
-        </Suspense>
-        <StorefrontPopup
-          enabled={websiteSettings.popupEnabled}
-          title={websiteSettings.popupTitle}
-          content={websiteSettings.popupContent}
-          imageUrl={websiteSettings.popupImageUrl}
-          link={websiteSettings.popupLink}
-          delayMs={websiteSettings.popupDelayMs}
-          frequencyHours={websiteSettings.popupFrequencyHours}
-        />
-        <main className="pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">{children}</main>
-        <MobileBottomNav categories={categories} />
+        <StoreHeader
+            logoUrl={logoUrl}
+            siteName={siteName}
+            hotline={websiteSettings.hotline}
+            categories={categories}
+            pages={pages}
+            headerNavItems={websiteSettings.headerNavItems}
+            isAdmin={isAdminRole}
+            showAdminNav={showAdminNav}
+            searchPlaceholder={searchPlaceholder}
+            showTopbar={websiteSettings.showStorefrontTopbar}
+            topbarLeftText={websiteSettings.topbarLeftText}
+            topbarShippingText={websiteSettings.topbarShippingText}
+            topbarCommitmentText={websiteSettings.topbarCommitmentText}
+            showHeaderSearch={websiteSettings.showHeaderSearch}
+            showHeaderCartIcon={websiteSettings.showHeaderCartIcon}
+            showHeaderAdminMenu={websiteSettings.showHeaderAdminMenu}
+            isAuthenticated={Boolean(session?.user?.id)}
+            mobileStorefrontAccountHref={mobileStorefrontAccountHref}
+            desktopCategoryLimit={websiteSettings.headerDesktopCategoryLimit}
+            mobileCategoryLimit={websiteSettings.headerMobileCategoryLimit}
+          />
+          {websiteSettings.showTopHighlights && trustItems.length ? (
+            <div className="border-b border-zinc-200 bg-zinc-50">
+              <div className={`${MARKETING_FRAME} grid grid-cols-2 gap-3 py-3 sm:grid-cols-4`}>
+                {trustItems.map((item, index) => (
+                  <div key={`${item.title}-${index}`} className="min-w-0 text-center">
+                    <p className="text-xs font-semibold text-zinc-900 sm:text-sm">{item.title}</p>
+                    {item.description.trim() ? (
+                      <p className="mt-0.5 text-[11px] leading-snug text-zinc-600 sm:text-xs">
+                        {item.description}
+                      </p>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          <Suspense fallback={null}>
+            <AnalyticsPageViewTracker />
+          </Suspense>
+          <StorefrontPopup
+            enabled={websiteSettings.popupEnabled}
+            title={websiteSettings.popupTitle}
+            content={websiteSettings.popupContent}
+            imageUrl={websiteSettings.popupImageUrl}
+            link={websiteSettings.popupLink}
+            delayMs={websiteSettings.popupDelayMs}
+            frequencyHours={websiteSettings.popupFrequencyHours}
+          />
+          <main className="flex w-full min-w-0 max-w-none flex-1 flex-col min-h-0 pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
+            {children}
+          </main>
+          <MobileBottomNav categories={categories} />
         {trackingEnabled && websiteSettings.bodyScripts.trim() ? (
           <div suppressHydrationWarning dangerouslySetInnerHTML={{ __html: websiteSettings.bodyScripts }} />
         ) : null}

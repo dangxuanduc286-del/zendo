@@ -9,7 +9,7 @@ import MediaImage from "../../../components/shared/media-image";
 import type { ProductCardData } from "../../../components/storefront/product-card";
 import { getThemeSettings, getWebsiteSettings } from "../../../lib/settings";
 import { buildBreadcrumbJsonLd, buildDynamicMetadata } from "../../../lib/seo";
-import { STOREFRONT_FRAME } from "../../../lib/storefront-frame";
+import { MARKETING_FRAME } from "../../../lib/storefront-frame";
 import {
   loadStorefrontHomeData,
   type HomeProductMetrics,
@@ -147,7 +147,7 @@ export default async function StorefrontHomePage(): Promise<JSX.Element> {
 
   return (
     <div className="min-h-screen bg-[var(--z-bg)] text-[var(--z-text-main)]">
-      <main className={`${STOREFRONT_FRAME} space-y-8 pb-10 pt-3 sm:space-y-10 sm:pb-12 sm:pt-5 lg:space-y-12 lg:pb-12 lg:pt-6`}>
+      <main className={`${MARKETING_FRAME} space-y-8 pb-10 pt-3 sm:space-y-10 sm:pb-12 sm:pt-5 lg:space-y-12 lg:pb-12 lg:pt-6`}>
         {themeSettings.showHeroBanner ? (
           <HomeHeroMarketplace
             themeSettings={themeSettings}

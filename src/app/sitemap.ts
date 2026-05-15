@@ -51,10 +51,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   const [categories, products, posts, pages] = await Promise.all([
-    db.category.findMany({ where: { status: "PUBLISHED" }, select: { slug: true, updatedAt: true } }),
-    db.product.findMany({ where: { status: "ACTIVE" }, select: { slug: true, updatedAt: true } }),
-    db.post.findMany({ where: { status: "PUBLISHED" }, select: { slug: true, updatedAt: true } }),
-    db.page.findMany({ where: { status: "PUBLISHED" }, select: { slug: true, updatedAt: true } }),
+    db.category
+      .findMany({ where: { status: "PUBLISHED" }, select: { slug: true, updatedAt: true } })
+      .catch((): Array<{ slug: string; updatedAt: Date }> => []),
+    db.product
+      .findMany({ where: { status: "ACTIVE" }, select: { slug: true, updatedAt: true } })
+      .catch((): Array<{ slug: string; updatedAt: Date }> => []),
+    db.post
+      .findMany({ where: { status: "PUBLISHED" }, select: { slug: true, updatedAt: true } })
+      .catch((): Array<{ slug: string; updatedAt: Date }> => []),
+    db.page
+      .findMany({ where: { status: "PUBLISHED" }, select: { slug: true, updatedAt: true } })
+      .catch((): Array<{ slug: string; updatedAt: Date }> => []),
   ]);
 
   const categoryRoutes: SitemapItem[] = categories.map((item) => ({

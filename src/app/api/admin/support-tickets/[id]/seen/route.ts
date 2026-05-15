@@ -2,8 +2,13 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../../../../../lib/auth";
 import { isAdminSupportTicketRole } from "../../../../../../lib/admin-support-tickets";
+import { supportTicketNotArchivedWhere } from "../../../../../../lib/support-ticket-archive";
 import { markSupportTicketMessagesSeen } from "../../../../../../lib/support-ticket-seen";
-import { triggerSupportTicketSeenUpdate } from "../../../../../../lib/support-ticket-pusher";
+import {
+  triggerSupportAdminInboxTotalsRefresh,
+  triggerSupportTicketSeenUpdate,
+} from "../../../../../../lib/support-ticket-pusher";
+import { getAdminSupportTicketUnreadTotalDb } from "../../../../../../lib/admin-support-tickets";
 
 type ParamsInput = Promise<{ id: string }>;
 
@@ -23,8 +28,8 @@ export async function POST(_request: Request, { params }: { params: ParamsInput 
     }
 
     const { db } = await import("../../../../../../lib/db");
-    const ticket = await db.supportTicket.findUnique({
-      where: { id: id.trim() },
+    const ticket = await db.supportTicket.findFirst({
+      where: { id: id.trim(), ...supportTicketNotArchivedWhere },
       select: { id: true },
     });
     if (!ticket) {
@@ -33,6 +38,9 @@ export async function POST(_request: Request, { params }: { params: ParamsInput 
 
     const payload = await markSupportTicketMessagesSeen(ticket.id, session.user.id, "admin");
     triggerSupportTicketSeenUpdate(ticket.id, payload);
+
+    const totalAdminUnread = await getAdminSupportTicketUnreadTotalDb();
+    triggerSupportAdminInboxTotalsRefresh({ totalAdminUnread, ticketId: ticket.id });
 
     return NextResponse.json({ ok: true, ...payload });
   } catch {

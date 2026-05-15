@@ -4,15 +4,27 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "../../../../../lib/auth";
 import { listAllSupportTicketMessagesForTicketId } from "../../../../../lib/account-support-tickets";
 import {
+  getAdminSupportTicketUnreadTotalDb,
   isAdminSupportTicketRole,
+  parseSupportTicketBlockReason,
   parseSupportTicketPriority,
   parseSupportTicketStatus,
   parseSupportTicketTags,
 } from "../../../../../lib/admin-support-tickets";
+import { supportTicketNotArchivedWhere } from "../../../../../lib/support-ticket-archive";
 import {
   adminSupportTicketDetailSelect,
   serializeAdminSupportTicketDetail,
 } from "../../../../../lib/support-ticket-api-serializers";
+import { serializeSupportTicketMessageForApi } from "../../../../../lib/support-ticket-message-serialize";
+import {
+  triggerSupportAdminInboxTicketArchived,
+  triggerSupportAdminInboxTicketBlockUpdated,
+  triggerSupportAdminInboxTicketRestored,
+  triggerSupportTicketTicketArchived,
+  triggerSupportTicketTicketBlockState,
+  triggerSupportTicketTicketRestored,
+} from "../../../../../lib/support-ticket-pusher";
 
 type ParamsInput = Promise<{ id: string }>;
 
@@ -36,8 +48,8 @@ export async function GET(
 
     const { db } = await import("../../../../../lib/db");
 
-    const ticket = await db.supportTicket.findUnique({
-      where: { id: id.trim() },
+    const ticket = await db.supportTicket.findFirst({
+      where: { id: id.trim(), ...supportTicketNotArchivedWhere },
       select: adminSupportTicketDetailSelect,
     });
 
@@ -47,14 +59,7 @@ export async function GET(
 
     const messages = await listAllSupportTicketMessagesForTicketId(ticket.id);
 
-    const messagePayload = messages.map((m) => ({
-      id: m.id,
-      body: m.body,
-      senderRole: m.senderRole,
-      fromAdmin: Boolean(m.senderAdminId),
-      createdAt: m.createdAt.toISOString(),
-      seenBy: m.seenBy,
-    }));
+    const messagePayload = messages.map((m) => serializeSupportTicketMessageForApi(m));
 
     return NextResponse.json({
       ok: true,
@@ -99,30 +104,38 @@ export async function PATCH(
     const hasPriority = Object.prototype.hasOwnProperty.call(rec, "priority");
     const hasAssigned = Object.prototype.hasOwnProperty.call(rec, "assignedAdminId");
     const hasTags = Object.prototype.hasOwnProperty.call(rec, "tags");
+    const hasArchived = Object.prototype.hasOwnProperty.call(rec, "archived");
+    const hasDeleted = Object.prototype.hasOwnProperty.call(rec, "deleted");
+    const hasBlocked = Object.prototype.hasOwnProperty.call(rec, "blocked");
 
-    if (!hasStatus && !hasPriority && !hasAssigned && !hasTags) {
+    const wantsArchive =
+      (hasArchived && rec.archived === true) || (hasDeleted && rec.deleted === true);
+    const wantsRestore =
+      (hasArchived && rec.archived === false) || (hasDeleted && rec.deleted === false);
+    if (wantsArchive && wantsRestore) {
+      return NextResponse.json({ message: "Không thể vừa lưu trữ vừa khôi phục trong một yêu cầu." }, { status: 400 });
+    }
+
+    const wantsBlock = hasBlocked && rec.blocked === true;
+    const wantsUnblock = hasBlocked && rec.blocked === false;
+    if (wantsBlock && wantsUnblock) {
+      return NextResponse.json({ message: "blocked không hợp lệ." }, { status: 400 });
+    }
+    if (wantsArchive && wantsBlock) {
       return NextResponse.json(
-        { message: "Thiếu trường cập nhật (status, priority, assignedAdminId, tags)." },
+        { message: "Không thể vừa lưu trữ / xóa chat vừa chặn trong một yêu cầu." },
         { status: 400 },
       );
     }
 
-    const data: Prisma.SupportTicketUncheckedUpdateInput = {};
-
-    if (hasStatus) {
-      const status = parseSupportTicketStatus(rec.status);
-      if (!status) {
-        return NextResponse.json({ message: "Trạng thái không hợp lệ." }, { status: 400 });
-      }
-      data.status = status;
-    }
-
-    if (hasPriority) {
-      const priority = parseSupportTicketPriority(rec.priority);
-      if (!priority) {
-        return NextResponse.json({ message: "Mức ưu tiên không hợp lệ (LOW | MEDIUM | HIGH)." }, { status: 400 });
-      }
-      data.priority = priority;
+    if (!hasStatus && !hasPriority && !hasAssigned && !hasTags && !hasArchived && !hasDeleted && !hasBlocked) {
+      return NextResponse.json(
+        {
+          message:
+            "Thiếu trường cập nhật (status, priority, assignedAdminId, tags, archived, deleted, blocked).",
+        },
+        { status: 400 },
+      );
     }
 
     const { db } = await import("../../../../../lib/db");
@@ -130,38 +143,113 @@ export async function PATCH(
 
     const found = await db.supportTicket.findUnique({
       where: { id: tid },
-      select: { id: true },
+      select: { id: true, deletedAt: true },
     });
     if (!found) {
       return NextResponse.json({ message: "Không tìm thấy ticket." }, { status: 404 });
     }
 
-    if (hasAssigned) {
-      const v = rec.assignedAdminId;
-      if (v === null || v === "") {
-        data.assignedAdminId = null;
-      } else if (typeof v === "string") {
-        const aid = v.trim();
-        if (!aid) {
-          data.assignedAdminId = null;
-        } else {
-          const adm = await db.admin.findUnique({ where: { id: aid }, select: { id: true } });
-          if (!adm) {
-            return NextResponse.json({ message: "Không tìm thấy admin được gán." }, { status: 400 });
-          }
-          data.assignedAdminId = aid;
+    const isArchivedRow = Boolean(found.deletedAt);
+
+    if (isArchivedRow) {
+      const restoring = wantsRestore;
+      const idempotentArchive = wantsArchive;
+      if (idempotentArchive) {
+        const ticketRow = await db.supportTicket.findUnique({
+          where: { id: tid },
+          select: adminSupportTicketDetailSelect,
+        });
+        if (!ticketRow) {
+          return NextResponse.json({ message: "Không tìm thấy ticket." }, { status: 404 });
         }
-      } else {
-        return NextResponse.json({ message: "assignedAdminId không hợp lệ." }, { status: 400 });
+        return NextResponse.json({
+          ok: true,
+          ticket: serializeAdminSupportTicketDetail(ticketRow),
+        });
+      }
+      if (!restoring) {
+        if (wantsBlock || wantsUnblock) {
+          // cho phép chặn / bỏ chặn khi ticket đang ẩn khỏi danh sách admin
+        } else {
+          return NextResponse.json({ message: "Ticket đã được lưu trữ." }, { status: 404 });
+        }
       }
     }
 
-    if (hasTags) {
-      const parsed = parseSupportTicketTags(rec.tags);
-      if (parsed.ok === false) {
-        return NextResponse.json({ message: parsed.message }, { status: 400 });
+    const data: Prisma.SupportTicketUncheckedUpdateInput = {};
+
+    const allowFieldPatches = !isArchivedRow || (isArchivedRow && wantsRestore);
+
+    if (allowFieldPatches) {
+      if (hasStatus) {
+        const status = parseSupportTicketStatus(rec.status);
+        if (!status) {
+          return NextResponse.json({ message: "Trạng thái không hợp lệ." }, { status: 400 });
+        }
+        data.status = status;
       }
-      data.tags = parsed.tags;
+
+      if (hasPriority) {
+        const priority = parseSupportTicketPriority(rec.priority);
+        if (!priority) {
+          return NextResponse.json(
+            { message: "Mức ưu tiên không hợp lệ (LOW | MEDIUM | HIGH)." },
+            { status: 400 },
+          );
+        }
+        data.priority = priority;
+      }
+
+      if (hasAssigned) {
+        const v = rec.assignedAdminId;
+        if (v === null || v === "") {
+          data.assignedAdminId = null;
+        } else if (typeof v === "string") {
+          const aid = v.trim();
+          if (!aid) {
+            data.assignedAdminId = null;
+          } else {
+            const adm = await db.admin.findUnique({ where: { id: aid }, select: { id: true } });
+            if (!adm) {
+              return NextResponse.json({ message: "Không tìm thấy admin được gán." }, { status: 400 });
+            }
+            data.assignedAdminId = aid;
+          }
+        } else {
+          return NextResponse.json({ message: "assignedAdminId không hợp lệ." }, { status: 400 });
+        }
+      }
+
+      if (hasTags) {
+        const parsed = parseSupportTicketTags(rec.tags);
+        if (parsed.ok === false) {
+          return NextResponse.json({ message: parsed.message }, { status: 400 });
+        }
+        data.tags = parsed.tags;
+      }
+    }
+
+    if (wantsArchive) {
+      data.deletedAt = new Date();
+      data.deletedByAdminId = session.user.id;
+      data.status = "CLOSED";
+    } else if (wantsRestore) {
+      data.deletedAt = null;
+      data.deletedByAdminId = null;
+    }
+
+    if (wantsBlock) {
+      data.blockedAt = new Date();
+      data.blockedByAdminId = session.user.id;
+      data.blockReason = parseSupportTicketBlockReason(rec.blockReason);
+    } else if (wantsUnblock) {
+      data.blockedAt = null;
+      data.blockedByAdminId = null;
+      data.blockReason = null;
+    }
+
+    if (Object.keys(data).length === 0) {
+      return NextResponse.json({ message: "Không có thay đổi hợp lệ." }, { status: 400 });
     }
 
     await db.supportTicket.update({
@@ -175,6 +263,28 @@ export async function PATCH(
     });
     if (!ticket) {
       return NextResponse.json({ message: "Không tìm thấy ticket." }, { status: 404 });
+    }
+
+    if (wantsArchive || wantsRestore) {
+      const totalAdminUnread = await getAdminSupportTicketUnreadTotalDb();
+      const inboxPayload = { totalAdminUnread, ticketId: tid };
+      if (wantsArchive) {
+        triggerSupportTicketTicketArchived(tid);
+        triggerSupportAdminInboxTicketArchived(inboxPayload);
+      } else {
+        triggerSupportTicketTicketRestored(tid);
+        triggerSupportAdminInboxTicketRestored(inboxPayload);
+      }
+    }
+
+    if (wantsBlock || wantsUnblock) {
+      const totalAdminUnread = await getAdminSupportTicketUnreadTotalDb();
+      triggerSupportTicketTicketBlockState(tid, {
+        blocked: Boolean(ticket.blockedAt),
+        blockedAt: ticket.blockedAt ? ticket.blockedAt.toISOString() : null,
+        blockReason: ticket.blockReason,
+      });
+      triggerSupportAdminInboxTicketBlockUpdated({ totalAdminUnread, ticketId: tid });
     }
 
     return NextResponse.json({

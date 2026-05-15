@@ -4,6 +4,7 @@ import type {
   AccountOrderStatusFilter,
 } from "./order-status";
 import { orderStatusesForAccountFilter, orderStatusesForPhase2ApiFilter } from "./order-status";
+import { resolveMediaUrl } from "./media";
 
 export type ListCustomerAccountOrdersParams = {
   statusFilter?: AccountOrderStatusFilter;
@@ -32,7 +33,13 @@ export type CustomerAccountOrderRow = Pick<
   | "canceledAt"
   | "cancelReason"
 > & {
+  /** Tổng số lượng (tổng quantity các dòng). */
   itemCount: number;
+  /** Số dòng sản phẩm trong đơn. */
+  lineCount: number;
+  previewProductName: string;
+  /** URL ảnh đã chuẩn hóa (ảnh đầu tiên của sản phẩm dòng đầu). */
+  previewImageUrl: string;
 };
 
 function clampPage(value: unknown): number {
@@ -112,15 +119,36 @@ export async function listOrdersForCustomerAccount(
         updatedAt: true,
         canceledAt: true,
         cancelReason: true,
-        items: { select: { quantity: true } },
+        items: {
+          orderBy: { createdAt: "asc" },
+          select: {
+            productName: true,
+            quantity: true,
+            product: {
+              select: {
+                images: {
+                  orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
+                  take: 1,
+                  select: { url: true },
+                },
+              },
+            },
+          },
+        },
       },
     }),
   ]);
 
   const orders: CustomerAccountOrderRow[] = rows.map((row) => {
     const { items, ...rest } = row;
-    const itemCount = items.reduce((sum, it) => sum + (it.quantity ?? 0), 0);
-    return { ...rest, itemCount };
+    const lines = items ?? [];
+    const first = lines[0];
+    const itemCount = lines.reduce((sum, it) => sum + Math.max(0, Math.floor(Number(it.quantity ?? 0))), 0);
+    const lineCount = lines.length;
+    const previewProductName = (first?.productName ?? "").trim() || "Sản phẩm";
+    const rawUrl = first?.product?.images?.[0]?.url;
+    const previewImageUrl = resolveMediaUrl(typeof rawUrl === "string" ? rawUrl : "").trim();
+    return { ...rest, itemCount, lineCount, previewProductName, previewImageUrl };
   });
 
   return { orders, total, page, pageSize };

@@ -2,8 +2,20 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import {
+  BadgeCheck,
+  Camera,
+  Crown,
+  Gem,
+  Loader2,
+  Medal,
+  Package,
+  Sparkles,
+  TicketPercent,
+  Trash2,
+} from "lucide-react";
 import { signOut } from "next-auth/react";
-import { ChangeEvent, useEffect, useRef, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import ChangePasswordForm from "../auth/change-password-form";
@@ -17,6 +29,7 @@ import { useSupportChatStore } from "../../stores/supportChatStore";
 import AccountMobileMenuDrawer, { type AccountMobileNavItem } from "./account-mobile-menu-drawer";
 import { AccountNotificationsSection } from "./account-notifications-section";
 import AccountPolicyHubPanel from "./account-policy-hub-panel";
+import { AffiliateCtvAccountApplyGate } from "./affiliate-ctv-account-apply-gate";
 import {
   getDistrictsByProvince,
   getProvinces,
@@ -24,6 +37,7 @@ import {
   normalizeAddressKeyword,
 } from "../../lib/vietnam-addresses";
 import type { PolicyHubCard } from "../../lib/site-policy-public";
+import { PurchaseHistoryOrderThumb } from "./purchase-history-order-thumb";
 
 const PurchaseHistoryPanel = dynamic(() => import("./purchase-history-panel"), {
   loading: () => <div className="rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm">Đang tải...</div>,
@@ -88,6 +102,7 @@ type DashboardData = {
     createdAt: string;
     itemCount: number;
     productNames: string[];
+    linePreviews: Array<{ productName: string; quantity: number; imageUrl: string }>;
   }>;
   vouchers: {
     active: Array<{ code: string; name: string; description: string; expiresAt: string }>;
@@ -126,6 +141,20 @@ type DashboardData = {
     totalClicks: number;
     referredOrders: number;
   };
+  loyalty: {
+    points: number;
+    memberRank: string;
+    lifetimeSpent: number;
+    completedOrders: number;
+    transactions: Array<{
+      id: string;
+      points: number;
+      type: string;
+      description: string;
+      createdAt: string;
+      orderCode: string | null;
+    }>;
+  };
 };
 
 type TabKey =
@@ -147,7 +176,20 @@ type AccountNavItem =
   | { kind: "support"; label: string; enabled: boolean };
 
 const MENU_BASE_CLASS =
-  "rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 text-sm font-medium text-[#0F172A] transition hover:bg-[#EFF6FF]";
+  "rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 text-sm font-medium text-[#0F172A] transition hover:bg-[#EFF6FF] lg:flex lg:h-11 lg:items-center lg:justify-between lg:rounded-2xl lg:px-4 lg:text-sm lg:font-medium lg:transition-all";
+
+/** Mobile: full-bleed, ít khung lồng — desktop giữ nguyên qua lg:. */
+const MOBILE_PANEL_FLAT =
+  "max-lg:rounded-none max-lg:border-x-0 max-lg:border-b-0 max-lg:border-t max-lg:border-[#E2E8F0]/90 max-lg:shadow-none max-lg:bg-white max-lg:px-3 max-lg:py-3.5 max-lg:sm:px-3.5 max-lg:sm:py-4";
+const MOBILE_HERO_SHELL =
+  "max-lg:rounded-none max-lg:border-0 max-lg:shadow-none max-lg:bg-white max-lg:p-0 max-lg:sm:p-0";
+const MOBILE_HERO_BLOCK =
+  "max-lg:rounded-none max-lg:border-0 max-lg:border-b max-lg:border-slate-200/80 max-lg:shadow-none max-lg:bg-white max-lg:p-4 max-lg:sm:p-4";
+const MOBILE_PROMO_BLOCK =
+  "max-lg:rounded-none max-lg:border-0 max-lg:border-b max-lg:border-slate-200/80 max-lg:shadow-none max-lg:bg-white max-lg:p-4 max-lg:gap-3 max-lg:sm:gap-3";
+const MOBILE_OVERVIEW_TILE =
+  "max-lg:rounded-lg max-lg:border-0 max-lg:bg-slate-50 max-lg:p-2.5 max-lg:shadow-none max-lg:hover:bg-slate-50 max-lg:hover:shadow-none";
+const TAB_PANEL_CLASS = `w-full min-w-0 rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 ${MOBILE_PANEL_FLAT}`;
 
 function mapOrderTimeline(status: string): {
   finalLabel: string;
@@ -244,6 +286,61 @@ function isPublicOrigin(value: string): boolean {
   const text = value.trim().toLowerCase();
   if (!text) return false;
   return !text.includes("localhost") && !text.includes("127.0.0.1");
+}
+
+const LOYALTY_TIERS = [
+  { label: "Đồng", min: 0, next: 200, Icon: Medal },
+  { label: "Bạc", min: 200, next: 1000, Icon: Medal },
+  { label: "Vàng", min: 1000, next: 5000, Icon: Crown },
+  { label: "Kim cương", min: 5000, next: null as number | null, Icon: Gem },
+] as const;
+
+const LOYALTY_TIER_BENEFITS: readonly (readonly string[])[] = [
+  ["Voucher & ưu đãi theo chương trình", "Tích điểm theo trạng thái thanh toán trên đơn (thẻ/ví ngay; COD/CK khi shop xác nhận)"],
+  ["Ưu đãi riêng cho hạng Bạc", "Miễn phí ship cho đơn đủ điều kiện"],
+  ["Ưu tiên hỗ trợ", "Tham gia flash sale sớm hơn"],
+  ["Ưu đãi VIP", "Tích điểm & quyền lợi ưu tiên"],
+] as const;
+
+function computeLoyaltyUi(points: number): {
+  tierIndex: number;
+  tierLabel: string;
+  progress: number;
+  pointsLine: string;
+  subline: string;
+  showBar: boolean;
+} {
+  let tierIndex = 0;
+  for (let i = LOYALTY_TIERS.length - 1; i >= 0; i--) {
+    if (points >= LOYALTY_TIERS[i].min) {
+      tierIndex = i;
+      break;
+    }
+  }
+  const t = LOYALTY_TIERS[tierIndex];
+  const next = t.next;
+  if (next == null) {
+    return {
+      tierIndex,
+      tierLabel: t.label,
+      progress: 1,
+      pointsLine: `${points.toLocaleString("vi-VN")} điểm`,
+      subline: "Bạn đang ở hạng thành viên cao nhất.",
+      showBar: false,
+    };
+  }
+  const span = next - t.min;
+  const progress = span > 0 ? Math.min(1, Math.max(0, (points - t.min) / span)) : 1;
+  const remain = Math.max(0, next - points);
+  const nextLabel = tierIndex < LOYALTY_TIERS.length - 1 ? LOYALTY_TIERS[tierIndex + 1].label : "";
+  return {
+    tierIndex,
+    tierLabel: t.label,
+    progress,
+    pointsLine: `${points.toLocaleString("vi-VN")} / ${next.toLocaleString("vi-VN")} điểm`,
+    subline: `Còn ${remain.toLocaleString("vi-VN")} điểm để lên ${nextLabel}`,
+    showBar: true,
+  };
 }
 
 const ACCOUNT_TAB_KEYS = new Set<TabKey>([
@@ -386,7 +483,7 @@ export default function CustomerBuyerAccountView({
   const affiliateMetricLabel = data.affiliate.isActive ? "Hoa hồng / điểm" : "Điểm tích lũy";
   const affiliateMetricValue = data.affiliate.isActive
     ? data.stats.affiliateCommission + data.stats.rewardPoints
-    : data.stats.rewardPoints;
+    : data.loyalty.points;
   const shoppingHomeHref = "/";
   /** Luồng khách/CTV mua: luôn hiển thị CTA mua sắm theo UX chuẩn khách hàng. */
   const showShoppingCta = true;
@@ -423,6 +520,41 @@ export default function CustomerBuyerAccountView({
       enabled: true,
     },
   ].filter((item) => item.enabled);
+
+  const loyaltyUi = useMemo(() => computeLoyaltyUi(data.loyalty.points), [data.loyalty.points]);
+
+  const overviewActivityLines = useMemo(() => {
+    const lines: Array<{ title: string; meta: string }> = [];
+    const sortedOrders = [...data.orders].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+    for (const order of sortedOrders.slice(0, 3)) {
+      const ui = getOrderStatusUi(order.orderStatus);
+      lines.push({
+        title: `Đơn #${order.code} · ${ui.label}`,
+        meta: new Date(order.createdAt).toLocaleDateString("vi-VN"),
+      });
+    }
+    if (data.vouchers.active.length > 0) {
+      lines.push({
+        title: `${data.vouchers.active.length} voucher đang khả dụng trong kho của bạn`,
+        meta: "Ưu đãi",
+      });
+    }
+    for (const item of liveNotifications.items.slice(0, 2)) {
+      lines.push({
+        title: item.title,
+        meta: new Date(item.createdAt).toLocaleDateString("vi-VN"),
+      });
+    }
+    if (!data.affiliate.isActive) {
+      lines.push({
+        title: `${data.loyalty.points.toLocaleString("vi-VN")} điểm thưởng đang hiệu lực trên tài khoản`,
+        meta: "Tích lũy",
+      });
+    }
+    return lines.slice(0, 6);
+  }, [data.orders, data.vouchers.active, data.loyalty.points, liveNotifications.items, data.affiliate.isActive]);
 
   const menuItems: AccountNavItem[] = [
     { kind: "tab", label: "Tổng quan", tab: "overview", enabled: accountSettings.showOverview },
@@ -482,6 +614,7 @@ export default function CustomerBuyerAccountView({
   } as const;
   const visibleCoupons = couponMap[couponFilter];
   const accountSubtitle = accountSettings.accountSubtitle || accountSettings.welcomeMessage || "Quản lý thông tin tài khoản của bạn.";
+  const contactLooksLikePhone = !data.contactText.trim().includes("@");
   const runtimeOrigin =
     typeof window !== "undefined" && isPublicOrigin(window.location.origin)
       ? window.location.origin
@@ -965,18 +1098,25 @@ export default function CustomerBuyerAccountView({
     }
   };
 
-  const statsGrid =
+  const statCardHelpers: Record<string, string> = {
+    orders: "Tổng đơn đã đặt",
+    processing: "Đơn đang xử lý",
+    vouchers: "Voucher khả dụng",
+    rewards: "Điểm thưởng hiện tại",
+  };
+
+  const statsGridMobile =
     quickCards.length > 0 ? (
       <div
         id="tong-quan-stats"
-        className="grid min-w-0 w-full grid-cols-2 gap-2 sm:gap-2.5 lg:gap-3 xl:grid-cols-4 xl:gap-3"
+        className="grid min-w-0 w-full grid-cols-2 gap-1.5 px-3 pb-3 lg:hidden"
         role="region"
         aria-label="Thống kê tài khoản"
       >
         {quickCards.map((card) => (
           <article
             key={card.key}
-            className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-2.5 py-2 shadow-sm sm:px-3 sm:py-2.5"
+            className="rounded-lg border-0 bg-slate-50 px-2 py-1.5 shadow-none sm:rounded-xl sm:border sm:border-[#E2E8F0] sm:bg-[#F8FAFC] sm:px-2.5 sm:py-2 sm:shadow-sm"
           >
             <p className="text-[11px] font-medium leading-snug text-[#64748B] sm:text-xs">{card.label}</p>
             <p className="mt-0.5 truncate text-base font-bold tabular-nums text-[#0F172A] sm:text-lg">{card.value}</p>
@@ -985,8 +1125,53 @@ export default function CustomerBuyerAccountView({
       </div>
     ) : null;
 
+  const statsDashboardDesktop =
+    quickCards.length > 0 ? (
+      <section
+        className="hidden min-w-0 lg:col-start-2 lg:row-start-2 lg:mt-5 lg:block lg:w-full"
+        aria-label="Thống kê tài khoản (desktop)"
+      >
+        <div className="grid min-w-0 grid-cols-2 gap-4 2xl:grid-cols-4">
+          {quickCards.map((card) => {
+            const Icon =
+              card.key === "orders"
+                ? Package
+                : card.key === "processing"
+                  ? Loader2
+                  : card.key === "vouchers"
+                    ? TicketPercent
+                    : Sparkles;
+            const displayValue =
+              typeof card.value === "number" ? card.value.toLocaleString("vi-VN") : String(card.value);
+            return (
+              <article
+                key={`desktop-stat-${card.key}`}
+                className="group relative rounded-[24px] border border-orange-100 bg-gradient-to-br from-orange-50 to-amber-50 p-5 shadow-[0_4px_18px_rgba(251,146,60,0.08)] transition-all hover:-translate-y-px hover:shadow-[0_10px_30px_rgba(251,146,60,0.12)]"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-slate-600">{card.label}</p>
+                    <p className="mt-2 text-[36px] font-black leading-none tracking-[-0.05em] text-slate-900 tabular-nums">
+                      {displayValue}
+                    </p>
+                    <p className="mt-2 text-xs text-slate-500">{statCardHelpers[card.key] ?? ""}</p>
+                  </div>
+                  <div
+                    className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-orange-100 bg-white/80"
+                    aria-hidden
+                  >
+                    <Icon className="h-6 w-6 text-orange-500" strokeWidth={2} />
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+    ) : null;
+
   return (
-    <div className="w-full min-w-0 max-w-none space-y-4 bg-transparent">
+    <div className="w-full min-w-0 max-w-none space-y-0 bg-transparent max-lg:pb-2 lg:mx-auto lg:max-w-[1400px] lg:space-y-0 lg:px-4 lg:pb-8 lg:pt-2">
       <AccountMobileMenuDrawer
         items={enabledMenuItems.map((item) =>
           item.kind === "support"
@@ -1013,105 +1198,20 @@ export default function CustomerBuyerAccountView({
         }}
         supportUnreadTotal={supportUnreadTotal}
       />
-      <section className="w-full min-w-0 rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
-        <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(200px,42%)] lg:items-center lg:gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(240px,40%)]">
-          <div className="min-w-0 space-y-3">
-            <div className="flex flex-wrap items-center gap-3 lg:gap-4">
-              {currentAvatar ? (
-                <Image
-                  src={currentAvatar}
-                  alt={`${data.displayName} avatar`}
-                  width={72}
-                  height={72}
-                  className="h-12 w-12 shrink-0 rounded-full border border-[#E2E8F0] object-cover sm:h-14 sm:w-14 lg:h-[72px] lg:w-[72px]"
-                />
-              ) : (
-                <div className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#DBEAFE] text-lg font-bold text-[#1D4ED8] sm:h-14 sm:w-14 lg:h-[72px] lg:w-[72px]">
-                  {(data.displayName.trim()[0] || "Z").toUpperCase()}
-                </div>
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-medium uppercase tracking-wide text-[#64748B]">
-                  {accountSettings.accountTitle || "Tài khoản của tôi"}
-                </p>
-                <h2 className="truncate text-lg font-semibold text-[#0F172A]">{data.displayName}</h2>
-                <p className="truncate text-sm text-[#64748B]">{data.contactText}</p>
-                <p className="mt-0.5 line-clamp-1 text-xs text-[#64748B]">{accountSubtitle}</p>
-                {accountSettings.showProfile ? (
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("profile")}
-                    className="mt-1 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8]"
-                  >
-                    Chỉnh sửa hồ sơ
-                  </button>
-                ) : null}
-              </div>
-              <span className="rounded-full border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-1 text-xs font-semibold text-[#2563EB]">
-                {data.badge}
-              </span>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <input
-                ref={avatarInputRef}
-                type="file"
-                accept="image/*,.jpg,.jpeg,.png,.webp,.gif,.avif,.heic"
-                className="hidden"
-                onChange={onAvatarFileChange}
-              />
-              <button
-                type="button"
-                onClick={onPickAvatar}
-                disabled={avatarUploading}
-                className="inline-flex h-9 items-center rounded-lg border border-[#E2E8F0] bg-white px-3 text-xs font-semibold text-[#0F172A] hover:bg-[#EFF6FF] disabled:opacity-60"
-              >
-                {avatarUrl ? "Đổi ảnh" : "Tải ảnh lên"}
-              </button>
-              {avatarUrl ? (
-                <button
-                  type="button"
-                  onClick={onRemoveAvatar}
-                  disabled={avatarUploading}
-                  className="inline-flex h-9 items-center rounded-lg border border-[#E2E8F0] bg-white px-3 text-xs font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-60"
-                >
-                  Xóa ảnh
-                </button>
-              ) : null}
-              {avatarUploading ? <p className="text-xs text-[#64748B]">Đang tải ảnh...</p> : null}
-              {avatarMessage ? <p className="text-xs text-emerald-700">{avatarMessage}</p> : null}
-              {avatarError ? <p className="text-xs text-rose-700">{avatarError}</p> : null}
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Link
-                href={accountSettings.orderLookupUrl || "/tra-cuu-don-hang"}
-                className="inline-flex h-10 min-h-10 shrink-0 items-center rounded-xl bg-[#2563EB] px-4 text-sm font-semibold text-white hover:bg-[#1D4ED8]"
-              >
-                Theo dõi đơn hàng
-              </Link>
-              {showShoppingCta ? (
-                <Link
-                  href={shoppingHomeHref}
-                  className="inline-flex h-10 min-h-10 shrink-0 items-center rounded-xl bg-[#F59E0B] px-4 text-sm font-semibold text-white hover:bg-[#D97706]"
-                >
-                  {accountSettings.shoppingCtaText || "Tiếp tục mua sắm"}
-                </Link>
-              ) : null}
-            </div>
-          </div>
-          {statsGrid}
-        </div>
-      </section>
-
-      <section className="grid w-full min-w-0 grid-cols-1 gap-4 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)] xl:gap-5">
-        <aside className="hidden w-full min-w-0 rounded-2xl border border-[#E2E8F0] bg-white p-3 shadow-sm md:block lg:sticky lg:top-24 lg:self-start lg:p-4">
-          <div className="flex flex-wrap gap-2 lg:flex-col">
+      <section className="flex w-full min-w-0 flex-col gap-0 max-lg:gap-0 lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start lg:gap-6 lg:pt-0">
+        <aside
+          className={`order-2 hidden w-full min-w-0 shrink-0 rounded-2xl border border-[#E2E8F0] bg-white p-3 shadow-sm md:block lg:order-none lg:col-start-1 lg:row-start-1 lg:sticky lg:top-6 lg:self-start lg:max-h-[calc(100dvh-5rem)] lg:w-full lg:max-w-[260px] lg:overflow-y-auto lg:overscroll-contain lg:rounded-[28px] lg:border-slate-200 lg:p-4 lg:shadow-sm ${
+            activeTab === "overview" ? "lg:row-span-3" : "lg:row-span-1"
+          }`}
+        >
+          <div className="flex flex-wrap gap-2 lg:flex-col lg:gap-2">
             {enabledMenuItems.map((item) =>
               item.kind === "support" ? (
                 <button
                   key="nav-support-chat"
                   type="button"
                   onClick={() => useSupportChatStore.getState().open()}
-                  className={`${MENU_BASE_CLASS} flex min-h-10 min-w-0 basis-[calc(50%-0.25rem)] items-center justify-between gap-2 text-left lg:basis-auto border-[#E2E8F0] bg-white text-[#0F172A] hover:bg-[#EFF6FF]`}
+                  className={`${MENU_BASE_CLASS} min-h-10 min-w-0 basis-[calc(50%-0.25rem)] text-left lg:min-h-0 lg:basis-auto border-[#E2E8F0] bg-white text-[#0F172A] hover:bg-[#EFF6FF]`}
                 >
                   <span className="min-w-0 flex-1 truncate">{item.label}</span>
                   {supportUnreadTotal > 0 ? (
@@ -1126,7 +1226,7 @@ export default function CustomerBuyerAccountView({
                   type="button"
                   onClick={() => setActiveTab(item.tab)}
                   aria-current={activeTab === item.tab ? "page" : undefined}
-                  className={`${MENU_BASE_CLASS} flex min-h-10 min-w-0 basis-[calc(50%-0.25rem)] items-center justify-between gap-2 text-left lg:basis-auto ${
+                  className={`${MENU_BASE_CLASS} min-h-10 min-w-0 basis-[calc(50%-0.25rem)] text-left lg:min-h-0 lg:basis-auto ${
                     activeTab === item.tab
                       ? "!border-blue-300 !bg-blue-50 text-blue-900 font-semibold hover:!bg-blue-100"
                       : "border-[#E2E8F0] bg-white text-[#0F172A] hover:bg-[#EFF6FF]"
@@ -1158,25 +1258,284 @@ export default function CustomerBuyerAccountView({
               onClick={() => {
                 signOut({ callbackUrl: "/" }).catch(() => {});
               }}
-              className={`${MENU_BASE_CLASS} min-h-10 basis-[calc(50%-0.25rem)] text-left text-rose-600 hover:bg-rose-50 lg:basis-auto`}
+              className={`${MENU_BASE_CLASS} min-h-10 basis-[calc(50%-0.25rem)] text-left text-rose-600 hover:bg-rose-50 lg:min-h-0 lg:basis-auto`}
             >
               Đăng xuất
             </button>
           </div>
         </aside>
 
-        <div className="min-w-0 w-full max-w-none space-y-4">
+        {activeTab === "overview" ? (
+        <section
+          className={`order-1 w-full min-w-0 rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 ${MOBILE_HERO_SHELL} lg:order-none lg:col-start-2 lg:row-start-1 lg:relative lg:overflow-hidden lg:rounded-[36px] lg:border-slate-200/70 lg:bg-gradient-to-br lg:from-white lg:via-white lg:to-slate-50 lg:px-7 lg:py-6 lg:shadow-[0_12px_50px_rgba(15,23,42,0.06)]`}
+        >
+          <div
+            className="pointer-events-none absolute inset-0 hidden bg-[radial-gradient(circle_at_top_right,rgba(37,99,235,0.06),transparent_40%)] lg:block"
+            aria-hidden
+          />
+          <div className="relative flex flex-col gap-0 max-lg:gap-0 lg:min-w-0 lg:grid lg:grid-cols-[300px_minmax(0,1fr)_260px] lg:items-stretch lg:gap-6 lg:overflow-x-visible lg:tracking-[-0.03em] xl:grid-cols-[340px_minmax(0,1fr)_320px] xl:gap-7">
+            <div className="min-w-0 w-full lg:flex lg:h-full">
+              <div
+                className={`relative flex min-h-0 w-full flex-col rounded-[26px] border border-slate-200/80 bg-white p-6 shadow-[0_4px_28px_rgba(15,23,42,0.07)] sm:rounded-[28px] sm:p-8 ${MOBILE_HERO_BLOCK} lg:h-full lg:rounded-[30px] lg:p-8`}
+              >
+                <span className="absolute right-4 top-4 z-10 max-w-[calc(100%-2rem)] truncate rounded-full border border-slate-200/90 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-[#2563EB] sm:right-5 sm:top-5 sm:px-3 sm:text-xs">
+                  {data.badge}
+                </span>
+
+                <div className="flex justify-center pt-1 sm:pt-0">
+                  <div className="relative shrink-0">
+                    <div
+                      className="pointer-events-none absolute -inset-4 rounded-full bg-[#2563FF]/18 blur-2xl sm:-inset-5"
+                      aria-hidden
+                    />
+                    <div className="relative mx-auto h-[120px] w-[120px] overflow-hidden rounded-full border-[4px] border-white bg-slate-100 shadow-md sm:h-[148px] sm:w-[148px] sm:border-[5px] sm:shadow-[0_14px_44px_rgba(37,99,255,0.22)] lg:h-[176px] lg:w-[176px]">
+                      {currentAvatar ? (
+                        <Image
+                          src={currentAvatar}
+                          alt={`Ảnh đại diện ${data.displayName}`}
+                          width={180}
+                          height={180}
+                          className="h-full w-full object-cover object-center"
+                          sizes="(max-width: 640px) 168px, 180px"
+                          quality={90}
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#EFF6FF] to-[#BFDBFE] text-4xl font-bold text-[#2563FF] sm:text-5xl">
+                          {(data.displayName.trim()[0] || "Z").toUpperCase()}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-5 min-w-0 space-y-3 text-left max-lg:mt-4 max-lg:space-y-2.5 sm:mt-8 sm:space-y-5">
+                  <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-[#2563FF] sm:text-[13px] sm:tracking-[0.14em]">
+                    {accountSettings.accountTitle || "Tài khoản của tôi"}
+                  </p>
+                  <h2 className="truncate text-[1.625rem] font-bold leading-tight tracking-[-0.02em] text-[#0F172A] sm:text-[1.75rem] lg:text-[1.875rem]">
+                    {data.displayName}
+                  </h2>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <p className="min-w-0 truncate text-[15px] font-medium tabular-nums text-slate-600 sm:text-base">
+                      {data.contactText}
+                    </p>
+                    {contactLooksLikePhone ? (
+                      <BadgeCheck className="h-5 w-5 shrink-0 text-[#2563FF]" strokeWidth={2} aria-label="Đã xác minh" />
+                    ) : null}
+                  </div>
+                  <p className="text-[15px] leading-[1.65] text-slate-500 sm:text-base sm:leading-relaxed">{accountSubtitle}</p>
+                  {accountSettings.showProfile ? (
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab("profile")}
+                      className="text-left text-sm font-semibold text-[#2563FF] underline-offset-4 hover:underline lg:hidden"
+                    >
+                      Chỉnh sửa hồ sơ
+                    </button>
+                  ) : null}
+                </div>
+
+                <div className={`mt-8 flex min-w-0 flex-row gap-3 sm:gap-3.5 ${avatarUrl ? "" : "flex-col sm:flex-row"}`}>
+                  <input
+                    ref={avatarInputRef}
+                    type="file"
+                    accept="image/*,.jpg,.jpeg,.png,.webp,.gif,.avif,.heic"
+                    className="hidden"
+                    onChange={onAvatarFileChange}
+                  />
+                  <button
+                    type="button"
+                    onClick={onPickAvatar}
+                    disabled={avatarUploading}
+                    className={`inline-flex h-12 min-h-12 items-center justify-center gap-2 rounded-xl border-2 border-[#2563FF]/35 bg-white px-3 text-sm font-semibold text-[#2563FF] shadow-sm transition-colors hover:border-[#2563FF]/55 hover:bg-[#2563FF]/[0.04] disabled:pointer-events-none disabled:opacity-50 sm:px-4 ${avatarUrl ? "min-w-0 flex-1" : "w-full sm:w-auto sm:flex-1"}`}
+                  >
+                    <Camera className="h-[18px] w-[18px] shrink-0" strokeWidth={2} aria-hidden />
+                    <span className="truncate">{avatarUrl ? "Đổi ảnh" : "Tải ảnh lên"}</span>
+                  </button>
+                  {avatarUrl ? (
+                    <button
+                      type="button"
+                      onClick={onRemoveAvatar}
+                      disabled={avatarUploading}
+                      className="inline-flex h-12 min-h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl border-2 border-rose-200/90 bg-white px-3 text-sm font-semibold text-rose-600 shadow-sm transition-colors hover:border-rose-300 hover:bg-rose-50/80 disabled:pointer-events-none disabled:opacity-50 sm:px-4"
+                    >
+                      <Trash2 className="h-[18px] w-[18px] shrink-0" strokeWidth={2} aria-hidden />
+                      <span className="truncate">Xóa ảnh</span>
+                    </button>
+                  ) : null}
+                </div>
+                {avatarUploading ? <p className="mt-3 text-sm text-slate-500">Đang tải ảnh...</p> : null}
+                {avatarMessage ? <p className="mt-3 text-sm text-emerald-700">{avatarMessage}</p> : null}
+                {avatarError ? <p className="mt-3 text-sm text-rose-700">{avatarError}</p> : null}
+              </div>
+            </div>
+
+            {!data.affiliate.isActive ? (
+            <div className="hidden min-h-0 min-w-0 w-full lg:flex lg:h-full">
+              <div className="relative flex h-full min-h-0 w-full flex-col gap-5 rounded-[26px] border border-slate-200/80 bg-white p-6 shadow-[0_4px_28px_rgba(15,23,42,0.07)] sm:rounded-[28px] sm:gap-6 sm:p-8 lg:rounded-[30px] lg:p-8">
+              <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-[#2563FF] sm:text-[13px] sm:tracking-[0.14em]">
+                Rank thành viên
+              </p>
+              <p className="text-lg font-black tracking-[-0.03em] text-slate-900">Thành viên {loyaltyUi.tierLabel}</p>
+              <p className="text-sm font-medium tabular-nums tracking-[-0.02em] text-slate-600">{loyaltyUi.pointsLine}</p>
+              <p className="text-xs leading-relaxed text-slate-500">{loyaltyUi.subline}</p>
+              <div className="flex justify-between gap-1.5">
+                {LOYALTY_TIERS.map((tier, i) => {
+                  const TierIcon = tier.Icon;
+                  const active = i === loyaltyUi.tierIndex;
+                  const passed = i < loyaltyUi.tierIndex;
+                  return (
+                    <div key={tier.label} className="flex min-w-0 flex-1 flex-col items-center gap-1">
+                      <div
+                        className={`flex h-9 w-9 items-center justify-center rounded-xl border sm:h-10 sm:w-10 sm:rounded-2xl ${
+                          active
+                            ? "border-[#2563EB] bg-blue-50 text-[#2563EB] shadow-sm"
+                            : passed
+                              ? "border-emerald-200 bg-emerald-50 text-emerald-600"
+                              : "border-slate-200 bg-white text-slate-300"
+                        }`}
+                      >
+                        <TierIcon className="h-4 w-4 sm:h-5 sm:w-5" strokeWidth={2} aria-hidden />
+                      </div>
+                      <span
+                        className={`text-center text-[10px] font-semibold leading-tight ${active ? "text-[#2563EB]" : "text-slate-500"}`}
+                      >
+                        {tier.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              {loyaltyUi.showBar ? (
+                <div className="h-2.5 overflow-hidden rounded-full bg-slate-200">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-[#2563EB] to-sky-400 transition-all duration-500 ease-out"
+                    style={{ width: `${Math.round(loyaltyUi.progress * 100)}%` }}
+                  />
+                </div>
+              ) : (
+                <div className="h-2.5 overflow-hidden rounded-full bg-slate-200">
+                  <div className="h-full w-full rounded-full bg-gradient-to-r from-amber-400 via-amber-300 to-amber-400 transition-all duration-500 ease-out" />
+                </div>
+              )}
+              <ul className="space-y-2.5 text-sm leading-relaxed text-slate-600">
+                {(LOYALTY_TIER_BENEFITS[loyaltyUi.tierIndex] ?? LOYALTY_TIER_BENEFITS[0]).map((line) => (
+                  <li key={line} className="flex items-start gap-2.5">
+                    <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" aria-hidden />
+                    <span>{line}</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="border-t border-slate-100 pt-4">
+                <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">Hoạt động điểm thưởng</p>
+                <ul className="mt-3 max-h-48 space-y-2.5 overflow-y-auto pr-1 text-sm text-slate-600">
+                  {data.loyalty.transactions.length === 0 ? (
+                    <li className="text-xs text-slate-400">
+                      Chưa có giao dịch điểm. Với thẻ/ví: điểm cộng sau khi đặt hàng thành công. Với COD hoặc chuyển khoản: khi cửa hàng xác nhận đã thanh toán trên đơn. Hủy đơn hoặc hoàn tiền sẽ điều chỉnh điểm tương ứng.
+                    </li>
+                  ) : (
+                    data.loyalty.transactions.map((tx) => (
+                      <li key={tx.id} className="flex gap-2 border-b border-slate-50 pb-2 last:border-0">
+                        <span
+                          className={`shrink-0 tabular-nums font-semibold ${tx.points >= 0 ? "text-emerald-600" : "text-rose-600"}`}
+                        >
+                          {tx.points >= 0 ? "+" : ""}
+                          {tx.points.toLocaleString("vi-VN")}
+                        </span>
+                        <span className="min-w-0 flex-1 leading-snug text-slate-600">{tx.description}</span>
+                        <span className="shrink-0 text-[11px] text-slate-400">
+                          {new Date(tx.createdAt).toLocaleDateString("vi-VN")}
+                        </span>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </div>
+              </div>
+            </div>
+            ) : null}
+
+            <div className="w-full lg:col-span-3 lg:hidden">{statsGridMobile}</div>
+
+            <div className="min-w-0 w-full lg:flex lg:h-full">
+            <div
+              className={`flex min-h-0 w-full min-w-0 flex-col gap-4 rounded-[26px] border border-slate-200/80 bg-white p-6 shadow-[0_4px_28px_rgba(15,23,42,0.07)] sm:gap-5 sm:rounded-[28px] sm:p-8 ${MOBILE_PROMO_BLOCK} lg:h-full lg:min-h-0 lg:rounded-[30px] lg:p-8`}
+            >
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#2563FF]/90">Ưu đãi dành riêng cho bạn</p>
+              <p className="text-base font-bold leading-snug tracking-[-0.02em] text-[#0F172A] sm:text-lg">
+                {data.vouchers.active[0]?.name?.trim()
+                  ? data.vouchers.active[0].name.length > 44
+                    ? `${data.vouchers.active[0].name.slice(0, 44)}…`
+                    : data.vouchers.active[0].name
+                  : "GIẢM 15% ĐƠN TIẾP THEO"}
+              </p>
+              <p className="text-xs leading-relaxed text-slate-500 sm:text-sm">
+                {data.vouchers.active[0]
+                  ? "Áp dụng kèm mã — đơn hàng tiếp theo của bạn."
+                  : "Đơn hàng tiếp theo tại Zendo.vn — theo điều kiện chương trình đang hiển thị."}
+              </p>
+              <div className="rounded-lg border-0 bg-slate-100 px-2.5 py-2 max-lg:shadow-none sm:rounded-xl sm:border sm:border-slate-200 sm:bg-slate-50 sm:px-3 sm:py-2.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Mã gợi ý</p>
+                <p className="font-mono text-sm font-bold tracking-wide text-[#0F172A] sm:text-base">
+                  {data.vouchers.active[0]?.code ?? "ZENDOVIP15"}
+                </p>
+              </div>
+              <div className="mt-auto flex min-w-0 flex-col gap-3 pt-1">
+              <Link
+                href={accountSettings.orderLookupUrl || "/tra-cuu-don-hang"}
+                className="inline-flex h-10 min-h-10 w-full shrink-0 items-center justify-center rounded-xl bg-[#2563EB] px-4 text-sm font-semibold text-white hover:bg-[#1D4ED8]"
+              >
+                Theo dõi đơn hàng
+              </Link>
+              {showShoppingCta ? (
+                <Link
+                  href={shoppingHomeHref}
+                  className="inline-flex h-10 min-h-10 w-full shrink-0 items-center justify-center rounded-xl bg-[#F59E0B] px-4 text-sm font-semibold text-white hover:bg-[#D97706]"
+                >
+                  {accountSettings.shoppingCtaText || "Tiếp tục mua sắm"}
+                </Link>
+              ) : null}
+              {accountSettings.showProfile ? (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("profile")}
+                  className="hidden h-10 w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-[#2563EB] shadow-sm hover:bg-slate-50 lg:inline-flex"
+                >
+                  Chỉnh sửa hồ sơ
+                </button>
+              ) : null}
+              </div>
+            </div>
+            </div>
+          </div>
+        </section>
+        ) : null}
+
+        {activeTab === "overview" ? statsDashboardDesktop : null}
+
+        <div
+          key={activeTab}
+          className={`order-3 min-w-0 w-full max-w-none space-y-0 max-lg:space-y-0 lg:order-none lg:col-start-2 lg:space-y-5 ${
+            activeTab === "overview" ? "lg:row-start-3" : "lg:row-start-1"
+          }`}
+        >
           {activeTab === "overview" ? (
-            <section className="w-full min-w-0 rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
-              <h3 className="text-base font-semibold text-[#0F172A]">Tổng quan tài khoản</h3>
-              <div className="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-2">
+            <section
+              className={`w-full min-w-0 rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 ${MOBILE_PANEL_FLAT} lg:rounded-[32px] lg:border-slate-200/90 lg:p-7 lg:shadow-[0_8px_30px_rgba(15,23,42,0.04)]`}
+            >
+              <h3 className="text-base font-semibold leading-tight tracking-[-0.02em] text-[#0F172A] lg:text-2xl lg:font-black lg:leading-tight lg:tracking-[-0.03em]">
+                Tổng quan tài khoản
+              </h3>
+              <div className="mt-2.5 grid grid-cols-1 gap-2 max-lg:gap-2 lg:mt-5 lg:grid-cols-2 lg:gap-5">
                 {buyerShortcutStatsOk ? (
-                  <article className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
-                    <p className="text-sm font-semibold text-[#0F172A]">Đơn gần đây</p>
+                  <article className={`rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3 transition-all ${MOBILE_OVERVIEW_TILE} lg:rounded-[26px] lg:border-slate-200/90 lg:bg-slate-50/60 lg:p-6 lg:hover:bg-white lg:hover:shadow-sm`}>
+                    <p className="text-sm font-semibold leading-tight tracking-[-0.02em] text-[#0F172A] lg:text-base lg:font-bold lg:tracking-[-0.03em]">
+                      Đơn gần đây
+                    </p>
                     {data.orders.length ? (
-                      <div className="mt-2 space-y-1.5">
+                      <div className="mt-2 space-y-1.5 lg:mt-3 lg:space-y-3">
                         {data.orders.slice(0, 2).map((order) => (
-                          <p key={order.id} className="text-sm text-[#64748B]">
+                          <p key={order.id} className="text-sm leading-snug tracking-[-0.02em] text-[#64748B]">
                             #{order.code} • {new Intl.NumberFormat("vi-VN").format(order.totalAmount)}đ
                           </p>
                         ))}
@@ -1196,9 +1555,11 @@ export default function CustomerBuyerAccountView({
                     )}
                   </article>
                 ) : null}
-                <article className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
-                  <p className="text-sm font-semibold text-[#0F172A]">Thông báo mới</p>
-                  <div className="mt-2 space-y-1 text-sm text-[#64748B]">
+                <article className={`rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3 transition-all ${MOBILE_OVERVIEW_TILE} lg:rounded-[26px] lg:border-slate-200/90 lg:bg-slate-50/60 lg:p-6 lg:hover:bg-white lg:hover:shadow-sm`}>
+                  <p className="text-sm font-semibold leading-tight tracking-[-0.02em] text-[#0F172A] lg:text-base lg:font-bold lg:tracking-[-0.03em]">
+                    Thông báo mới
+                  </p>
+                  <div className="mt-2 space-y-1 text-sm leading-tight tracking-[-0.02em] text-[#64748B] lg:mt-3 lg:space-y-3 lg:leading-snug">
                     <p>Đơn hàng: {liveNotifications.groups.order}</p>
                     <p>Hoa hồng: {liveNotifications.groups.commission}</p>
                     <p>Khuyến mãi: {liveNotifications.groups.promotion}</p>
@@ -1206,12 +1567,14 @@ export default function CustomerBuyerAccountView({
                   </div>
                 </article>
                 {showCouponsEffective ? (
-                  <article className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
-                    <p className="text-sm font-semibold text-[#0F172A]">Voucher nổi bật</p>
+                  <article className={`rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3 transition-all ${MOBILE_OVERVIEW_TILE} lg:rounded-[26px] lg:border-slate-200/90 lg:bg-slate-50/60 lg:p-6 lg:hover:bg-white lg:hover:shadow-sm`}>
+                    <p className="text-sm font-semibold leading-tight tracking-[-0.02em] text-[#0F172A] lg:text-base lg:font-bold lg:tracking-[-0.03em]">
+                      Voucher nổi bật
+                    </p>
                     {data.vouchers.active.slice(0, 2).length ? (
-                      <div className="mt-2 space-y-1.5">
+                      <div className="mt-2 space-y-1.5 lg:mt-3 lg:space-y-3">
                         {data.vouchers.active.slice(0, 2).map((voucher) => (
-                          <p key={voucher.code} className="text-sm text-[#64748B]">
+                          <p key={voucher.code} className="text-sm leading-snug tracking-[-0.02em] text-[#64748B]">
                             {voucher.name} • {voucher.code}
                           </p>
                         ))}
@@ -1222,10 +1585,16 @@ export default function CustomerBuyerAccountView({
                   </article>
                 ) : null}
                 {showSupportCombined ? (
-                  <article className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
-                    <p className="text-sm font-semibold text-[#0F172A]">Hỗ trợ nhanh</p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {accountSettings.orderLookupUrl ? <Link href={accountSettings.orderLookupUrl} className="rounded-lg bg-white px-2.5 py-1 text-xs text-[#0F172A]">Tra cứu đơn</Link> : null}
+                  <article className="hidden rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3 transition-all lg:block lg:rounded-[26px] lg:border-slate-200/90 lg:bg-slate-50/60 lg:p-6 lg:hover:bg-white lg:hover:shadow-sm">
+                    <p className="text-sm font-semibold leading-tight tracking-[-0.02em] text-[#0F172A] lg:text-base lg:font-bold lg:tracking-[-0.03em]">
+                      Hỗ trợ nhanh
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2 lg:mt-3">
+                      {accountSettings.orderLookupUrl ? (
+                        <Link href={accountSettings.orderLookupUrl} className="rounded-lg bg-white px-2.5 py-1 text-xs text-[#0F172A]">
+                          Tra cứu đơn
+                        </Link>
+                      ) : null}
                       {supportHref.startsWith("http") ? (
                         <Link
                           href={supportHref}
@@ -1239,29 +1608,34 @@ export default function CustomerBuyerAccountView({
                     </div>
                   </article>
                 ) : null}
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("tracking")}
-                  className="inline-flex h-10 items-center rounded-xl bg-[#2563EB] px-4 text-sm font-semibold text-white hover:bg-[#1D4ED8]"
-                >
-                  Theo dõi đơn hàng
-                </button>
-                {showShoppingCta ? (
-                  <Link
-                    href={shoppingHomeHref}
-                    className="inline-flex h-10 items-center rounded-xl bg-[#F59E0B] px-4 text-sm font-semibold text-white hover:bg-[#D97706]"
-                  >
-                    Tiếp tục mua sắm
-                  </Link>
-                ) : null}
+                <article className="hidden rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3 transition-all lg:col-span-2 lg:block lg:rounded-[26px] lg:border-slate-200/90 lg:bg-slate-50/60 lg:p-6 lg:hover:bg-white lg:hover:shadow-sm">
+                  <p className="text-sm font-semibold leading-tight tracking-[-0.02em] text-[#0F172A] lg:text-base lg:font-bold lg:tracking-[-0.03em]">
+                    Hoạt động gần đây
+                  </p>
+                  <div className="mt-2 space-y-2 lg:mt-3 lg:space-y-3">
+                    {overviewActivityLines.length ? (
+                      overviewActivityLines.map((line, i) => (
+                        <div
+                          key={`${line.title}-${i}`}
+                          className="flex items-start justify-between gap-3 rounded-xl border border-transparent bg-white/0 px-0 py-1 lg:rounded-2xl lg:border-slate-200/60 lg:bg-white/70 lg:px-3 lg:py-2"
+                        >
+                          <p className="min-w-0 flex-1 text-sm font-medium leading-snug tracking-[-0.02em] text-slate-700">{line.title}</p>
+                          <span className="shrink-0 text-xs font-medium tabular-nums text-slate-400">{line.meta}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-sm leading-relaxed text-[#64748B]">
+                        Các hoạt động đơn hàng, ưu đãi và thông báo sẽ hiển thị tại đây.
+                      </p>
+                    )}
+                  </div>
+                </article>
               </div>
             </section>
           ) : null}
 
           {activeTab === "orders" && accountSettings.showOrders ? (
-            <section id="don-hang" className="w-full min-w-0 rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
+            <section id="don-hang" className={`${TAB_PANEL_CLASS} lg:p-6`}>
               <h3 className="text-lg font-semibold text-[#0F172A]">Đơn hàng của tôi</h3>
               <div className="mt-3 overflow-x-auto border-b border-[#E2E8F0] pb-2">
                 <div className="flex min-w-max gap-3">
@@ -1313,12 +1687,22 @@ export default function CustomerBuyerAccountView({
                           </span>
                         </div>
                         <div className="mt-3 space-y-2">
-                          {order.productNames.slice(0, 2).map((name) => (
-                            <div key={`${order.id}-${name}`} className="flex items-center gap-3">
-                              <div className="h-14 w-14 rounded-md border border-[#E2E8F0] bg-[#F8FAFC] sm:h-16 sm:w-16" />
+                          {(order.linePreviews.length > 0
+                            ? order.linePreviews
+                            : order.productNames.map((name) => ({
+                                productName: name,
+                                quantity: 1,
+                                imageUrl: "",
+                              }))
+                          ).slice(0, 2).map((line, lineIdx) => (
+                            <div key={`${order.id}-line-${lineIdx}`} className="flex items-center gap-3">
+                              <PurchaseHistoryOrderThumb
+                                imageUrl={line.imageUrl}
+                                productName={line.productName}
+                              />
                               <div className="min-w-0">
-                                <p className="line-clamp-1 text-sm text-[#0F172A]">{name}</p>
-                                <p className="text-xs text-[#64748B]">x1</p>
+                                <p className="line-clamp-1 text-sm text-[#0F172A]">{line.productName}</p>
+                                <p className="text-xs text-[#64748B]">x{line.quantity}</p>
                               </div>
                             </div>
                           ))}
@@ -1419,7 +1803,7 @@ export default function CustomerBuyerAccountView({
           ) : null}
 
           {activeTab === "tracking" && accountSettings.showOrderTimeline ? (
-            <section className="w-full min-w-0 rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
+            <section className={`${TAB_PANEL_CLASS} lg:p-6`}>
               <h3 className="text-base font-semibold text-[#0F172A]">Theo dõi đơn hàng</h3>
               {selectedTrackingOrder ? (
                 <div className="mt-3 space-y-3">
@@ -1481,7 +1865,7 @@ export default function CustomerBuyerAccountView({
           ) : null}
 
           {activeTab === "coupons" && showCouponsEffective ? (
-            <section id="voucher" className="w-full min-w-0 rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
+            <section id="voucher" className={`${TAB_PANEL_CLASS} lg:p-6`}>
               <h3 className="text-base font-semibold text-[#0F172A]">{accountSettings.couponTitle || "Kho voucher"}</h3>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button type="button" onClick={() => setCouponFilter("active")} className={`rounded-full px-3 py-1 text-xs ${couponFilter === "active" ? "bg-[#2563EB] text-white" : "bg-[#F8FAFC] text-[#0F172A]"}`}>
@@ -1530,7 +1914,7 @@ export default function CustomerBuyerAccountView({
           ) : null}
 
           {activeTab === "profile" && accountSettings.showProfile ? (
-            <section id="thong-tin-ca-nhan" className="w-full min-w-0 rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
+            <section id="thong-tin-ca-nhan" className={`${TAB_PANEL_CLASS} lg:p-6`}>
               <h3 className="text-base font-semibold text-[#0F172A]">Thông tin cá nhân</h3>
               <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
                 <label className="space-y-1">
@@ -1586,7 +1970,7 @@ export default function CustomerBuyerAccountView({
           ) : null}
 
           {activeTab === "addresses" && showAddressesEffective ? (
-            <section id="so-dia-chi" className="w-full min-w-0 rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
+            <section id="so-dia-chi" className={`${TAB_PANEL_CLASS} lg:p-6`}>
               <h3 className="text-base font-semibold text-[#0F172A]">Sổ địa chỉ</h3>
               <p className="mt-2 text-sm text-[#64748B]">Quản lý địa chỉ nhận hàng để đặt hàng nhanh hơn.</p>
               <div className="mt-3">
@@ -1786,7 +2170,7 @@ export default function CustomerBuyerAccountView({
 
           {activeTab === "wishlist" &&
           (accountSettings.showWishlist || accountSettings.showRecentlyViewed || accountSettings.showRecommendedProducts) ? (
-            <section id="yeu-thich" className="w-full min-w-0 rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5">
+            <section id="yeu-thich" className={TAB_PANEL_CLASS}>
               <h3 className="text-base font-semibold text-[#0F172A]">Yêu thích / đã xem</h3>
               <div className="mt-2 space-y-2 text-sm text-[#64748B]">
                 {accountSettings.showWishlist ? (
@@ -1849,7 +2233,7 @@ export default function CustomerBuyerAccountView({
           ) : null}
 
           {activeTab === "affiliate" && accountSettings.showAffiliate ? (
-            <section id="affiliate" className="w-full min-w-0 rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5">
+            <section id="affiliate" className={TAB_PANEL_CLASS}>
               {data.affiliate.isActive ? (
                 <>
                   <div className="rounded-xl border border-[#E2E8F0] bg-white p-2">
@@ -2224,26 +2608,17 @@ export default function CustomerBuyerAccountView({
                 <>
                   <h3 className="text-base font-semibold text-[#0F172A]">Chương trình CTV / Affiliate</h3>
                   <p className="mt-2 text-sm text-[#64748B]">
-                    Tài khoản của bạn chưa được kích hoạt chức năng CTV. Vui lòng liên hệ quản trị viên để được nâng cấp.
+                    Tài khoản của bạn chưa được kích hoạt chức năng CTV. Bạn có thể gửi yêu cầu đăng ký để quản trị
+                    viên xét duyệt.
                   </p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <Link href={supportHref} className="rounded-lg bg-[#2563EB] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#1D4ED8]">
-                      Liên hệ hỗ trợ
-                    </Link>
-                    <Link
-                      href={shoppingHomeHref}
-                      className="rounded-lg bg-[#F59E0B] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#D97706]"
-                    >
-                      Tiếp tục mua sắm
-                    </Link>
-                  </div>
+                  <AffiliateCtvAccountApplyGate shoppingHomeHref={shoppingHomeHref} />
                 </>
               )}
             </section>
           ) : null}
 
           {activeTab === "security" && accountSettings.showSecurity ? (
-            <section id="bao-mat" className="w-full min-w-0 rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
+            <section id="bao-mat" className={`${TAB_PANEL_CLASS} lg:p-6`}>
               <h3 className="text-base font-semibold text-[#0F172A]">Bảo mật tài khoản</h3>
               <p className="mt-2 text-sm text-[#64748B]">Quản lý mật khẩu và phiên đăng nhập của bạn.</p>
               <div className="mt-3 max-w-3xl space-y-3">

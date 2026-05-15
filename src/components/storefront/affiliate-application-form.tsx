@@ -13,6 +13,7 @@ type ApplicationPublic = {
   trafficSource: string | null;
   followerCount: number | null;
   sellingCategories: string | null;
+  experience: string | null;
   score: number | null;
   scoreReason: string | null;
 };
@@ -20,9 +21,9 @@ type ApplicationPublic = {
 type GetResponse = { ok: boolean; application: ApplicationPublic | null; message?: string };
 
 type PostSuccess =
-  | { ok: true; outcome: "created"; application: ApplicationPublic & { id: string } }
-  | { ok: true; outcome: "pending_exists"; application: ApplicationPublic }
-  | { ok: true; outcome: "already_ctv_active" };
+  | { ok: true; outcome: "created"; message?: string; application: ApplicationPublic & { id: string } }
+  | { ok: true; outcome: "pending_exists"; message?: string; application: ApplicationPublic }
+  | { ok: true; outcome: "already_ctv_active"; message?: string };
 
 type PostBody = { ok: false; message?: string } | PostSuccess;
 
@@ -79,6 +80,7 @@ export function AffiliateApplicationForm(props: AffiliateApplicationFormProps): 
   const [trafficSource, setTrafficSource] = useState("");
   const [followerCountStr, setFollowerCountStr] = useState("");
   const [sellingCategories, setSellingCategories] = useState("");
+  const [experience, setExperience] = useState("");
   const [note, setNote] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
@@ -124,11 +126,15 @@ export function AffiliateApplicationForm(props: AffiliateApplicationFormProps): 
     if (application.sellingCategories) {
       setSellingCategories((prev) => prev || application.sellingCategories || "");
     }
+    if (application.experience) {
+      setExperience((prev) => prev || application.experience || "");
+    }
   }, [
     application?.status,
     application?.trafficSource,
     application?.followerCount,
     application?.sellingCategories,
+    application?.experience,
     loadState,
   ]);
 
@@ -190,6 +196,8 @@ export function AffiliateApplicationForm(props: AffiliateApplicationFormProps): 
     if (s) body.socialLink = s;
     const n = note.trim();
     if (n) body.note = n;
+    const exp = experience.trim();
+    if (exp) body.experience = exp;
     const t = trafficSource.trim();
     if (t) body.trafficSource = t;
     const sell = sellingCategories.trim();
@@ -227,14 +235,14 @@ export function AffiliateApplicationForm(props: AffiliateApplicationFormProps): 
       }
       if (data.outcome === "pending_exists") {
         setApplication(data.application);
-        setInfoMessage("Bạn đã có đơn đang chờ duyệt. Không cần gửi trùng.");
+        setInfoMessage(data.message ?? "Bạn đã gửi yêu cầu đăng ký trước đó.");
         return;
       }
       if (data.outcome === "created") {
         const { id, ...pub } = data.application;
         void id;
         setApplication(pub);
-        setInfoMessage("Đã gửi yêu cầu thành công. Cửa hàng sẽ xem xét trong thời gian sớm nhất.");
+        setInfoMessage(data.message ?? "Đăng ký CTV thành công. Vui lòng chờ quản trị viên xét duyệt.");
         return;
       }
     } catch {
@@ -312,10 +320,13 @@ export function AffiliateApplicationForm(props: AffiliateApplicationFormProps): 
             {infoMessage}
           </p>
         ) : null}
-        <p className="text-base font-semibold text-sky-950">Đã gửi yêu cầu, đang chờ duyệt</p>
+        <p className="text-base font-semibold text-sky-950">Bạn đã gửi yêu cầu đăng ký CTV</p>
         <p className="mt-2 text-sm leading-relaxed text-sky-900/90">
-          Zendo.vn sẽ xem xét thông tin bạn gửi. Bạn không cần gửi lại cho đến khi có cập nhật trạng thái.
+          Vui lòng chờ quản trị viên xét duyệt. Bạn không cần gửi lại cho đến khi có cập nhật trạng thái.
         </p>
+        <span className="mt-3 inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900">
+          Chờ duyệt
+        </span>
         {application?.score != null ? (
           <div className="mx-auto mt-4 max-w-md rounded-xl border border-sky-200/80 bg-white/90 px-3 py-3 text-left text-xs text-sky-950">
             <p className="font-semibold">Điểm hồ sơ tạm tính: {application.score}/100</p>
@@ -456,6 +467,17 @@ export function AffiliateApplicationForm(props: AffiliateApplicationFormProps): 
                 onChange={(e) => setSocialLink(e.target.value)}
                 placeholder="https://"
                 className="mt-1.5 w-full min-h-11 min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-200"
+              />
+            </label>
+            <label className="block min-w-0 sm:col-span-2">
+              <span className="text-sm font-medium text-slate-800">Kinh nghiệm bán hàng</span>
+              <span className="mt-0.5 block text-xs font-normal text-slate-500">Tùy chọn — mô tả ngắn kinh nghiệm của bạn</span>
+              <textarea
+                name="experience"
+                value={experience}
+                onChange={(e) => setExperience(e.target.value)}
+                rows={3}
+                className="mt-1.5 w-full min-w-0 resize-y rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-200"
               />
             </label>
             <label className="block min-w-0 sm:col-span-1">

@@ -99,7 +99,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       data: { passwordHash: nextHash },
       select: { id: true },
     });
-    publishCustomerPasswordChanged({ customerId: customer.id });
+    await publishCustomerPasswordChanged({ customerId: customer.id });
     return NextResponse.json({
       success: true,
       message:
@@ -119,7 +119,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     select: { id: true },
   });
 
-  publishCustomerPasswordChanged({ customerId: customer.id });
+  await publishCustomerPasswordChanged({ customerId: customer.id });
 
   return NextResponse.json({ success: true, message: "Đổi mật khẩu thành công." });
 }

@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { AFFILIATE_REF_STORAGE_KEY } from "../../lib/cart";
+import { postAffiliateTrackEvent } from "../../lib/affiliate-track-client";
 import { guiSuKienAnalyticsClient } from "../../lib/analytics/event-client";
 import { guiLuotTruyCapStorefront } from "../../lib/analytics/visit-client";
 import { laySessionKey, layVisitorKey } from "../../lib/analytics/visitor-session";
@@ -41,6 +42,32 @@ export default function AnalyticsPageViewTracker(): JSX.Element | null {
             method: "GET",
             credentials: "same-origin",
           }).catch(() => {});
+          const tl = searchParams?.get("tl")?.trim().slice(0, 32) ?? "";
+          const sp = new URLSearchParams(query);
+          sp.delete("tl");
+          const cleanQuery = sp.toString();
+          const pathForTrack = cleanQuery ? `${pathname}?${cleanQuery}` : pathname;
+          const throttleKey = `zendo_af_trk_${safeRef.slice(0, 24)}`;
+          const now = Date.now();
+          const last = Number(window.sessionStorage.getItem(throttleKey) || "0");
+          const force = Boolean(tl);
+          const allow = force || !Number.isFinite(last) || now - last > 30 * 60 * 1000;
+          if (allow) {
+            void postAffiliateTrackEvent({
+              ref: safeRef.slice(0, 64),
+              eventType: "AFFILIATE_CLICK",
+              pathname: pathForTrack,
+              metadata: tl ? { trackingLinkId: tl } : null,
+            });
+            if (!force) window.sessionStorage.setItem(throttleKey, String(now));
+          }
+          if (tl) {
+            const url = new URL(window.location.href);
+            if (url.searchParams.has("tl")) {
+              url.searchParams.delete("tl");
+              window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+            }
+          }
         } catch {
           /* ignore */
         }

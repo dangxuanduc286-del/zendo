@@ -21,7 +21,7 @@ export async function markSupportTicketMessagesSeen(
 
   return db.$transaction(async (tx) => {
     const rows = await tx.supportTicketMessage.findMany({
-      where: { ticketId: tid, NOT: { seenBy: { has: vid } } },
+      where: { ticketId: tid, deletedAt: null, NOT: { seenBy: { has: vid } } },
       select: { id: true, seenBy: true },
     });
 

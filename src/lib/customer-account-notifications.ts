@@ -66,6 +66,7 @@ export async function createCustomerAccountNotificationSafe(input: CreateCustome
   }
 }
 
-export function publishCustomerAccountNotification(input: CreateCustomerAccountNotificationInput): void {
-  void createCustomerAccountNotificationSafe(input);
+/** Luôn await để insert hoàn tất trước khi handler trả response (checkout, admin PATCH, …). */
+export async function publishCustomerAccountNotification(input: CreateCustomerAccountNotificationInput): Promise<void> {
+  await createCustomerAccountNotificationSafe(input);
 }

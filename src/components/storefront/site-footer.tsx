@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { FooterTrustBanner, WebsiteSettings, SocialLink } from "../../lib/settings";
+import { MARKETING_FRAME } from "../../lib/storefront-frame";
 import MediaImage from "../shared/media-image";
 import { resolveMediaUrl } from "../../lib/media";
 
@@ -109,7 +110,7 @@ function FooterTrustBannersSection({
 
   return (
     <section className="bg-transparent">
-      <div className="mx-auto w-full max-w-[1360px] px-4 py-6 sm:px-6 lg:px-8">
+      <div className={`${MARKETING_FRAME} py-6`}>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-3.5 lg:grid-cols-4">
           {row.map((item) => {
             const resolved = resolveMediaUrl(item.imageUrl);
@@ -295,7 +296,7 @@ export default function SiteFooter({
       ) : null}
 
       <footer className="bg-[var(--z-bg)]/90">
-        <div className="mx-auto grid w-full max-w-[1360px] gap-6 px-4 py-10 sm:px-6 md:grid-cols-2 lg:grid-cols-4 lg:gap-8 lg:px-8 lg:py-12">
+        <div className={`${MARKETING_FRAME} grid gap-6 py-10 md:grid-cols-2 lg:grid-cols-4 lg:gap-8 lg:py-12`}>
           <section className="space-y-3">
             <p className="text-sm font-extrabold uppercase tracking-wide text-slate-800">Thương hiệu</p>
             <Link href="/" className="inline-flex items-center text-xl font-extrabold tracking-tight text-[#2563EB] transition-colors hover:text-[#1D4ED8]">
@@ -371,7 +372,7 @@ export default function SiteFooter({
         </div>
 
         <div>
-          <div className="mx-auto flex w-full max-w-[1360px] flex-col gap-3 px-4 py-4 text-sm text-slate-600 sm:px-6 md:flex-row md:items-center md:justify-between lg:px-8">
+          <div className={`${MARKETING_FRAME} flex flex-col gap-3 py-4 text-sm text-slate-600 md:flex-row md:items-center md:justify-between`}>
             <p>{renderFooterBottomText(websiteSettings.footerText || `© ${new Date().getFullYear()} ${siteName}. Đã đăng ký bản quyền.`, siteName)}</p>
             <span className="hidden md:inline" />
           </div>

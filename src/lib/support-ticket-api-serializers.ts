@@ -1,5 +1,11 @@
 import type { Prisma } from "@prisma/client";
 
+import {
+  buildSupportTicketDisplaySubject,
+  deriveSupportTicketSenderDisplayName,
+  supportTicketParticipantRoleVi,
+} from "./support-ticket-sender-display";
+
 /** Admin: chi tiết ticket (GET/PATCH + đồng bộ list nếu cần shape tương thích). */
 export const adminSupportTicketDetailSelect = {
   id: true,
@@ -19,6 +25,11 @@ export const adminSupportTicketDetailSelect = {
   customerUnreadCount: true,
   createdAt: true,
   updatedAt: true,
+  deletedAt: true,
+  deletedByAdminId: true,
+  blockedAt: true,
+  blockedByAdminId: true,
+  blockReason: true,
   customer: {
     select: {
       id: true,
@@ -64,12 +75,22 @@ export type AdminSupportTicketDetailPayload = Prisma.SupportTicketGetPayload<{
 export function serializeAdminSupportTicketDetail(ticket: AdminSupportTicketDetailPayload): Record<string, unknown> {
   const { customer, order, affiliateApplication, assignedAdmin, ...rest } = ticket;
   const isAffiliate = (customer.affiliateProfiles?.length ?? 0) > 0;
+  const senderDisplayName = deriveSupportTicketSenderDisplayName(
+    { fullName: customer.fullName, email: customer.email, phone: customer.phone },
+    affiliateApplication,
+  );
+  const displaySubject = buildSupportTicketDisplaySubject(rest.subject, senderDisplayName);
+  const roleVi = supportTicketParticipantRoleVi(isAffiliate);
+  const affProf = customer.affiliateProfiles?.[0];
+  const affiliateProfilePayload = affProf ? { id: affProf.id, refCode: affProf.refCode } : null;
   const cust = {
     id: customer.id,
     fullName: customer.fullName,
     email: customer.email,
     phone: customer.phone,
     createdAt: customer.createdAt.toISOString(),
+    role: roleVi,
+    affiliateProfile: affiliateProfilePayload,
   };
 
   let orderPayload: {
@@ -107,6 +128,8 @@ export function serializeAdminSupportTicketDetail(ticket: AdminSupportTicketDeta
   return {
     id: rest.id,
     subject: rest.subject,
+    displaySubject,
+    senderDisplayName,
     type: rest.type,
     status: rest.status,
     priority: rest.priority,
@@ -120,6 +143,11 @@ export function serializeAdminSupportTicketDetail(ticket: AdminSupportTicketDeta
     lastMessageAt: rest.lastMessageAt.toISOString(),
     createdAt: rest.createdAt.toISOString(),
     updatedAt: rest.updatedAt.toISOString(),
+    deletedAt: rest.deletedAt ? rest.deletedAt.toISOString() : null,
+    deletedByAdminId: rest.deletedByAdminId,
+    blockedAt: rest.blockedAt ? rest.blockedAt.toISOString() : null,
+    blockedByAdminId: rest.blockedByAdminId,
+    blockReason: rest.blockReason,
     adminUnreadCount: rest.adminUnreadCount,
     customerUnreadCount: rest.customerUnreadCount,
     unreadCount: rest.adminUnreadCount,
@@ -149,6 +177,7 @@ export const adminSupportTicketListSelect = {
   createdAt: true,
   adminUnreadCount: true,
   customerUnreadCount: true,
+  blockedAt: true,
   customer: {
     select: {
       id: true,
@@ -157,7 +186,7 @@ export const adminSupportTicketListSelect = {
       phone: true,
       affiliateProfiles: {
         where: { status: "ACTIVE" as const },
-        select: { id: true },
+        select: { id: true, refCode: true },
         take: 1,
       },
     },
@@ -170,6 +199,7 @@ export const adminSupportTicketListSelect = {
       id: true,
       fullName: true,
       phone: true,
+      email: true,
       status: true,
     },
   },
@@ -182,15 +212,36 @@ export type AdminSupportTicketListPayload = Prisma.SupportTicketGetPayload<{
 export function serializeAdminSupportTicketListRow(r: AdminSupportTicketListPayload): Record<string, unknown> {
   const { customer, order, affiliateApplication, assignedAdmin, ...t } = r;
   const isAffiliate = (customer.affiliateProfiles?.length ?? 0) > 0;
+  const senderDisplayName = deriveSupportTicketSenderDisplayName(
+    { fullName: customer.fullName, email: customer.email, phone: customer.phone },
+    affiliateApplication,
+  );
+  const displaySubject = buildSupportTicketDisplaySubject(t.subject, senderDisplayName);
+  const roleVi = supportTicketParticipantRoleVi(isAffiliate);
+  const affProf = customer.affiliateProfiles?.[0];
+  const affiliateProfilePayload = affProf ? { id: affProf.id, refCode: affProf.refCode } : null;
   const cust = {
     id: customer.id,
     fullName: customer.fullName,
     email: customer.email,
     phone: customer.phone,
+    role: roleVi,
+    affiliateProfile: affiliateProfilePayload,
   };
+  const affAppPayload = affiliateApplication
+    ? {
+        id: affiliateApplication.id,
+        fullName: affiliateApplication.fullName,
+        phone: affiliateApplication.phone,
+        email: affiliateApplication.email,
+        status: affiliateApplication.status,
+      }
+    : null;
   return {
     id: t.id,
     subject: t.subject,
+    displaySubject,
+    senderDisplayName,
     type: t.type,
     status: t.status,
     priority: t.priority,
@@ -207,10 +258,11 @@ export function serializeAdminSupportTicketListRow(r: AdminSupportTicketListPayl
     adminUnreadCount: t.adminUnreadCount,
     customerUnreadCount: t.customerUnreadCount,
     unreadCount: t.adminUnreadCount,
+    blockedAt: t.blockedAt ? t.blockedAt.toISOString() : null,
     participantKind: isAffiliate ? "affiliate" : "customer",
     customer: cust,
     order: order ? { id: order.id, code: order.code, orderStatus: order.orderStatus } : null,
-    affiliateApplication,
+    affiliateApplication: affAppPayload,
   };
 }
 
@@ -233,6 +285,8 @@ export const customerSupportTicketApiSelect = {
   adminUnreadCount: true,
   createdAt: true,
   updatedAt: true,
+  blockedAt: true,
+  blockReason: true,
 } satisfies Prisma.SupportTicketSelect;
 
 export type CustomerSupportTicketApiPayload = Prisma.SupportTicketGetPayload<{
@@ -263,5 +317,7 @@ export function serializeCustomerSupportTicketApi(row: CustomerSupportTicketApiP
     unreadCount: row.customerUnreadCount,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+    blockedAt: row.blockedAt ? row.blockedAt.toISOString() : null,
+    blockReason: row.blockReason,
   };
 }

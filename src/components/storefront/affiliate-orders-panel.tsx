@@ -40,7 +40,7 @@ export default function AffiliateOrdersPanel({
               key={order.id}
               className={`rounded-lg border p-3 min-w-0 ${
                 highlight && order.code === highlight
-                  ? "border-amber-400 bg-amber-50 ring-2 ring-amber-200"
+                  ? "border-amber-400 bg-[#FFFDF8] ring-2 ring-amber-200"
                   : "border-[#E2E8F0] bg-[#F8FAFC]"
               }`}
             >

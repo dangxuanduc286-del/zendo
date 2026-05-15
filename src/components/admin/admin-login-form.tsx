@@ -31,7 +31,7 @@ const INITIAL_STATE: FormState = {
 
 export default function AdminLoginForm(): JSX.Element {
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/admin";
+  const callbackUrl = searchParams.get("callbackUrl") || "/";
   const identifierPrefill = searchParams.get("identifier") || "";
 
   const [formState, setFormState] = useState<FormState>(INITIAL_STATE);

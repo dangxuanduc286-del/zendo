@@ -19,6 +19,7 @@ import type {
 import { canCancelOrder, canReorder } from "../../lib/order-status";
 import { effectiveAffiliateBlockMessage } from "../../lib/account-role";
 import { safeParseJson } from "../../lib/safe-json";
+import { PurchaseHistoryOrderThumb } from "./purchase-history-order-thumb";
 
 const PAYMENT_METHOD_VI: Record<string, string> = {
   COD: "Thanh toán khi nhận hàng (COD)",
@@ -51,15 +52,15 @@ function formatMoney(v: number): string {
 function toneBadgeClass(tone: string): string {
   switch (tone) {
     case "info":
-      return "bg-blue-50 text-blue-800";
+      return "bg-[#EFF6FF] text-[#1D4ED8]";
     case "warning":
-      return "bg-amber-50 text-amber-800";
+      return "bg-[#FFFDF8] text-[#B45309]";
     case "success":
       return "bg-emerald-50 text-emerald-800";
     case "danger":
       return "bg-rose-50 text-rose-800";
     case "muted":
-      return "bg-slate-100 text-slate-700";
+      return "bg-[#F1F5F9] text-[#334155]";
     case "neutral":
     default:
       return "bg-zinc-100 text-zinc-800";
@@ -69,8 +70,8 @@ function toneBadgeClass(tone: string): string {
 function paymentBadgeClass(status: string): string {
   const s = status.toUpperCase();
   if (s === "PAID") return "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-100";
-  if (s === "PARTIALLY_REFUNDED" || s === "REFUNDED") return "bg-slate-100 text-slate-800 ring-1 ring-slate-200";
-  if (s === "PENDING") return "bg-amber-50 text-amber-900 ring-1 ring-amber-100";
+  if (s === "PARTIALLY_REFUNDED" || s === "REFUNDED") return "bg-[#F1F5F9] text-[#1E293B] ring-1 ring-[#E2E8F0]";
+  if (s === "PENDING") return "bg-[#FFFDF8] text-amber-900 ring-1 ring-amber-100";
   if (s === "FAILED") return "bg-rose-50 text-rose-800 ring-1 ring-rose-100";
   return "bg-zinc-100 text-zinc-800 ring-1 ring-zinc-200";
 }
@@ -268,11 +269,11 @@ function OrderDetailModalContent({
                       <p className="text-sm font-semibold leading-snug text-[#0F172A]">{String(it.name ?? "Sản phẩm")}</p>
                       {variant ? (
                         <p className="mt-0.5 text-xs text-[#64748B]">
-                          Phân loại: <span className="font-medium text-[#475569]">{variant}</span>
+                          Phân loại: <span className="font-medium text-[#64748B]">{variant}</span>
                         </p>
                       ) : null}
                       <p className="mt-1 text-xs text-[#64748B]">SKU: {String(it.sku ?? "—")}</p>
-                      <div className="mt-2 flex min-w-0 flex-col gap-1 text-xs text-[#475569] sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-3">
+                      <div className="mt-2 flex min-w-0 flex-col gap-1 text-xs text-[#64748B] sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-3">
                         <span>
                           Đơn giá: <span className="tabular-nums font-medium text-[#0F172A]">{formatMoney(unit)}</span>
                         </span>
@@ -334,7 +335,7 @@ function OrderDetailModalContent({
               </div>
             </dl>
             <div className="mt-4 space-y-1 border-t border-[#DBEAFE] pt-4 text-xs">
-              <p className="font-semibold text-[#475569]">Thanh toán</p>
+              <p className="font-semibold text-[#64748B]">Thanh toán</p>
               <p>{paymentMethodRaw ? formatPaymentMethod(paymentMethodRaw) : "—"}</p>
               {paymentStatusRaw ? (
                 <p className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${paymentBadgeClass(paymentStatusRaw)}`}>
@@ -364,9 +365,9 @@ function OrderDetailModalContent({
           </div>
 
           {typeof order.note === "string" && order.note.trim() ? (
-            <div className="rounded-xl border border-dashed border-amber-200 bg-amber-50/70 p-3 text-sm">
+            <div className="rounded-xl border border-dashed border-amber-200 bg-[#FFFDF8]/70 p-3 text-sm">
               <SectionLabel>Ghi chú đơn</SectionLabel>
-              <p className="mt-2 whitespace-pre-wrap break-words text-[#92400E]">{order.note.trim()}</p>
+              <p className="mt-2 whitespace-pre-wrap break-words text-amber-900">{order.note.trim()}</p>
             </div>
           ) : null}
 
@@ -404,6 +405,9 @@ type ListOrderApi = {
   paymentMethod?: string;
   totalAmount: number;
   itemCount: number;
+  lineCount: number;
+  previewProductName: string;
+  previewImageUrl: string;
   createdAt: string;
   canceledAt?: string | null;
 };
@@ -787,7 +791,7 @@ export default function PurchaseHistoryPanel({
                     onClick={() => setDatePreset(row.key)}
                     className={`min-h-10 shrink-0 rounded-full border px-3 py-2 text-xs font-semibold ${
                       active
-                        ? "border-[#F59E0B] bg-amber-50 text-[#B45309]"
+                        ? "border-[#F59E0B] bg-[#FFFDF8] text-[#B45309]"
                         : "border-[#E2E8F0] bg-white text-[#0F172A] hover:bg-[#F8FAFC]"
                     }`}
                   >
@@ -1014,6 +1018,15 @@ function PurchaseHistoryOrderRow({
         >
           {order.statusLabel}
         </span>
+      </div>
+      <div className="mt-3 flex min-w-0 items-start gap-3 sm:gap-4">
+        <PurchaseHistoryOrderThumb imageUrl={order.previewImageUrl} productName={order.previewProductName} />
+        <div className="min-w-0 flex-1">
+          <p className="line-clamp-2 text-sm font-medium text-[#0F172A]">{order.previewProductName}</p>
+          {order.lineCount > 1 ? (
+            <p className="mt-1 text-xs text-[#64748B]">+{order.lineCount - 1} sản phẩm khác</p>
+          ) : null}
+        </div>
       </div>
       <dl className="mt-3 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
         <div className="flex justify-between gap-2 sm:block">

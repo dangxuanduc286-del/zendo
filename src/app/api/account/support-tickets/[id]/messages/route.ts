@@ -2,7 +2,14 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../../../../../lib/auth";
 import { clampTicketBody, postSupportTicketMessageForCustomer } from "../../../../../../lib/account-support-tickets";
-import { triggerSupportTicketNewMessage } from "../../../../../../lib/support-ticket-pusher";
+import { getAdminSupportTicketUnreadTotalDb } from "../../../../../../lib/admin-support-tickets";
+import { deriveSupportTicketSenderDisplayName } from "../../../../../../lib/support-ticket-sender-display";
+import {
+  triggerSupportAdminInboxTicketMessageCreated,
+  triggerSupportAdminInboxTicketRestored,
+  triggerSupportTicketNewMessage,
+  triggerSupportTicketTicketRestored,
+} from "../../../../../../lib/support-ticket-pusher";
 
 type ParamsInput = Promise<{ id: string }>;
 
@@ -63,6 +70,48 @@ export async function POST(request: Request, segment: { params: ParamsInput }): 
           adminUnreadCount: ac,
           customerUnreadCount: cc,
         });
+        void (async () => {
+          const totalAdminUnread = await getAdminSupportTicketUnreadTotalDb();
+          const ticketRow = await db.supportTicket.findUnique({
+            where: { id: tid },
+            select: {
+              lastMessageAt: true,
+              adminUnreadCount: true,
+              customer: { select: { fullName: true, phone: true, email: true } },
+              affiliateApplication: { select: { fullName: true, phone: true, email: true } },
+            },
+          });
+          const app = ticketRow?.affiliateApplication;
+          const affApp =
+            app && (app.fullName?.trim() || app.phone?.trim() || app.email?.trim())
+              ? {
+                  fullName: app.fullName ?? "",
+                  phone: app.phone ?? "",
+                  email: app.email ?? null,
+                }
+              : null;
+          const cust = ticketRow?.customer;
+          const customerName = cust
+            ? deriveSupportTicketSenderDisplayName(
+                {
+                  fullName: cust.fullName,
+                  phone: cust.phone,
+                  email: cust.email,
+                },
+                affApp,
+              )
+            : "Khách hàng";
+          const preview = textBody.length > 200 ? `${textBody.slice(0, 200)}…` : textBody;
+          triggerSupportAdminInboxTicketMessageCreated({
+            totalAdminUnread,
+            ticketId: tid,
+            messageId: posted.id,
+            preview,
+            customerName,
+            ticketAdminUnread: ticketRow?.adminUnreadCount ?? ac,
+            lastMessageAt: ticketRow?.lastMessageAt?.toISOString(),
+          });
+        })();
       }
       if (posted.autoReply) {
         const a = posted.autoReply;
@@ -77,6 +126,12 @@ export async function POST(request: Request, segment: { params: ParamsInput }): 
           customerUnreadCount: a.customerUnreadCount,
         });
       }
+      if (posted.reopened) {
+        void getAdminSupportTicketUnreadTotalDb().then((totalAdminUnread) => {
+          triggerSupportTicketTicketRestored(tid);
+          triggerSupportAdminInboxTicketRestored({ totalAdminUnread, ticketId: tid });
+        });
+      }
       return NextResponse.json(
         {
           ok: true,
@@ -88,8 +143,8 @@ export async function POST(request: Request, segment: { params: ParamsInput }): 
         { status: 201 },
       );
     } catch (e) {
-      if (e instanceof Error && e.message === "TICKET_CLOSED") {
-        return NextResponse.json({ message: "Ticket đã đóng, không thể gửi thêm tin nhắn." }, { status: 409 });
+      if (e instanceof Error && e.message === "TICKET_BLOCKED") {
+        return NextResponse.json({ message: "Bạn đã bị chặn liên hệ hỗ trợ." }, { status: 403 });
       }
       throw e;
     }

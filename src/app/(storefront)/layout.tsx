@@ -4,6 +4,7 @@ import "../globals.css";
 import { getThemeSettings, getWebsiteSettings } from "../../lib/settings";
 import { resolveMediaUrl } from "../../lib/media";
 import AppSessionProvider from "../../components/providers/session-provider";
+import { StorefrontCampaignBleedPortal } from "../../components/storefront/storefront-campaign-bleed-portal";
 import { StorefrontSupportProvider } from "../../components/support/storefront-support-provider";
 import { getDbClient, getSafeStorefrontSession, sanitizeCampaignBackgroundUrl } from "./_storefront-layout-shared";
 
@@ -16,10 +17,16 @@ export async function generateMetadata(): Promise<Metadata> {
   const faviconUrl = resolveMediaUrl(settings.faviconUrl);
   if (!faviconUrl) return {};
   const websiteSettingRow = db
-    ? await db.setting.findUnique({
-        where: { key: "website_settings" },
-        select: { updatedAt: true },
-      })
+    ? await (async () => {
+        try {
+          return await db.setting.findUnique({
+            where: { key: "website_settings" },
+            select: { updatedAt: true },
+          });
+        } catch {
+          return null;
+        }
+      })()
     : null;
   const mediaVersion = websiteSettingRow?.updatedAt
     ? String(new Date(websiteSettingRow.updatedAt).getTime())
@@ -66,50 +73,37 @@ export default async function StorefrontLayout({
     textMuted: "#64748B",
   };
 
+  const cssVars = {
+    "--z-primary": palette.primary,
+    "--z-primary-hover": palette.hover,
+    "--z-secondary": palette.secondary,
+    "--z-cta": palette.cta,
+    "--z-bg": showCampaignBackground ? "transparent" : palette.background,
+    "--z-card": palette.card,
+    "--z-border": palette.border,
+    "--z-text-main": palette.textMain,
+    "--z-text-muted": palette.textMuted,
+    "--z-campaign-bg-color": "#F8FAFC",
+    "--z-campaign-bg-desktop": hasCampaignBackgroundDesktop ? `url("${campaignBackgroundDesktop}")` : "none",
+    "--z-campaign-bg-mobile": hasCampaignBackgroundMobile ? `url("${campaignMobileResolved}")` : "none",
+  } as CSSProperties;
+
   return (
-    <html lang="vi">
+    <html lang="vi" style={cssVars}>
       <body
-        className="min-h-screen bg-[var(--z-bg)] text-[var(--z-text-main)] antialiased"
-        style={
-          {
-            "--z-primary": palette.primary,
-            "--z-primary-hover": palette.hover,
-            "--z-secondary": palette.secondary,
-            "--z-cta": palette.cta,
-            "--z-bg": showCampaignBackground ? "transparent" : palette.background,
-            "--z-card": palette.card,
-            "--z-border": palette.border,
-            "--z-text-main": palette.textMain,
-            "--z-text-muted": palette.textMuted,
-            "--z-campaign-bg-color": "#F8FAFC",
-            "--z-campaign-bg-desktop": hasCampaignBackgroundDesktop
-              ? `url("${campaignBackgroundDesktop}")`
-              : "none",
-            "--z-campaign-bg-mobile": hasCampaignBackgroundMobile
-              ? `url("${campaignMobileResolved}")`
-              : "none",
-          } as CSSProperties
-        }
+        className={`min-h-screen text-[var(--z-text-main)] antialiased ${
+          showCampaignBackground ? "bg-transparent" : "bg-[var(--z-bg)]"
+        }`}
       >
-        <style>{`
-          body {
-            background-color: var(--z-campaign-bg-color, #F8FAFC);
-          }
-        `}</style>
         {showCampaignBackground ? (
-          <>
-            <div
-              aria-hidden
-              className="pointer-events-none fixed inset-0 z-0 hidden bg-cover bg-top bg-no-repeat md:block"
-              style={{ backgroundImage: "var(--z-campaign-bg-desktop, none)" }}
-            />
-            <div
-              aria-hidden
-              className="pointer-events-none fixed inset-0 z-0 bg-cover bg-top bg-no-repeat md:hidden"
-              style={{ backgroundImage: "var(--z-campaign-bg-mobile, none)" }}
-            />
-          </>
+          <style>{`
+            /* Tránh globals html,body { background: #fff } che nền campaign (portal fixed trên body). */
+            body {
+              background: transparent;
+            }
+          `}</style>
         ) : null}
+        {showCampaignBackground ? <StorefrontCampaignBleedPortal /> : null}
         <AppSessionProvider session={session}>
           <StorefrontSupportProvider>{children}</StorefrontSupportProvider>
         </AppSessionProvider>

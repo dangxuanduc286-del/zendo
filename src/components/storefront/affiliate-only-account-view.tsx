@@ -3,20 +3,22 @@
 import Link from "next/link";
 import Image from "next/image";
 import { signOut } from "next-auth/react";
-import { ChangeEvent, useEffect, useRef, useState } from "react";
+import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState, startTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
-import ChangePasswordForm from "../auth/change-password-form";
 import { useAffiliateDashboardApi } from "./use-affiliate-dashboard-api";
 import type { AffiliateCommissionTabSettings } from "../../lib/affiliate-commission-tab-settings";
 import type { CustomerAccountSettings } from "../../lib/settings";
 import { getDefaultAccountTab } from "../../lib/account-role";
 import { useCustomerNotificationsPoll } from "../../lib/use-customer-notifications-poll";
-import { useStorefrontSupportUnreadTotal } from "../../lib/use-storefront-support-unread-total";
-import { useSupportChatStore } from "../../stores/supportChatStore";
-import AccountMobileMenuDrawer, { type AccountMobileNavItem } from "./account-mobile-menu-drawer";
-import { AccountNotificationsSection } from "./account-notifications-section";
-import AccountPolicyHubPanel from "./account-policy-hub-panel";
+import { useAccountMobileMenuStore } from "../../stores/accountMobileMenuStore";
+import AccountMobileMenuDrawer from "./account-mobile-menu-drawer";
+import { StorefrontAccountTwoColumnLayout } from "./storefront-account-two-column-layout";
+import { AffiliateCtvAccountApplyGate } from "./affiliate-ctv-account-apply-gate";
+import { AccountOrderItemThumbnail } from "./account-order-item-thumbnail";
+import { AffiliateCtvAccountSidebar } from "./affiliate-ctv-account-sidebar";
+import { buildAffiliateCtvNavEntriesFromDashboard } from "@/lib/storefront-affiliate-ctv-nav-build";
+import { flattenEnabledMenuItems, MENU_BASE_CLASS } from "./affiliate-ctv-account-menu-config";
 import {
   getDistrictsByProvince,
   getProvinces,
@@ -26,28 +28,55 @@ import {
 import type { PolicyHubCard } from "../../lib/site-policy-public";
 
 const PurchaseHistoryPanel = dynamic(() => import("./purchase-history-panel"), {
-  loading: () => <div className="rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm">Đang tải...</div>,
+  loading: () => <div className="rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm">Đang tải...</div>,
 });
 const AffiliateLinkBuilder = dynamic(() => import("./affiliate-link-builder"), {
-  loading: () => <div className="rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm">Đang tải...</div>,
+  loading: () => <div className="rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm">Đang tải...</div>,
 });
 const AffiliateProductRefActions = dynamic(() => import("./affiliate-product-ref-actions"), {
-  loading: () => <div className="rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm">Đang tải...</div>,
+  loading: () => <div className="rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm">Đang tải...</div>,
 });
 const AffiliateEarningsPanel = dynamic(() => import("./affiliate-earnings-panel"), {
-  loading: () => <div className="rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm">Đang tải...</div>,
+  loading: () => <div className="rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm">Đang tải...</div>,
 });
 const AffiliateOrdersPanel = dynamic(() => import("./affiliate-orders-panel"), {
-  loading: () => <div className="rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm">Đang tải...</div>,
+  loading: () => <div className="rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm">Đang tải...</div>,
 });
 const AffiliateWithdrawalPanel = dynamic(() => import("./affiliate-withdrawal-panel"), {
-  loading: () => <div className="rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm">Đang tải...</div>,
+  loading: () => <div className="rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm">Đang tải...</div>,
 });
 const AffiliatePayoutAccountPanel = dynamic(() => import("./affiliate-payout-account-panel"), {
-  loading: () => <div className="rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm">Đang tải...</div>,
+  loading: () => <div className="rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm">Đang tải...</div>,
 });
 const AffiliateGuidePanel = dynamic(() => import("./affiliate-guide-panel"), {
-  loading: () => <div className="rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm">Đang tải...</div>,
+  loading: () => <div className="rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm">Đang tải...</div>,
+});
+const AffiliateShortLinksPanel = dynamic(() => import("./affiliate-short-links-panel"), {
+  loading: () => <div className="rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm">Đang tải link ngắn…</div>,
+});
+const AffiliateRevenueInsightsCard = dynamic(() => import("./affiliate-revenue-insights-card"), {
+  loading: () => <div className="h-16 animate-pulse rounded-xl bg-[#F1F5F9]" />,
+});
+const AffiliateOnboardingChecklist = dynamic(() => import("./affiliate-onboarding-checklist"));
+const AffiliateQuickShareButtons = dynamic(() => import("./affiliate-quick-share-buttons"));
+
+const accountTabHeavyFallback = (): JSX.Element => (
+  <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-sm" aria-hidden>
+    <div className="h-4 w-1/3 max-w-[200px] animate-pulse rounded bg-slate-200" />
+    <div className="mt-4 h-3 w-full max-w-xl animate-pulse rounded bg-slate-100" />
+    <div className="mt-2 h-3 w-[92%] max-w-xl animate-pulse rounded bg-slate-100" />
+  </div>
+);
+
+const AccountNotificationsSection = dynamic(
+  () => import("./account-notifications-section").then((m) => ({ default: m.AccountNotificationsSection })),
+  { loading: accountTabHeavyFallback },
+);
+const AccountPolicyHubPanel = dynamic(() => import("./account-policy-hub-panel"), {
+  loading: accountTabHeavyFallback,
+});
+const ChangePasswordForm = dynamic(() => import("../auth/change-password-form"), {
+  loading: accountTabHeavyFallback,
 });
 
 type DashboardStats = {
@@ -88,6 +117,7 @@ type DashboardData = {
     createdAt: string;
     itemCount: number;
     productNames: string[];
+    linePreviews: Array<{ productName: string; quantity: number; imageUrl: string }>;
   }>;
   vouchers: {
     active: Array<{ code: string; name: string; description: string; expiresAt: string }>;
@@ -126,6 +156,20 @@ type DashboardData = {
     totalClicks: number;
     referredOrders: number;
   };
+  loyalty: {
+    points: number;
+    memberRank: string;
+    lifetimeSpent: number;
+    completedOrders: number;
+    transactions: Array<{
+      id: string;
+      points: number;
+      type: string;
+      description: string;
+      createdAt: string;
+      orderCode: string | null;
+    }>;
+  };
 };
 
 type TabKey =
@@ -141,13 +185,6 @@ type TabKey =
   | "policyHub"
   | "affiliate"
   | "security";
-
-type AccountNavItem =
-  | { kind: "tab"; label: string; tab: TabKey; enabled: boolean }
-  | { kind: "support"; label: string; enabled: boolean };
-
-const MENU_BASE_CLASS =
-  "rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 text-sm font-medium text-[#0F172A] transition hover:bg-[#EFF6FF]";
 
 function mapOrderTimeline(status: string): {
   finalLabel: string;
@@ -208,7 +245,7 @@ function getOrderStatusUi(status: string): { label: string; badgeClass: string; 
   if (grouped === "processing") {
     return {
       label: "Đang xử lý",
-      badgeClass: "bg-blue-50 text-blue-700",
+      badgeClass: "bg-[#EFF6FF] text-[#1D4ED8]",
       note: "Đơn hàng đang được xử lý.",
     };
   }
@@ -303,6 +340,18 @@ export default function AffiliateOnlyAccountView({
     if (pick === "affiliate") return "links";
     return "overview";
   });
+  const selectTab = useCallback((tab: TabKey) => {
+    startTransition(() => setActiveTab(tab));
+  }, []);
+  const selectAffiliateSubTab = useCallback((sub: AffiliateSubTab) => {
+    startTransition(() => setActiveSubTab(sub));
+  }, []);
+  const selectAffiliateSection = useCallback((sub: AffiliateSubTab) => {
+    startTransition(() => {
+      setActiveTab("affiliate");
+      setActiveSubTab(sub);
+    });
+  }, []);
   const [orderStatusFilter, setOrderStatusFilter] = useState("all");
   const [orderSearch, setOrderSearch] = useState("");
   const [expandedOrderIds, setExpandedOrderIds] = useState<string[]>([]);
@@ -358,7 +407,7 @@ export default function AffiliateOnlyAccountView({
   const [addressDeletingId, setAddressDeletingId] = useState("");
   const [addressMessage, setAddressMessage] = useState("");
   const [addressError, setAddressError] = useState("");
-  const supportUnreadTotal = useStorefrontSupportUnreadTotal(accountSettings.affiliateShowSupport);
+  const [navExpanded, setNavExpanded] = useState<Record<string, boolean>>({});
   const liveNotifications = useCustomerNotificationsPoll(
     data.notifications,
     accountSettings.showNotifications,
@@ -427,52 +476,18 @@ export default function AffiliateOnlyAccountView({
     },
   ].filter((item) => item.enabled);
 
-  const menuItems: AccountNavItem[] = [
-    { kind: "tab", label: "Tổng quan", tab: "overview", enabled: accountSettings.showOverview },
-    {
-      kind: "tab",
-      label: "Đơn hàng của tôi",
-      tab: "orders",
-      enabled: accountSettings.showOrders && buyerShortcutStatsOk,
-    },
-    {
-      kind: "tab",
-      label: accountSettings.purchaseHistoryTitle?.trim() || "Lịch sử mua hàng",
-      tab: "purchaseHistory",
-      enabled: showPurchaseHistoryEffective,
-    },
-    {
-      kind: "tab",
-      label: "Theo dõi đơn hàng",
-      tab: "tracking",
-      enabled: accountSettings.showOrderTimeline && buyerShortcutStatsOk,
-    },
-    { kind: "tab", label: "Thông báo", tab: "notifications", enabled: accountSettings.showNotifications },
-    { kind: "tab", label: "Kho voucher", tab: "coupons", enabled: showCouponsEffective },
-    { kind: "tab", label: "Thông tin cá nhân", tab: "profile", enabled: accountSettings.showProfile },
-    { kind: "tab", label: "Sổ địa chỉ", tab: "addresses", enabled: showAddressesEffective },
-    {
-      kind: "tab",
-      label: "Yêu thích / đã xem",
-      tab: "wishlist",
-      enabled:
-        showShoppingCta &&
-        (accountSettings.showWishlist || accountSettings.showRecentlyViewed || accountSettings.showRecommendedProducts),
-    },
-    { kind: "support", label: "Hỗ trợ", enabled: accountSettings.affiliateShowSupport },
-    {
-      kind: "tab",
-      label: "Tra cứu & chính sách",
-      tab: "policyHub",
-      enabled: accountSettings.affiliateShowSupport,
-    },
-    { kind: "tab", label: "CTV / Affiliate", tab: "affiliate", enabled: accountSettings.showAffiliate },
-    { kind: "tab", label: "Bảo mật tài khoản", tab: "security", enabled: accountSettings.showSecurity },
-  ];
-  const enabledMenuItems = menuItems.filter((item) => item.enabled && item.label.trim().length > 0);
-  const fallbackTab =
-    enabledMenuItems.find((item): item is { kind: "tab"; tab: TabKey; label: string; enabled: boolean } => item.kind === "tab")
-      ?.tab ?? "overview";
+  const ctvNavEntries = useMemo(() => buildAffiliateCtvNavEntriesFromDashboard(accountSettings, data), [accountSettings, data]);
+
+  const enabledMenuItems = useMemo(() => flattenEnabledMenuItems(ctvNavEntries), [ctvNavEntries]);
+  const allowedNavTabs = useMemo(
+    () => [
+      ...new Set(
+        enabledMenuItems.filter((i): i is { kind: "tab"; tab: string; label: string } => i.kind === "tab").map((i) => i.tab),
+      ),
+    ],
+    [enabledMenuItems],
+  );
+  const fallbackTab = (allowedNavTabs[0] ?? "overview") as TabKey;
   const orderStatusTabs = [
     { key: "all", label: "Tất cả" },
     { key: "pending", label: "Chờ xác nhận" },
@@ -598,17 +613,11 @@ export default function AffiliateOnlyAccountView({
     "Theo dõi hoa hồng & điểm thưởng: xem trạng thái chờ duyệt, đã duyệt, đã thanh toán.",
     "Yêu cầu rút tiền: vào mục Yêu cầu rút tiền, kiểm tra mức rút tối thiểu và gửi yêu cầu khi được kích hoạt.",
     "Quy định/lưu ý: không spam, không tự mua gian lận, chỉ tính đơn hợp lệ; vi phạm có thể bị khóa CTV.",
-    "Cần hỗ trợ: mở Hỗ trợ (menu tài khoản hoặc nút trên trang), Zalo (nếu cửa hàng cấu hình) hoặc link hướng dẫn từ cài đặt quản trị.",
+    "Cần hỗ trợ: bấm Hỗ trợ trên thanh menu trên cùng, Zalo (nếu cửa hàng cấu hình) hoặc link hướng dẫn từ cài đặt quản trị.",
   ];
   const guideSteps = guideStepsRaw.every((item) => typeof item === "string" && item.trim())
     ? (guideStepsRaw as string[]).map((item) => item.trim())
     : fallbackGuideSteps;
-
-  useEffect(() => {
-    if (initialAccountTab === "supportTickets" && accountSettings.affiliateShowSupport) {
-      useSupportChatStore.getState().open();
-    }
-  }, [initialAccountTab, accountSettings.affiliateShowSupport]);
 
   useEffect(() => {
     const rawIncoming = (initialAccountTab ?? "").trim();
@@ -636,13 +645,10 @@ export default function AffiliateOnlyAccountView({
   }, [activeTab, activeSubTab]);
 
   useEffect(() => {
-    const tabs = enabledMenuItems.filter(
-      (item): item is { kind: "tab"; label: string; tab: TabKey; enabled: boolean } => item.kind === "tab",
-    );
-    if (!tabs.some((item) => item.tab === activeTab)) {
+    if (!allowedNavTabs.includes(activeTab)) {
       setActiveTab(fallbackTab);
     }
-  }, [activeTab, enabledMenuItems, fallbackTab]);
+  }, [activeTab, allowedNavTabs, fallbackTab]);
   useEffect(() => {
     if (activeTab !== "affiliate") {
       setActiveSubTab("overview");
@@ -989,7 +995,7 @@ export default function AffiliateOnlyAccountView({
     quickCards.length > 0 ? (
       <div
         id="tong-quan-stats"
-        className="grid min-w-0 w-full grid-cols-2 gap-2 sm:gap-2.5 lg:gap-3 xl:grid-cols-4 xl:gap-3"
+        className="grid min-w-0 w-full grid-cols-2 gap-2 sm:grid-cols-[repeat(auto-fit,minmax(11rem,1fr))] sm:gap-2.5 lg:gap-3"
         role="region"
         aria-label="Thống kê tài khoản"
       >
@@ -1005,36 +1011,45 @@ export default function AffiliateOnlyAccountView({
       </div>
     ) : null;
 
+  const toggleNavSection = (id: string) => {
+    setNavExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
   return (
-    <div className="w-full min-w-0 max-w-none space-y-4 bg-transparent">
+    <div className="w-full min-w-0 max-w-none space-y-4 overflow-x-hidden bg-transparent">
       <AccountMobileMenuDrawer
-        items={enabledMenuItems.map((item) =>
-          item.kind === "support"
-            ? ({ kind: "support", label: item.label } as AccountMobileNavItem)
-            : ({
-                kind: "tab",
-                label: item.label,
-                tab: item.tab,
-                badgeCount: item.tab === "notifications" ? liveNotifications.unread : undefined,
-                commissionBadgeCount:
-                  item.tab === "notifications" &&
-                  data.affiliate.isActive &&
-                  affiliateProgramEnabled &&
-                  affiliateCommissionTab.tabEnabled
-                    ? liveNotifications.groups.commission
-                    : undefined,
-              } as AccountMobileNavItem),
-        )}
+        items={[]}
+        customNav={
+          <AffiliateCtvAccountSidebar
+            dense
+            entries={ctvNavEntries}
+            activeTab={activeTab}
+            onSelectTab={(t) => selectTab(t as TabKey)}
+            activeAffiliateSubTab={activeSubTab}
+            onSelectAffiliateSubTab={(s) => selectAffiliateSubTab(s as AffiliateSubTab)}
+            expandedSections={navExpanded}
+            onToggleSection={toggleNavSection}
+            notificationsUnread={liveNotifications.unread}
+            commissionBadge={liveNotifications.groups.commission}
+            showCommissionBadge={Boolean(
+              data.affiliate.isActive && affiliateProgramEnabled && affiliateCommissionTab.tabEnabled,
+            )}
+            onSignOut={() => {
+              signOut({ callbackUrl: "/" }).catch(() => {});
+            }}
+            onNavigate={() => useAccountMobileMenuStore.getState().close()}
+          />
+        }
         activeTab={activeTab}
-        onSelectTab={(tab) => setActiveTab(tab as TabKey)}
-        onOpenSupport={() => useSupportChatStore.getState().open()}
+        onSelectTab={(tab) => selectTab(tab as TabKey)}
+        onOpenSupport={() => {}}
+        supportUnreadTotal={0}
         onSignOut={() => {
           signOut({ callbackUrl: "/" }).catch(() => {});
         }}
-        supportUnreadTotal={supportUnreadTotal}
       />
-      <section className="w-full min-w-0 rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
-        <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(200px,42%)] lg:items-center lg:gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(240px,40%)]">
+      <section className="w-full min-w-0 rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
+        <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(14rem,1fr)] lg:items-start lg:gap-6 xl:gap-8">
           <div className="min-w-0 space-y-3">
             <div className="flex flex-wrap items-center gap-3 lg:gap-4">
               {currentAvatar ? (
@@ -1060,7 +1075,7 @@ export default function AffiliateOnlyAccountView({
                 {accountSettings.showProfile ? (
                   <button
                     type="button"
-                    onClick={() => setActiveTab("profile")}
+                    onClick={() => selectTab("profile")}
                     className="mt-1 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8]"
                   >
                     Chỉnh sửa hồ sơ
@@ -1083,7 +1098,7 @@ export default function AffiliateOnlyAccountView({
                 type="button"
                 onClick={onPickAvatar}
                 disabled={avatarUploading}
-                className="inline-flex h-9 items-center rounded-lg border border-[#E2E8F0] bg-white px-3 text-xs font-semibold text-[#0F172A] hover:bg-[#EFF6FF] disabled:opacity-60"
+                className={`${MENU_BASE_CLASS} inline-flex h-9 items-center text-xs font-semibold disabled:opacity-60`}
               >
                 {avatarUrl ? "Đổi ảnh" : "Tải ảnh lên"}
               </button>
@@ -1092,7 +1107,7 @@ export default function AffiliateOnlyAccountView({
                   type="button"
                   onClick={onRemoveAvatar}
                   disabled={avatarUploading}
-                  className="inline-flex h-9 items-center rounded-lg border border-[#E2E8F0] bg-white px-3 text-xs font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-60"
+                  className={`${MENU_BASE_CLASS} inline-flex h-9 items-center text-xs font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-60`}
                 >
                   Xóa ảnh
                 </button>
@@ -1122,100 +1137,53 @@ export default function AffiliateOnlyAccountView({
         </div>
       </section>
 
-      <section className="grid w-full min-w-0 grid-cols-1 gap-4 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)] xl:gap-5">
-        <aside className="hidden w-full min-w-0 rounded-2xl border border-[#E2E8F0] bg-white p-3 shadow-sm md:block lg:sticky lg:top-24 lg:self-start lg:p-4">
-          <div className="flex flex-wrap gap-2 lg:flex-col">
-            {enabledMenuItems.map((item) =>
-              item.kind === "support" ? (
-                <button
-                  key="nav-support-chat"
-                  type="button"
-                  onClick={() => useSupportChatStore.getState().open()}
-                  className={`${MENU_BASE_CLASS} flex min-h-10 min-w-0 basis-[calc(50%-0.25rem)] items-center justify-between gap-2 text-left lg:basis-auto border-[#E2E8F0] bg-white text-[#0F172A] hover:bg-[#EFF6FF]`}
-                >
-                  <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                  {supportUnreadTotal > 0 ? (
-                    <span className="inline-flex h-5 shrink-0 items-center justify-center rounded-full bg-amber-100 px-1.5 text-[11px] font-bold tabular-nums text-amber-950 ring-1 ring-rose-200/80">
-                      {supportUnreadTotal > 99 ? "99+" : supportUnreadTotal}
-                    </span>
-                  ) : null}
-                </button>
-              ) : (
-                <button
-                  key={`${item.tab}-${item.label}`}
-                  type="button"
-                  onClick={() => setActiveTab(item.tab)}
-                  aria-current={activeTab === item.tab ? "page" : undefined}
-                  className={`${MENU_BASE_CLASS} flex min-h-10 min-w-0 basis-[calc(50%-0.25rem)] items-center justify-between gap-2 text-left lg:basis-auto ${
-                    activeTab === item.tab
-                      ? "!border-blue-300 !bg-blue-50 text-blue-900 font-semibold hover:!bg-blue-100"
-                      : "border-[#E2E8F0] bg-white text-[#0F172A] hover:bg-[#EFF6FF]"
-                  }`}
-                >
-                  <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                  {item.tab === "notifications" ? (
-                    <span className="flex shrink-0 items-center gap-1">
-                      {data.affiliate.isActive &&
-                      affiliateProgramEnabled &&
-                      affiliateCommissionTab.tabEnabled &&
-                      liveNotifications.groups.commission > 0 ? (
-                        <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-emerald-600 px-[4px] text-[10px] font-semibold tabular-nums leading-none text-white shadow-sm ring-1 ring-black/[0.08]">
-                          HH {liveNotifications.groups.commission > 99 ? "99+" : liveNotifications.groups.commission}
-                        </span>
-                      ) : null}
-                      {liveNotifications.unread > 0 ? (
-                        <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#EF4444] px-[5px] text-[11px] font-semibold tabular-nums leading-none text-white shadow-sm ring-1 ring-black/[0.08]">
-                          {liveNotifications.unread > 99 ? "99+" : liveNotifications.unread}
-                        </span>
-                      ) : null}
-                    </span>
-                  ) : null}
-                </button>
-              ),
+      <StorefrontAccountTwoColumnLayout
+        contentId="tai-khoan-ctv-content"
+        sidebar={
+          <AffiliateCtvAccountSidebar
+            entries={ctvNavEntries}
+            activeTab={activeTab}
+            onSelectTab={(t) => selectTab(t as TabKey)}
+            activeAffiliateSubTab={activeSubTab}
+            onSelectAffiliateSubTab={(s) => selectAffiliateSubTab(s as AffiliateSubTab)}
+            expandedSections={navExpanded}
+            onToggleSection={toggleNavSection}
+            notificationsUnread={liveNotifications.unread}
+            commissionBadge={liveNotifications.groups.commission}
+            showCommissionBadge={Boolean(
+              data.affiliate.isActive && affiliateProgramEnabled && affiliateCommissionTab.tabEnabled,
             )}
-            <button
-              type="button"
-              onClick={() => signOut({ callbackUrl: "/" }).catch(() => {})}
-              className={`${MENU_BASE_CLASS} min-h-10 basis-[calc(50%-0.25rem)] text-left text-rose-600 hover:bg-rose-50 lg:basis-auto`}
-            >
-              Đăng xuất
-            </button>
-          </div>
-        </aside>
-
-        <div className="min-w-0 w-full max-w-none space-y-4">
+            onSignOut={() => {
+              signOut({ callbackUrl: "/" }).catch(() => {});
+            }}
+          />
+        }
+      >
           {activeTab === "overview" ? (
-            <section className="w-full min-w-0 rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
+            <section className="w-full min-w-0 rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
               <h3 className="text-base font-semibold text-[#0F172A]">Tổng quan tài khoản</h3>
               {accountSettings.showAffiliate ? (
                 <div className="mt-3 grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-3" role="group" aria-label="Thao tác CTV nhanh">
                   <button
                     type="button"
                     className="min-h-11 w-full shrink-0 rounded-xl bg-[#2563EB] px-3 py-2.5 text-center text-sm font-semibold text-white hover:bg-[#1D4ED8]"
-                    onClick={() => {
-                      setActiveTab("affiliate");
-                      setActiveSubTab("links");
-                    }}
+                    onClick={() => selectAffiliateSection("links")}
                   >
                     Lấy link giới thiệu
                   </button>
                   <button
                     type="button"
                     className="min-h-11 w-full shrink-0 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-center text-sm font-semibold text-emerald-900 hover:bg-emerald-100"
-                    onClick={() => {
-                      setActiveTab("affiliate");
-                      setActiveSubTab("earnings");
-                    }}
+                    onClick={() => selectAffiliateSection("earnings")}
                   >
                     Xem hoa hồng
                   </button>
                   <button
                     type="button"
-                    className="min-h-11 w-full shrink-0 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2.5 text-center text-sm font-semibold text-[#0F172A] hover:bg-[#EFF6FF]"
-                    onClick={() => {
-                      setActiveTab("affiliate");
-                      setActiveSubTab(accountSettings.affiliateShowGuide ? "guide" : "overview");
-                    }}
+                    className="min-h-11 w-full shrink-0 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2.5 text-center text-sm font-semibold text-[#0F172A] hover:bg-[#F8FAFC]"
+                    onClick={() =>
+                      selectAffiliateSection(accountSettings.affiliateShowGuide ? "guide" : "overview")
+                    }
                   >
                     Hướng dẫn CTV
                   </button>
@@ -1295,7 +1263,7 @@ export default function AffiliateOnlyAccountView({
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   type="button"
-                  onClick={() => setActiveTab("tracking")}
+                  onClick={() => selectTab("tracking")}
                   className="inline-flex h-10 items-center rounded-xl bg-[#2563EB] px-4 text-sm font-semibold text-white hover:bg-[#1D4ED8]"
                 >
                   Theo dõi đơn hàng
@@ -1313,7 +1281,7 @@ export default function AffiliateOnlyAccountView({
           ) : null}
 
           {activeTab === "orders" && accountSettings.showOrders ? (
-            <section id="don-hang" className="w-full min-w-0 rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
+            <section id="don-hang" className="w-full min-w-0 rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
               <h3 className="text-lg font-semibold text-[#0F172A]">Đơn hàng của tôi</h3>
               <div className="mt-3 overflow-x-auto border-b border-[#E2E8F0] pb-2">
                 <div className="flex min-w-max gap-3">
@@ -1365,15 +1333,20 @@ export default function AffiliateOnlyAccountView({
                           </span>
                         </div>
                         <div className="mt-3 space-y-2">
-                          {order.productNames.slice(0, 2).map((name) => (
-                            <div key={`${order.id}-${name}`} className="flex items-center gap-3">
-                              <div className="h-14 w-14 rounded-md border border-[#E2E8F0] bg-[#F8FAFC] sm:h-16 sm:w-16" />
-                              <div className="min-w-0">
-                                <p className="line-clamp-1 text-sm text-[#0F172A]">{name}</p>
-                                <p className="text-xs text-[#64748B]">x1</p>
+                          {(order.linePreviews && order.linePreviews.length > 0
+                            ? order.linePreviews
+                            : order.productNames.map((n) => ({ productName: n, quantity: 1, imageUrl: "" }))
+                          )
+                            .slice(0, 2)
+                            .map((line, idx) => (
+                              <div key={`${order.id}-line-${idx}`} className="flex items-center gap-3">
+                                <AccountOrderItemThumbnail imageUrl={line.imageUrl} productName={line.productName} />
+                                <div className="min-w-0">
+                                  <p className="line-clamp-1 text-sm text-[#0F172A]">{line.productName}</p>
+                                  <p className="text-xs text-[#64748B]">x{line.quantity}</p>
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            ))}
                           {order.itemCount > 2 ? <p className="text-xs text-[#64748B]">+{order.itemCount - 2} sản phẩm khác</p> : null}
                         </div>
                         <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
@@ -1471,7 +1444,7 @@ export default function AffiliateOnlyAccountView({
           ) : null}
 
           {activeTab === "tracking" && accountSettings.showOrderTimeline ? (
-            <section className="w-full min-w-0 rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
+            <section className="w-full min-w-0 rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
               <h3 className="text-base font-semibold text-[#0F172A]">Theo dõi đơn hàng</h3>
               {selectedTrackingOrder ? (
                 <div className="mt-3 space-y-3">
@@ -1533,7 +1506,7 @@ export default function AffiliateOnlyAccountView({
           ) : null}
 
           {activeTab === "coupons" && showCouponsEffective ? (
-            <section id="voucher" className="w-full min-w-0 rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
+            <section id="voucher" className="w-full min-w-0 rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
               <h3 className="text-base font-semibold text-[#0F172A]">{accountSettings.couponTitle || "Kho voucher"}</h3>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button type="button" onClick={() => setCouponFilter("active")} className={`rounded-full px-3 py-1 text-xs ${couponFilter === "active" ? "bg-[#2563EB] text-white" : "bg-[#F8FAFC] text-[#0F172A]"}`}>
@@ -1582,7 +1555,7 @@ export default function AffiliateOnlyAccountView({
           ) : null}
 
           {activeTab === "profile" && accountSettings.showProfile ? (
-            <section id="thong-tin-ca-nhan" className="w-full min-w-0 rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
+            <section id="thong-tin-ca-nhan" className="w-full min-w-0 rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
               <h3 className="text-base font-semibold text-[#0F172A]">Thông tin cá nhân</h3>
               <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
                 <label className="space-y-1">
@@ -1638,7 +1611,7 @@ export default function AffiliateOnlyAccountView({
           ) : null}
 
           {activeTab === "addresses" && showAddressesEffective ? (
-            <section id="so-dia-chi" className="w-full min-w-0 rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
+            <section id="so-dia-chi" className="w-full min-w-0 rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
               <h3 className="text-base font-semibold text-[#0F172A]">Sổ địa chỉ</h3>
               <p className="mt-2 text-sm text-[#64748B]">Quản lý địa chỉ nhận hàng để đặt hàng nhanh hơn.</p>
               <div className="mt-3">
@@ -1786,11 +1759,11 @@ export default function AffiliateOnlyAccountView({
                           </span>
                         ) : null}
                       </div>
-                      <p className="mt-1 text-sm text-[#475569]">{item.phone}</p>
-                      <p className="mt-1 text-sm text-[#475569] break-words">
+                      <p className="mt-1 text-sm text-[#64748B]">{item.phone}</p>
+                      <p className="mt-1 text-sm text-[#64748B] break-words">
                         {item.province}, {item.district}, {item.ward}
                       </p>
-                      <p className="mt-1 text-sm text-[#475569] break-words">{item.detail}</p>
+                      <p className="mt-1 text-sm text-[#64748B] break-words">{item.detail}</p>
                       <div className="mt-3 flex flex-wrap gap-2">
                         <button
                           type="button"
@@ -1838,7 +1811,7 @@ export default function AffiliateOnlyAccountView({
 
           {activeTab === "wishlist" &&
           (accountSettings.showWishlist || accountSettings.showRecentlyViewed || accountSettings.showRecommendedProducts) ? (
-            <section id="yeu-thich" className="w-full min-w-0 rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5">
+            <section id="yeu-thich" className="w-full min-w-0 rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5">
               <h3 className="text-base font-semibold text-[#0F172A]">Yêu thích / đã xem</h3>
               <div className="mt-2 space-y-2 text-sm text-[#64748B]">
                 {accountSettings.showWishlist ? (
@@ -1901,7 +1874,8 @@ export default function AffiliateOnlyAccountView({
           ) : null}
 
           {activeTab === "affiliate" && accountSettings.showAffiliate ? (
-            <section id="affiliate" className="w-full min-w-0 rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5">
+            <>
+            <section id="affiliate" className="w-full min-w-0 rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5">
               {data.affiliate.isActive ? (
                 <>
                   <div className="rounded-xl border border-[#E2E8F0] bg-white p-2">
@@ -1913,11 +1887,11 @@ export default function AffiliateOnlyAccountView({
                             <button
                               key={item.key}
                               type="button"
-                              onClick={() => setActiveSubTab(item.key)}
+                              onClick={() => selectAffiliateSubTab(item.key)}
                               className={`whitespace-nowrap rounded-xl border px-4 py-2.5 text-sm lg:text-[15px] ${
                                 active
                                   ? "border-[#2563EB] bg-[#EFF6FF] font-bold text-[#0F172A]"
-                                  : "border-[#E2E8F0] bg-white font-semibold text-[#0F172A] hover:bg-[#EFF6FF]"
+                                  : "border-[#E2E8F0] bg-white font-semibold text-[#0F172A] hover:bg-[#F8FAFC]"
                               }`}
                             >
                               {item.label}
@@ -1973,52 +1947,68 @@ export default function AffiliateOnlyAccountView({
                           </div>
                         </article>
                       ) : null}
-                      <p className="mt-3 break-all rounded-lg bg-[#F8FAFC] px-3 py-2 text-xs text-[#64748B]">
-                        Link giới thiệu: {referralUrl || "—"}
-                      </p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setAffiliateCopyError("");
-                            navigator.clipboard
-                              ?.writeText(referralUrl)
-                              .then(() => {
-                                setAffiliateCopied(true);
-                                window.setTimeout(() => setAffiliateCopied(false), 1600);
-                              })
-                              .catch(() => {
-                                setAffiliateCopyError("Không thể sao chép, vui lòng copy thủ công.");
-                              });
-                          }}
-                          className="rounded-lg bg-[#2563EB] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#1D4ED8]"
-                        >
-                          Sao chép link
-                        </button>
-                        {referralUrl ? (
+                      <div id="affiliate-promo-tools" className="scroll-mt-28 mt-3 space-y-3">
+                        <p className="break-all rounded-lg bg-[#F8FAFC] px-3 py-2 text-xs text-[#64748B]">
+                          Link giới thiệu: {referralUrl || "—"}
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAffiliateCopyError("");
+                              navigator.clipboard
+                                ?.writeText(referralUrl)
+                                .then(() => {
+                                  setAffiliateCopied(true);
+                                  window.setTimeout(() => setAffiliateCopied(false), 1600);
+                                })
+                                .catch(() => {
+                                  setAffiliateCopyError("Không thể sao chép, vui lòng copy thủ công.");
+                                });
+                            }}
+                            className="rounded-lg bg-[#2563EB] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#1D4ED8]"
+                          >
+                            Sao chép link
+                          </button>
+                          {referralUrl ? (
+                            <Link
+                              href={referralUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="rounded-lg border border-[#E2E8F0] bg-white px-3 py-1.5 text-xs font-medium text-[#0F172A]"
+                            >
+                              Mở link
+                            </Link>
+                          ) : null}
                           <Link
-                            href={referralUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                            href={`${accountSettings.continueShoppingUrl || "/cua-hang"}${data.affiliate.refCode ? `?ref=${encodeURIComponent(data.affiliate.refCode)}` : ""}`}
                             className="rounded-lg border border-[#E2E8F0] bg-white px-3 py-1.5 text-xs font-medium text-[#0F172A]"
                           >
-                            Mở link
+                            Tạo link sản phẩm
                           </Link>
+                        </div>
+                        {affiliateCopied ? (
+                          <p className="text-xs font-medium text-emerald-700">Đã sao chép</p>
                         ) : null}
-                        <Link
-                          href={`${accountSettings.continueShoppingUrl || "/cua-hang"}${data.affiliate.refCode ? `?ref=${encodeURIComponent(data.affiliate.refCode)}` : ""}`}
-                          className="rounded-lg border border-[#E2E8F0] bg-white px-3 py-1.5 text-xs font-medium text-[#0F172A]"
-                        >
-                          Tạo link sản phẩm
-                        </Link>
+                        {affiliateCopyError ? (
+                          <p className="text-xs font-medium text-rose-700">{affiliateCopyError}</p>
+                        ) : null}
+                        {referralUrl ? (
+                          <div>
+                            <p className="text-xs font-medium text-[#64748B]">Chia sẻ nhanh</p>
+                            <AffiliateQuickShareButtons shareUrl={referralUrl} className="mt-1.5" />
+                          </div>
+                        ) : null}
                       </div>
-                      {affiliateCopied ? (
-                        <p className="mt-2 text-xs font-medium text-emerald-700">Đã sao chép</p>
+                      {isAffiliateDataEmpty || totalClicksUi < 8 ? (
+                        <div className="mt-3">
+                          <AffiliateOnboardingChecklist />
+                        </div>
                       ) : null}
-                      {affiliateCopyError ? (
-                        <p className="mt-2 text-xs font-medium text-rose-700">{affiliateCopyError}</p>
-                      ) : null}
-                      <div className="mt-3 grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
+                      <div className="mt-3">
+                        <AffiliateRevenueInsightsCard />
+                      </div>
+                      <div className="mt-3 grid min-w-0 w-full grid-cols-2 gap-2 sm:grid-cols-[repeat(auto-fit,minmax(10.5rem,1fr))]">
                         <article className="min-w-0 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
                           <p className="text-xs text-[#64748B]">Mã giới thiệu</p>
                           <p className="mt-1 truncate text-sm font-semibold text-[#0F172A]" title={data.affiliate.refCode || undefined}>
@@ -2085,21 +2075,21 @@ export default function AffiliateOnlyAccountView({
                       <div className="mt-3 flex flex-wrap gap-2">
                         <button
                           type="button"
-                          onClick={() => setActiveSubTab("links")}
+                          onClick={() => selectAffiliateSubTab("links")}
                           className="rounded-lg border border-[#E2E8F0] bg-white px-3 py-1.5 text-xs font-medium text-[#0F172A]"
                         >
                           Tạo link giới thiệu
                         </button>
                         <button
                           type="button"
-                          onClick={() => setActiveSubTab("orders")}
+                          onClick={() => selectAffiliateSubTab("orders")}
                           className="rounded-lg border border-[#E2E8F0] bg-white px-3 py-1.5 text-xs font-medium text-[#0F172A]"
                         >
                           Xem đơn phát sinh
                         </button>
                         <button
                           type="button"
-                          onClick={() => setActiveSubTab("earnings")}
+                          onClick={() => selectAffiliateSubTab("earnings")}
                           className="rounded-lg border border-[#E2E8F0] bg-white px-3 py-1.5 text-xs font-medium text-[#0F172A]"
                         >
                           Xem hoa hồng
@@ -2107,7 +2097,7 @@ export default function AffiliateOnlyAccountView({
                         {accountSettings.affiliateShowWithdrawals ? (
                           <button
                             type="button"
-                            onClick={() => setActiveSubTab("withdrawal")}
+                            onClick={() => selectAffiliateSubTab("withdrawal")}
                             className="rounded-lg border border-[#E2E8F0] bg-white px-3 py-1.5 text-xs font-medium text-[#0F172A]"
                           >
                             Yêu cầu rút tiền
@@ -2133,7 +2123,7 @@ export default function AffiliateOnlyAccountView({
                           </Link>
                         ) : null}
                       </div>
-                      <div className="mt-3 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-3 text-xs text-[#475569]">
+                      <div className="mt-3 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-3 text-xs text-[#64748B]">
                         <p>
                           {accountSettings.affiliateDefaultCommissionText ||
                             "Hoa hồng được đối soát theo đơn hàng đủ điều kiện."}
@@ -2148,7 +2138,7 @@ export default function AffiliateOnlyAccountView({
                           <p className="text-sm font-semibold text-[#0F172A]">Bạn chưa có đơn giới thiệu nào.</p>
                           <button
                             type="button"
-                            onClick={() => setActiveSubTab("links")}
+                            onClick={() => selectAffiliateSubTab("links")}
                             className="mt-2 inline-flex h-9 items-center rounded-lg bg-[#2563EB] px-3 text-xs font-semibold text-white hover:bg-[#1D4ED8]"
                           >
                             Tạo link giới thiệu đầu tiên
@@ -2234,6 +2224,7 @@ export default function AffiliateOnlyAccountView({
                   ) : null}
                   {activeSubTab === "links" ? (
                     <div className="min-w-0 space-y-4">
+                      <AffiliateShortLinksPanel />
                       <AffiliateLinkBuilder refCode={data.affiliate.refCode} />
                       {(affDash.data?.productQuickLinks?.length ?? 0) > 0 ? (
                         <section className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
@@ -2246,7 +2237,7 @@ export default function AffiliateOnlyAccountView({
                               <Link
                                 key={p.id}
                                 href={`/san-pham/${encodeURIComponent(p.slug)}`}
-                                className="truncate rounded-lg border border-[#E2E8F0] bg-white px-3 py-2 text-xs font-medium text-[#2563EB] hover:bg-[#EFF6FF]"
+                                className="truncate rounded-lg border border-[#E2E8F0] bg-white px-3 py-2 text-xs font-medium text-[#2563EB] hover:bg-[#F8FAFC]"
                                 title={p.name}
                               >
                                 {p.name}
@@ -2276,29 +2267,21 @@ export default function AffiliateOnlyAccountView({
                 <>
                   <h3 className="text-base font-semibold text-[#0F172A]">Chương trình CTV / Affiliate</h3>
                   <p className="mt-2 text-sm text-[#64748B]">
-                    Tài khoản của bạn chưa được kích hoạt chức năng CTV. Vui lòng liên hệ quản trị viên để được nâng cấp.
+                    Tài khoản của bạn chưa được kích hoạt chức năng CTV. Bạn có thể gửi yêu cầu đăng ký để quản trị
+                    viên xét duyệt.
                   </p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <Link href={supportHref} className="rounded-lg bg-[#2563EB] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#1D4ED8]">
-                      Liên hệ hỗ trợ
-                    </Link>
-                    <Link
-                      href={shoppingHomeHref}
-                      className="rounded-lg bg-[#F59E0B] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#D97706]"
-                    >
-                      Tiếp tục mua sắm
-                    </Link>
-                  </div>
+                  <AffiliateCtvAccountApplyGate shoppingHomeHref={shoppingHomeHref} />
                 </>
               )}
             </section>
+            </>
           ) : null}
 
           {activeTab === "security" && accountSettings.showSecurity ? (
-            <section id="bao-mat" className="w-full min-w-0 rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
+            <section id="bao-mat" className="w-full min-w-0 rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
               <h3 className="text-base font-semibold text-[#0F172A]">Bảo mật tài khoản</h3>
               <p className="mt-2 text-sm text-[#64748B]">Quản lý mật khẩu và phiên đăng nhập của bạn.</p>
-              <div className="mt-3 max-w-3xl space-y-3">
+              <div className="mt-3 w-full min-w-0 space-y-4">
                 <ChangePasswordForm />
                 <button
                   type="button"
@@ -2310,8 +2293,7 @@ export default function AffiliateOnlyAccountView({
               </div>
             </section>
           ) : null}
-        </div>
-      </section>
+      </StorefrontAccountTwoColumnLayout>
     </div>
   );
 }

@@ -2,6 +2,7 @@ import {
   notifyAffiliateCommissionApproved,
   notifyAffiliateCommissionPaid,
 } from "@/lib/affiliate/affiliate-referral-notifications";
+import { publishCustomerAccountNotification, sanitizeCustomerNotificationText } from "@/lib/customer-account-notifications";
 import { getServerSession } from "next-auth";
 import type {
   AffiliateApplicationStatus,
@@ -2209,6 +2210,7 @@ export type AffiliateApplicationAdminRow = {
   phone: string;
   email: string | null;
   socialLink: string | null;
+  experience: string | null;
   note: string | null;
   trafficSource: string | null;
   followerCount: number | null;
@@ -2218,6 +2220,10 @@ export type AffiliateApplicationAdminRow = {
   quickReviewNote: string | null;
   status: AffiliateApplicationStatus;
   adminNote: string | null;
+  reviewedAt: Date | null;
+  reviewedByAdminId: string | null;
+  reviewedByAdmin: { id: string; fullName: string; email: string } | null;
+  customer: { id: string; fullName: string | null; email: string | null; phone: string | null };
   createdAt: Date;
   updatedAt: Date;
 };
@@ -2270,6 +2276,7 @@ export async function getAffiliateApplicationsForAdmin(params: {
       phone: true,
       email: true,
       socialLink: true,
+      experience: true,
       note: true,
       trafficSource: true,
       followerCount: true,
@@ -2279,6 +2286,10 @@ export async function getAffiliateApplicationsForAdmin(params: {
       quickReviewNote: true,
       status: true,
       adminNote: true,
+      reviewedAt: true,
+      reviewedByAdminId: true,
+      reviewedByAdmin: { select: { id: true, fullName: true, email: true } },
+      customer: { select: { id: true, fullName: true, email: true, phone: true } },
       createdAt: true,
       updatedAt: true,
     },
@@ -2330,6 +2341,7 @@ export async function approveAffiliateApplicationByAdmin(params: {
   applicationId: string;
   adminNote?: string | null;
   internalQuickNote?: string | null;
+  reviewerAdminId: string;
 }): Promise<void> {
   await assertAdminAccess();
   const db = await getDbClient();
@@ -2339,6 +2351,14 @@ export async function approveAffiliateApplicationByAdmin(params: {
   const internalTrim = params.internalQuickNote?.trim()
     ? params.internalQuickNote.trim().slice(0, 2500)
     : null;
+  const reviewerId = params.reviewerAdminId.trim();
+  if (!reviewerId) throw new Error("MISSING_REVIEWER");
+
+  const appBefore = await db.affiliateApplication.findUnique({
+    where: { id: params.applicationId },
+    select: { customerId: true, fullName: true },
+  });
+  if (!appBefore) throw new Error("NOT_FOUND");
 
   await db.$transaction(async (tx) => {
     const app = await tx.affiliateApplication.findUnique({
@@ -2377,6 +2397,8 @@ export async function approveAffiliateApplicationByAdmin(params: {
     const updateData: Prisma.AffiliateApplicationUpdateInput = {
       status: "APPROVED",
       adminNote: noteTrim,
+      reviewedAt: new Date(),
+      reviewedByAdmin: { connect: { id: reviewerId } },
     };
     if (internalTrim) {
       updateData.quickReviewNote = appendAffiliateApplicationInternalQuickReview(app.quickReviewNote, internalTrim);
@@ -2386,6 +2408,20 @@ export async function approveAffiliateApplicationByAdmin(params: {
       data: updateData,
     });
   });
+
+  let body = "Yêu cầu đăng ký CTV của bạn đã được duyệt.";
+  if (noteTrim) {
+    body = `${body} ${sanitizeCustomerNotificationText(noteTrim, 2000)}`.trim();
+  }
+  await publishCustomerAccountNotification({
+    customerId: appBefore.customerId,
+    category: "SYSTEM",
+    dedupeKey: `affiliate-application:${params.applicationId}:approved`,
+    title: "Đăng ký CTV đã được duyệt",
+    body: sanitizeCustomerNotificationText(body, 8000),
+    actionHref: "/tai-khoan?tab=affiliate",
+    metadata: { type: "AFFILIATE_APPLICATION_APPROVED", applicationId: params.applicationId },
+  });
 }
 
 /** Từ chối đơn: REJECTED + adminNote; không tạo AffiliateProfile. */
@@ -2393,6 +2429,7 @@ export async function rejectAffiliateApplicationByAdmin(params: {
   applicationId: string;
   adminNote?: string | null;
   internalQuickNote?: string | null;
+  reviewerAdminId: string;
 }): Promise<void> {
   await assertAdminAccess();
   const db = await getDbClient();
@@ -2402,6 +2439,14 @@ export async function rejectAffiliateApplicationByAdmin(params: {
   const internalTrim = params.internalQuickNote?.trim()
     ? params.internalQuickNote.trim().slice(0, 2500)
     : null;
+  const reviewerId = params.reviewerAdminId.trim();
+  if (!reviewerId) throw new Error("MISSING_REVIEWER");
+
+  const appBefore = await db.affiliateApplication.findUnique({
+    where: { id: params.applicationId },
+    select: { customerId: true, fullName: true },
+  });
+  if (!appBefore) throw new Error("NOT_FOUND");
 
   const app = await db.affiliateApplication.findUnique({
     where: { id: params.applicationId },
@@ -2413,6 +2458,8 @@ export async function rejectAffiliateApplicationByAdmin(params: {
   const updateData: Prisma.AffiliateApplicationUpdateInput = {
     status: "REJECTED",
     adminNote: noteTrim,
+    reviewedAt: new Date(),
+    reviewedByAdmin: { connect: { id: reviewerId } },
   };
   if (internalTrim) {
     updateData.quickReviewNote = appendAffiliateApplicationInternalQuickReview(app.quickReviewNote, internalTrim);
@@ -2421,5 +2468,19 @@ export async function rejectAffiliateApplicationByAdmin(params: {
   await db.affiliateApplication.update({
     where: { id: app.id },
     data: updateData,
+  });
+
+  let body = "Yêu cầu đăng ký CTV của bạn đã bị từ chối.";
+  if (noteTrim) {
+    body = `${body} ${sanitizeCustomerNotificationText(noteTrim, 2000)}`.trim();
+  }
+  await publishCustomerAccountNotification({
+    customerId: appBefore.customerId,
+    category: "SYSTEM",
+    dedupeKey: `affiliate-application:${params.applicationId}:rejected`,
+    title: "Đăng ký CTV bị từ chối",
+    body: sanitizeCustomerNotificationText(body, 8000),
+    actionHref: "/tai-khoan?tab=affiliate",
+    metadata: { type: "AFFILIATE_APPLICATION_REJECTED", applicationId: params.applicationId },
   });
 }

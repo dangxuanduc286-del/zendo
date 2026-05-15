@@ -4,7 +4,7 @@ import { getServerSession } from "next-auth";
 import { redirect, notFound } from "next/navigation";
 import { authOptions } from "../../../../../lib/auth";
 import AdminSitePolicyForm from "../../../../../components/admin/admin-site-policy-form";
-import { adminSecondaryButton } from "../../../../../lib/admin-ui";
+import { adminCardBody, adminPageSubtitle, adminPageTitle, adminSecondaryButton } from "../../../../../lib/admin-ui";
 
 type ParamsInput = Promise<{ id: string }>;
 
@@ -31,17 +31,17 @@ export default async function AdminSitePolicyEditPage({ params }: { params: Para
   if (!row) notFound();
 
   return (
-    <main className="mx-auto w-full max-w-4xl space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900">Sửa chính sách</h1>
-          <p className="mt-0.5 text-sm text-slate-500 truncate">{row.title}</p>
+    <main className="w-full min-w-0 max-w-none space-y-5">
+      <div className={`${adminCardBody} flex flex-wrap items-center justify-between gap-2`}>
+        <div className="min-w-0 space-y-1">
+          <h1 className={adminPageTitle}>Sửa chính sách</h1>
+          <p className={`${adminPageSubtitle} truncate`}>{row.title}</p>
         </div>
         <Link href="/admin/site-policies" className={adminSecondaryButton}>
           ← Danh sách
         </Link>
       </div>
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      <section className={adminCardBody}>
         <AdminSitePolicyForm mode="edit" policyId={row.id} />
       </section>
     </main>

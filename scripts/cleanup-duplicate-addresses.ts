@@ -1,5 +1,7 @@
 process.loadEnvFile?.(".env");
 
+export {};
+
 type KeepStrategy = "newest" | "oldest";
 
 function parseKeepStrategy(): KeepStrategy {

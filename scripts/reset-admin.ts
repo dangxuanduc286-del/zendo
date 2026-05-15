@@ -14,16 +14,6 @@ async function main(): Promise<void> {
   if (!databaseUrl) {
     throw new Error("DATABASE_URL is not configured.");
   }
-  const databaseHost = (() => {
-    try {
-      const parsed = new URL(databaseUrl);
-      return `${parsed.protocol}//${parsed.host}${parsed.pathname}`;
-    } catch {
-      return "invalid-database-url";
-    }
-  })();
-  console.log("[reset-admin] databaseHost", databaseHost);
-
   const pool = new Pool({ connectionString: databaseUrl });
   const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 
@@ -82,15 +72,13 @@ async function main(): Promise<void> {
       },
     });
 
-    console.log("[reset-admin] PASS");
-    console.log("[reset-admin] admin", {
-      id: admin.id,
-      email: admin.email,
-      username: admin.username,
-      status: admin.status,
-      role: "ADMIN",
-    });
-    console.log("[reset-admin] deactivatedAdmins", disabled.count);
+    console.log(
+      JSON.stringify({
+        ok: true,
+        admin: { id: admin.id, email: admin.email, username: admin.username, status: admin.status, role: "ADMIN" },
+        deactivatedOtherDuplicates: disabled.count,
+      }),
+    );
   } finally {
     await prisma.$disconnect();
     await pool.end();

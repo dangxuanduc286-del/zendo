@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import { clsx } from "clsx";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { affiliateDevLog } from "@/lib/affiliate-dev-log";
 import { AnalyticsErrorBoundary } from "@/components/analytics/analytics-error-boundary";
 import { SafeProductThumbnail } from "@/components/ui/safe-product-thumbnail";
 import AffiliateAnalyticsBarChartLazy from "./affiliate-analytics-bar-chart-lazy";
@@ -39,7 +38,6 @@ import {
   useAffiliateTrafficSources,
   type RangeKey,
 } from "./use-affiliate-analytics-hooks";
-import { affiliateChartsDevLog } from "@/lib/affiliate-charts-dev-log";
 import {
   AFFILIATE_ANALYTICS_MAIN_TAB_ACTIVE,
   AFFILIATE_ANALYTICS_MAIN_TAB_INACTIVE,
@@ -47,7 +45,6 @@ import {
   AFFILIATE_ANALYTICS_TOOLBAR_BTN_PRIMARY,
   AFFILIATE_ANALYTICS_TOOLBAR_BTN_SECONDARY,
 } from "@/lib/affiliate-analytics-ui-tokens";
-import { ANALYTICS_DASHBOARD_GUTTER, AFFILIATE_ANALYTICS_WORKSPACE_MIN_H } from "@/lib/storefront-frame";
 import { useAffiliateTrackingSse } from "@/hooks/use-affiliate-tracking-sse";
 import AffiliateOperationsCenter from "@/components/storefront/affiliate-operations-center";
 import { mergeAffiliateStreamTicksIntoActivity } from "@/lib/affiliate-tracking-stream-client-merge";
@@ -55,17 +52,17 @@ import type { AffiliateTrackingStreamTickV1 } from "@/lib/affiliate-tracking-str
 import type { RtPoint } from "./affiliate-creator-charts/creator-realtime-sparkline-inner";
 
 const AffiliateCampaignGrowthHub = dynamic(() => import("./affiliate-campaign-growth-hub"), {
-  loading: () => <div className="min-h-[12rem] animate-pulse rounded-2xl bg-slate-100" />,
+  loading: () => <div className="min-h-[12rem] animate-pulse rounded-2xl bg-[#F1F5F9]" />,
   ssr: false,
 });
 
 const AffiliateCreatorChartsSection = dynamic(() => import("./affiliate-creator-charts/affiliate-creator-charts-section"), {
-  loading: () => <div className="min-h-[8rem] animate-pulse rounded-2xl bg-slate-100/90" />,
+  loading: () => <div className="min-h-[8rem] animate-pulse rounded-2xl bg-[#F1F5F9]/90" />,
   ssr: false,
 });
 
 const AffiliateTrackingWorkspace = dynamic(() => import("./affiliate-tracking-workspace"), {
-  loading: () => <div className="min-h-[14rem] w-full animate-pulse rounded-2xl bg-blue-50/60 ring-1 ring-blue-100/80" />,
+  loading: () => <div className="min-h-[14rem] w-full animate-pulse rounded-2xl bg-[#EFF6FF]/60 ring-1 ring-[#DBEAFE]/80" />,
   ssr: false,
 });
 
@@ -97,7 +94,7 @@ function formatRelativeVi(iso: string): string {
 }
 
 function Skeleton({ className }: { className: string }): JSX.Element {
-  return <div className={`animate-pulse rounded-xl bg-slate-100/90 ${className}`} />;
+  return <div className={`animate-pulse rounded-xl bg-[#F1F5F9]/90 ${className}`} />;
 }
 
 type OvTrendSnap = {
@@ -370,35 +367,22 @@ export default function AffiliateAnalyticsDashboard({
     lastOvTrendRef.current = next;
   }, [ov, overview.loading, overview.data]);
 
-  const polishOnce = useRef(false);
-  useEffect(() => {
-    if (polishOnce.current) return;
-    polishOnce.current = true;
-    affiliateDevLog("[AffiliateFinalPolish]", { surface: "affiliate-analytics-dashboard" });
-  }, []);
-
-  useEffect(() => {
-    affiliateChartsDevLog("[AffiliateTrafficCharts]", "context", { tab: active, range });
-  }, [active, range]);
-
   return (
     <AnalyticsErrorBoundary title="Dashboard analytics tạm thời không khả dụng.">
-      <div
-        className={`relative flex-1 ${AFFILIATE_ANALYTICS_WORKSPACE_MIN_H} max-w-none bg-slate-50/95 [-webkit-font-smoothing:antialiased] ${ANALYTICS_DASHBOARD_GUTTER} py-4 sm:py-5 md:py-6 lg:py-7 xl:py-8`}
-      >
-        <section className="flex w-full min-w-0 max-w-none flex-1 flex-col gap-5 overflow-x-hidden sm:gap-6 lg:gap-7">
-              <header className="flex w-full min-w-0 shrink-0 flex-col gap-5 border-b border-blue-100/70 pb-5 lg:flex-row lg:items-end lg:justify-between lg:gap-8">
+      <div className="relative w-full min-w-0 flex-1 overflow-x-hidden rounded-2xl border border-[#E2E8F0] bg-white shadow-sm [-webkit-font-smoothing:antialiased] px-4 py-4 sm:px-5 sm:py-5 lg:px-6 lg:py-6">
+        <section className="flex w-full min-w-0 flex-1 flex-col gap-5 overflow-x-hidden sm:gap-6 lg:gap-7">
+              <header className="flex w-full min-w-0 shrink-0 flex-col gap-5 border-b border-[#DBEAFE]/70 pb-5 lg:flex-row lg:items-end lg:justify-between lg:gap-8">
                 <div className="flex min-w-0 items-start gap-3 sm:gap-4">
-                  <span className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-100 text-blue-700 shadow-sm ring-1 ring-blue-200/60 sm:h-12 sm:w-12">
+                  <span className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#DBEAFE] text-[#1D4ED8] shadow-sm ring-1 ring-[#BFDBFE]/60 sm:h-12 sm:w-12">
                     <BarChart3 className="h-5 w-5" strokeWidth={1.75} aria-hidden />
                   </span>
                   <div className="min-w-0 space-y-1.5">
-                    <h1 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl lg:text-[1.65rem] lg:leading-tight">
+                    <h1 className="text-xl font-semibold tracking-tight text-[#0F172A] sm:text-2xl lg:text-[1.65rem] lg:leading-tight">
                       Bảng số CTV
                     </h1>
-                    <p className="w-full min-w-0 text-sm leading-relaxed text-slate-500 sm:text-[15px]">
+                    <p className="w-full min-w-0 text-sm leading-relaxed text-[#64748B] sm:text-[15px]">
                       Theo dõi hiệu quả theo thời gian thực. Mã ref{" "}
-                      <span className="rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[13px] font-semibold text-slate-800">
+                      <span className="rounded-md bg-[#F1F5F9] px-1.5 py-0.5 font-mono text-[13px] font-semibold text-[#1E293B]">
                         {affiliateRefCode}
                       </span>
                     </p>
@@ -412,7 +396,7 @@ export default function AffiliateAnalyticsDashboard({
                     id="affiliate-analytics-range"
                     value={range}
                     onChange={(e) => setRange(e.target.value as RangeKey)}
-                    className="h-10 min-w-[9.5rem] cursor-pointer rounded-xl border border-blue-200/90 bg-white px-3.5 text-sm font-medium text-slate-800 shadow-[0_1px_2px_rgba(37,99,235,0.06)] outline-none transition-shadow focus-visible:border-blue-300 focus-visible:ring-2 focus-visible:ring-blue-400/25"
+                    className="h-10 min-w-[9.5rem] cursor-pointer rounded-xl border border-[#BFDBFE]/90 bg-white px-3.5 text-sm font-medium text-[#1E293B] shadow-[0_1px_2px_rgba(37,99,235,0.06)] outline-none transition-shadow focus-visible:border-[#93C5FD] focus-visible:ring-2 focus-visible:ring-[#60A5FA]/25"
                     aria-label="Chọn khoảng thời gian"
                   >
                     <option value="today">Hôm nay</option>
@@ -431,12 +415,12 @@ export default function AffiliateAnalyticsDashboard({
                     className={clsx(
                       "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold tabular-nums transition-colors",
                       realtimePanelLoading
-                        ? "border-blue-100/90 bg-blue-50/50 text-slate-600"
+                        ? "border-[#DBEAFE]/90 bg-[#EFF6FF]/50 text-[#64748B]"
                         : sseLive
                           ? "border-emerald-300/80 bg-emerald-50/95 text-emerald-900"
                           : realtimePanelRefreshing
-                            ? "border-blue-300/70 bg-blue-100/60 text-blue-900 motion-safe:animate-pulse"
-                            : "border-blue-200/90 bg-blue-50/90 text-blue-900",
+                            ? "border-[#93C5FD]/70 bg-[#DBEAFE]/60 text-[#1D4ED8] motion-safe:animate-pulse"
+                            : "border-[#BFDBFE]/90 bg-[#EFF6FF]/90 text-[#1D4ED8]",
                     )}
                   >
                     <Zap className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
@@ -447,7 +431,7 @@ export default function AffiliateAnalyticsDashboard({
 
               <nav
                 aria-label="Mục analytics"
-                className="sticky top-0 z-10 w-full shrink-0 border-b border-blue-100/70 bg-blue-50/45 py-3 backdrop-blur-[2px] lg:static lg:z-0 lg:border-0 lg:bg-transparent lg:py-0 lg:backdrop-blur-none"
+                className="sticky top-0 z-10 w-full shrink-0 border-b border-[#DBEAFE]/70 bg-[#EFF6FF]/45 py-3 backdrop-blur-[2px] lg:static lg:z-0 lg:border-0 lg:bg-transparent lg:py-0 lg:backdrop-blur-none"
               >
                 <div className="overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] lg:overflow-visible [&::-webkit-scrollbar]:hidden">
                   <div
@@ -644,17 +628,17 @@ export default function AffiliateAnalyticsDashboard({
               )}
               {activity?.recentClicks?.length ? (
                 <div className="mt-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Click gần đây</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-[#64748B]">Click gần đây</p>
                   <div className="mt-2 space-y-2">
                     {activity.recentClicks.slice(0, 6).map((c) => (
-                      <div key={c.id} className="rounded-xl border border-slate-200/70 bg-slate-50/90 px-3 py-2">
-                        <p className="text-sm font-semibold text-slate-900">{c.pathname || "Trang"}</p>
-                        <p className="mt-0.5 text-[11px] text-slate-500">
+                      <div key={c.id} className="rounded-xl border border-[#E2E8F0]/70 bg-[#F8FAFC]/90 px-3 py-2">
+                        <p className="text-sm font-semibold text-[#0F172A]">{c.pathname || "Trang"}</p>
+                        <p className="mt-0.5 text-[11px] text-[#64748B]">
                           {formatRelativeVi(c.createdAt)}
                           {c.trafficSource ? (
                             <>
                               {" · "}
-                              <span className="font-semibold text-slate-800">{c.trafficSource}</span>
+                              <span className="font-semibold text-[#1E293B]">{c.trafficSource}</span>
                             </>
                           ) : null}
                         </p>
@@ -671,9 +655,9 @@ export default function AffiliateAnalyticsDashboard({
               {topProducts.loading && !topProducts.data ? (
                 <Skeleton className="mt-4 h-44 w-full rounded-xl" />
               ) : topProducts.data?.rows?.length ? (
-                <div className="mt-4 overflow-x-auto rounded-xl border border-slate-100">
+                <div className="mt-4 overflow-x-auto rounded-xl border border-[#F1F5F9]">
                   <table className="w-full min-w-[560px] text-left text-sm">
-                    <thead className="bg-slate-50/90 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    <thead className="bg-[#F8FAFC]/90 text-[11px] font-semibold uppercase tracking-wide text-[#64748B]">
                       <tr>
                         <th className="px-3 py-2.5 pr-3">Sản phẩm</th>
                         <th className="px-3 py-2.5 pr-3">Click</th>
@@ -683,9 +667,9 @@ export default function AffiliateAnalyticsDashboard({
                         <th className="px-3 py-2.5">Commission</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    <tbody className="divide-y divide-[#F1F5F9]">
                       {topProducts.data.rows.slice(0, 8).map((r) => (
-                        <tr key={r.productId} className="bg-white hover:bg-slate-50/60">
+                        <tr key={r.productId} className="bg-white hover:bg-[#F8FAFC]/60">
                           <td className="px-3 py-2.5 pr-3">
                             <div className="flex min-w-0 items-center gap-2">
                               <SafeProductThumbnail
@@ -694,13 +678,13 @@ export default function AffiliateAnalyticsDashboard({
                                 size={32}
                                 className="h-8 w-8 shrink-0 rounded-lg object-cover"
                               />
-                              <span className="min-w-0 font-medium text-slate-900">{r.productName}</span>
+                              <span className="min-w-0 font-medium text-[#0F172A]">{r.productName}</span>
                             </div>
                           </td>
-                          <td className="px-3 py-2.5 pr-3 tabular-nums text-slate-800">{r.clicks}</td>
-                          <td className="px-3 py-2.5 pr-3 tabular-nums text-slate-800">{r.visitors ?? "—"}</td>
+                          <td className="px-3 py-2.5 pr-3 tabular-nums text-[#1E293B]">{r.clicks}</td>
+                          <td className="px-3 py-2.5 pr-3 tabular-nums text-[#1E293B]">{r.visitors ?? "—"}</td>
                           <td className="px-3 py-2.5 pr-3 tabular-nums text-emerald-700">{fmtPct(r.conversionRate)}</td>
-                          <td className="px-3 py-2.5 pr-3 tabular-nums text-slate-800">{fmtVnd(r.revenue)}</td>
+                          <td className="px-3 py-2.5 pr-3 tabular-nums text-[#1E293B]">{fmtVnd(r.revenue)}</td>
                           <td className="px-3 py-2.5 tabular-nums text-emerald-700">{fmtVnd(r.commission)}</td>
                         </tr>
                       ))}
@@ -780,15 +764,15 @@ export default function AffiliateAnalyticsDashboard({
                   {topPages.data.rows.slice(0, 10).map((r) => (
                     <div
                       key={r.pathname}
-                      className="rounded-xl border border-slate-200/80 bg-white/90 p-2 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+                      className="rounded-xl border border-[#E2E8F0]/80 bg-white/90 p-2 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
                     >
-                      <p className="text-sm font-bold tracking-tight text-slate-900">{r.pathname}</p>
-                      <p className="mt-1 text-[11px] text-slate-500">
-                        Visits: <span className="font-semibold tabular-nums text-slate-800">{r.visits}</span>
+                      <p className="text-sm font-bold tracking-tight text-[#0F172A]">{r.pathname}</p>
+                      <p className="mt-1 text-[11px] text-[#64748B]">
+                        Visits: <span className="font-semibold tabular-nums text-[#1E293B]">{r.visits}</span>
                         {" · "}
                         Conv: <span className="font-semibold tabular-nums text-emerald-700">{fmtPct(r.conversionRate)}</span>
                         {" · "}
-                        Revenue: <span className="font-semibold tabular-nums text-slate-800">{fmtVnd(r.revenue)}</span>
+                        Revenue: <span className="font-semibold tabular-nums text-[#1E293B]">{fmtVnd(r.revenue)}</span>
                       </p>
                     </div>
                   ))}
@@ -829,7 +813,7 @@ export default function AffiliateAnalyticsDashboard({
                       <select
                         value={trafficFilters.source}
                         onChange={(e) => setTrafficFilters((f) => ({ ...f, source: e.target.value }))}
-                        className="h-10 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none focus-visible:ring-2 focus-visible:ring-slate-900/10"
+                        className="h-10 w-full min-w-0 rounded-xl border border-[#E2E8F0] bg-white px-3 text-sm font-medium text-[#0F172A] shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none focus-visible:ring-2 focus-visible:ring-[#0F172A]/10"
                       >
                         <option value="ALL">Nguồn: tất cả</option>
                         <option value="TIKTOK">TikTok</option>
@@ -842,7 +826,7 @@ export default function AffiliateAnalyticsDashboard({
                       <select
                         value={trafficFilters.device}
                         onChange={(e) => setTrafficFilters((f) => ({ ...f, device: e.target.value }))}
-                        className="h-10 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none focus-visible:ring-2 focus-visible:ring-slate-900/10"
+                        className="h-10 w-full min-w-0 rounded-xl border border-[#E2E8F0] bg-white px-3 text-sm font-medium text-[#0F172A] shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none focus-visible:ring-2 focus-visible:ring-[#0F172A]/10"
                       >
                         <option value="ALL">Thiết bị: tất cả</option>
                         <option value="mobile">Mobile</option>
@@ -852,7 +836,7 @@ export default function AffiliateAnalyticsDashboard({
                       <select
                         value={productSort}
                         onChange={(e) => setProductSort(e.target.value as typeof productSort)}
-                        className="h-10 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none focus-visible:ring-2 focus-visible:ring-slate-900/10"
+                        className="h-10 w-full min-w-0 rounded-xl border border-[#E2E8F0] bg-white px-3 text-sm font-medium text-[#0F172A] shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none focus-visible:ring-2 focus-visible:ring-[#0F172A]/10"
                       >
                         <option value="clicks">Sort: Click</option>
                         <option value="revenue">Sort: Doanh thu</option>
@@ -884,9 +868,9 @@ export default function AffiliateAnalyticsDashboard({
                     {topProducts.loading && !topProducts.data ? (
                       <Skeleton className="mt-4 h-72 w-full rounded-xl" />
                     ) : topProducts.data?.rows?.length ? (
-                      <div className="mt-4 overflow-x-auto rounded-xl border border-slate-100">
+                      <div className="mt-4 overflow-x-auto rounded-xl border border-[#F1F5F9]">
                         <table className="w-full min-w-[820px] text-left text-sm">
-                          <thead className="bg-slate-50/90 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                          <thead className="bg-[#F8FAFC]/90 text-[11px] font-semibold uppercase tracking-wide text-[#64748B]">
                             <tr>
                               <th className="px-3 py-2.5 pr-3">Sản phẩm</th>
                               <th className="px-3 py-2.5 pr-3">Click</th>
@@ -897,20 +881,20 @@ export default function AffiliateAnalyticsDashboard({
                               <th className="px-3 py-2.5">Commission</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-100">
+                          <tbody className="divide-y divide-[#F1F5F9]">
                             {topProducts.data.rows.map((r) => (
-                              <tr key={r.productId} className="bg-white hover:bg-slate-50/60">
+                              <tr key={r.productId} className="bg-white hover:bg-[#F8FAFC]/60">
                                 <td className="px-3 py-2.5 pr-3">
                                   <div className="flex min-w-0 items-center gap-2">
                                     <SafeProductThumbnail src={r.imageUrl} alt="" size={40} />
-                                    <span className="min-w-0 truncate font-medium text-slate-900">{r.productName}</span>
+                                    <span className="min-w-0 truncate font-medium text-[#0F172A]">{r.productName}</span>
                                   </div>
                                 </td>
-                                <td className="px-3 py-2.5 pr-3 tabular-nums text-slate-800">{r.clicks}</td>
-                                <td className="px-3 py-2.5 pr-3 tabular-nums text-slate-800">{r.visitors ?? "—"}</td>
-                                <td className="px-3 py-2.5 pr-3 tabular-nums text-slate-800">{r.paidOrders}</td>
+                                <td className="px-3 py-2.5 pr-3 tabular-nums text-[#1E293B]">{r.clicks}</td>
+                                <td className="px-3 py-2.5 pr-3 tabular-nums text-[#1E293B]">{r.visitors ?? "—"}</td>
+                                <td className="px-3 py-2.5 pr-3 tabular-nums text-[#1E293B]">{r.paidOrders}</td>
                                 <td className="px-3 py-2.5 pr-3 tabular-nums text-emerald-700">{fmtPct(r.conversionRate)}</td>
-                                <td className="px-3 py-2.5 pr-3 tabular-nums text-slate-800">{fmtVnd(r.revenue)}</td>
+                                <td className="px-3 py-2.5 pr-3 tabular-nums text-[#1E293B]">{fmtVnd(r.revenue)}</td>
                                 <td className="px-3 py-2.5 tabular-nums text-emerald-700">{fmtVnd(r.commission)}</td>
                               </tr>
                             ))}

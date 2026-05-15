@@ -88,11 +88,6 @@ function isPageVisitTableMissingError(error: unknown): boolean {
   return maybe.code === "P2021" || (typeof maybe.message === "string" && maybe.message.includes("PageVisit"));
 }
 
-function logPageVisitTableMissing(operation: string): void {
-  if (process.env.NODE_ENV !== "development") return;
-  console.warn(`[analytics] PageVisit table missing in ${operation}, fallback to empty result.`);
-}
-
 function safeRange(start: Date, end: Date): { start: Date; end: Date } {
   if (start.getTime() < end.getTime()) return { start, end };
   return { start: end, end: start };
@@ -125,7 +120,6 @@ async function countVisits(start: Date, end: Date): Promise<number> {
     return await db.pageVisit.count({ where: { visitedAt: { gte: start, lt: end } } });
   } catch (error) {
     if (isPageVisitTableMissingError(error)) {
-      logPageVisitTableMissing("countVisits");
       return 0;
     }
     throw error;
@@ -151,7 +145,6 @@ async function fetchVisitRows(start: Date, end: Date): Promise<VisitRow[]> {
     });
   } catch (error) {
     if (isPageVisitTableMissingError(error)) {
-      logPageVisitTableMissing("fetchVisitRows");
       return [];
     }
     throw error;
@@ -287,7 +280,6 @@ export async function getRecentVisits(limit = 20): Promise<RecentVisitItem[]> {
     return rows;
   } catch (error) {
     if (isPageVisitTableMissingError(error)) {
-      logPageVisitTableMissing("getRecentVisits");
       return [];
     }
     throw error;
@@ -368,7 +360,6 @@ export async function getVisitDateBounds(): Promise<VisitDateBounds> {
     };
   } catch (error) {
     if (isPageVisitTableMissingError(error)) {
-      logPageVisitTableMissing("getVisitDateBounds");
       return { firstVisitedAt: null, lastVisitedAt: null };
     }
     throw error;

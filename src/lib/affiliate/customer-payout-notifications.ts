@@ -13,8 +13,8 @@ function bodyWithOptionalReason(base: string, rejectionReason?: string | null): 
   return `${base}\nLý do: ${reason}`;
 }
 
-export function publishAffiliatePayoutAccountSubmitted(args: { customerId: string; payoutAccountId: string }): void {
-  publishCustomerAccountNotification({
+export async function publishAffiliatePayoutAccountSubmitted(args: { customerId: string; payoutAccountId: string }): Promise<void> {
+  await publishCustomerAccountNotification({
     customerId: args.customerId,
     category: COMMISSION,
     dedupeKey: `aff_payout_sub:${args.payoutAccountId}`,
@@ -25,8 +25,8 @@ export function publishAffiliatePayoutAccountSubmitted(args: { customerId: strin
   });
 }
 
-export function publishAffiliatePayoutAccountApproved(args: { customerId: string; payoutAccountId: string }): void {
-  publishCustomerAccountNotification({
+export async function publishAffiliatePayoutAccountApproved(args: { customerId: string; payoutAccountId: string }): Promise<void> {
+  await publishCustomerAccountNotification({
     customerId: args.customerId,
     category: COMMISSION,
     dedupeKey: `aff_payout_appr:${args.payoutAccountId}`,
@@ -37,12 +37,12 @@ export function publishAffiliatePayoutAccountApproved(args: { customerId: string
   });
 }
 
-export function publishAffiliatePayoutAccountRejected(args: {
+export async function publishAffiliatePayoutAccountRejected(args: {
   customerId: string;
   payoutAccountId: string;
   rejectionReason?: string | null;
-}): void {
-  publishCustomerAccountNotification({
+}): Promise<void> {
+  await publishCustomerAccountNotification({
     customerId: args.customerId,
     category: COMMISSION,
     dedupeKey: `aff_payout_rej:${args.payoutAccountId}`,
@@ -53,8 +53,8 @@ export function publishAffiliatePayoutAccountRejected(args: {
   });
 }
 
-export function publishAffiliatePayoutChangeRequestSubmitted(args: { customerId: string; changeRequestId: string }): void {
-  publishCustomerAccountNotification({
+export async function publishAffiliatePayoutChangeRequestSubmitted(args: { customerId: string; changeRequestId: string }): Promise<void> {
+  await publishCustomerAccountNotification({
     customerId: args.customerId,
     category: COMMISSION,
     dedupeKey: `aff_chg_sub:${args.changeRequestId}`,
@@ -65,8 +65,8 @@ export function publishAffiliatePayoutChangeRequestSubmitted(args: { customerId:
   });
 }
 
-export function publishAffiliatePayoutChangeRequestApproved(args: { customerId: string; changeRequestId: string }): void {
-  publishCustomerAccountNotification({
+export async function publishAffiliatePayoutChangeRequestApproved(args: { customerId: string; changeRequestId: string }): Promise<void> {
+  await publishCustomerAccountNotification({
     customerId: args.customerId,
     category: COMMISSION,
     dedupeKey: `aff_chg_appr:${args.changeRequestId}`,
@@ -77,12 +77,12 @@ export function publishAffiliatePayoutChangeRequestApproved(args: { customerId: 
   });
 }
 
-export function publishAffiliatePayoutChangeRequestRejected(args: {
+export async function publishAffiliatePayoutChangeRequestRejected(args: {
   customerId: string;
   changeRequestId: string;
   rejectionReason?: string | null;
-}): void {
-  publishCustomerAccountNotification({
+}): Promise<void> {
+  await publishCustomerAccountNotification({
     customerId: args.customerId,
     category: COMMISSION,
     dedupeKey: `aff_chg_rej:${args.changeRequestId}`,

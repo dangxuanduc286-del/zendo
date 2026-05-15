@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { ADMIN_AFFILIATE_APPLICATIONS_HREF } from "@/lib/admin-menu";
 import { approveAffiliateApplicationByAdmin } from "@/lib/admin/affiliate";
 
 type ParamsInput = Promise<{ id: string }>;
@@ -10,10 +11,11 @@ function isAllowedRole(role: string | undefined): boolean {
   return ["SUPER_ADMIN", "ADMIN", "CONTENT_MANAGER"].includes(role ?? "");
 }
 
-function safeCollaboratorsRedirect(raw: unknown): string {
+function safeApplicationsRedirect(raw: unknown): string {
   const s = String(raw ?? "").trim();
-  if (!s.startsWith("/admin/collaborators")) return "/admin/collaborators?tab=yeu-cau-ctv";
-  return s.split("#")[0];
+  if (s.startsWith("/admin/collaborators")) return s.split("#")[0];
+  if (s.startsWith(ADMIN_AFFILIATE_APPLICATIONS_HREF)) return s.split("#")[0];
+  return ADMIN_AFFILIATE_APPLICATIONS_HREF;
 }
 
 function redirectWithAppError(request: Request, redirectTo: string, code: string): NextResponse {
@@ -33,7 +35,7 @@ export async function POST(request: Request, { params }: { params: ParamsInput }
 
   const { id: applicationId } = await params;
   const form = await request.formData();
-  const redirectTo = safeCollaboratorsRedirect(form.get("redirectTo"));
+  const redirectTo = safeApplicationsRedirect(form.get("redirectTo"));
   const adminNote = form.get("adminNote");
   const internalQuickNote = form.get("internalQuickNote");
 
@@ -42,6 +44,7 @@ export async function POST(request: Request, { params }: { params: ParamsInput }
       applicationId,
       adminNote: typeof adminNote === "string" ? adminNote : null,
       internalQuickNote: typeof internalQuickNote === "string" ? internalQuickNote : null,
+      reviewerAdminId: session.user.id,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "";
@@ -58,5 +61,6 @@ export async function POST(request: Request, { params }: { params: ParamsInput }
   }
 
   revalidatePath("/admin/collaborators");
+  revalidatePath(ADMIN_AFFILIATE_APPLICATIONS_HREF);
   return NextResponse.redirect(new URL(redirectTo, request.url));
 }

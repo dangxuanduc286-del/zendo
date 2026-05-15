@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { adminOrdersUnreadPollMs } from "@/lib/next-dev-stability";
 
-const POLL_MS = 20000;
+const POLL_MS = adminOrdersUnreadPollMs();
 
 function formatUnreadAria(count: number): string {
   if (count <= 0) return "";

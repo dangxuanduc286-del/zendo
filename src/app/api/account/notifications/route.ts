@@ -1,16 +1,9 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { fetchCustomerAccountNotificationFeed } from "@/lib/customer-account-notification-feed";
+import { normalizeCustomerNotificationCategory } from "@/lib/customer-account-notification-category";
 import { db } from "@/lib/db";
-
-function mapCategory(
-  c: "ORDER" | "PROMOTION" | "SYSTEM" | "COMMISSION",
-): "order" | "promotion" | "system" | "commission" {
-  if (c === "ORDER") return "order";
-  if (c === "PROMOTION") return "promotion";
-  if (c === "COMMISSION") return "commission";
-  return "system";
-}
 
 /** Polling thông báo tài khoản — chỉ trả dữ liệu của user đăng nhập. */
 export async function GET(request: Request): Promise<NextResponse> {
@@ -31,21 +24,7 @@ export async function GET(request: Request): Promise<NextResponse> {
         where: { customerId, readAt: null },
         _count: { _all: true },
       }),
-      db.customerAccountNotification.findMany({
-        where: { customerId },
-        orderBy: { createdAt: "desc" },
-        take,
-        select: {
-          id: true,
-          category: true,
-          title: true,
-          body: true,
-          actionHref: true,
-          readAt: true,
-          createdAt: true,
-          metadata: true,
-        },
-      }),
+      fetchCustomerAccountNotificationFeed({ customerId, take }),
     ]);
 
     const groups = { order: 0, promotion: 0, system: 0, commission: 0 };
@@ -63,7 +42,7 @@ export async function GET(request: Request): Promise<NextResponse> {
         groups,
         items: notifRows.map((r) => ({
           id: r.id,
-          category: mapCategory(r.category),
+          category: normalizeCustomerNotificationCategory(String(r.category)),
           title: r.title,
           body: r.body,
           read: r.readAt != null,

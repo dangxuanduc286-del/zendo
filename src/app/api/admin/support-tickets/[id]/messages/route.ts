@@ -45,7 +45,7 @@ export async function POST(
     const now = new Date();
 
     const result = await db.$transaction(async (tx) => {
-      const ticket = await tx.supportTicket.findUnique({
+      const ticket = await tx.supportTicket.findFirst({
         where: { id: tid },
         select: { id: true, assignedAdminId: true },
       });

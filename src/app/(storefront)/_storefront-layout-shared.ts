@@ -30,37 +30,45 @@ export type HeaderPage = {
 async function getHeaderCategoriesInternal(): Promise<HeaderCategory[]> {
   const db = await getStorefrontDbClient();
   if (!db) return [];
-  const rows = await db.category.findMany({
-    where: { status: "PUBLISHED", parentId: null },
-    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-    take: 20,
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-      children: {
-        where: { status: "PUBLISHED" },
-        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-        select: { id: true, name: true, slug: true },
+  try {
+    const rows = await db.category.findMany({
+      where: { status: "PUBLISHED", parentId: null },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      take: 20,
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        children: {
+          where: { status: "PUBLISHED" },
+          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+          select: { id: true, name: true, slug: true },
+        },
       },
-    },
-  });
-  return rows;
+    });
+    return rows;
+  } catch {
+    return [];
+  }
 }
 
 async function getHeaderPagesInternal(): Promise<HeaderPage[]> {
   const db = await getStorefrontDbClient();
   if (!db) return [];
-  return db.page.findMany({
-    where: { status: "PUBLISHED" },
-    orderBy: [{ updatedAt: "desc" }],
-    take: 6,
-    select: {
-      id: true,
-      title: true,
-      slug: true,
-    },
-  });
+  try {
+    return await db.page.findMany({
+      where: { status: "PUBLISHED" },
+      orderBy: [{ updatedAt: "desc" }],
+      take: 6,
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+      },
+    });
+  } catch {
+    return [];
+  }
 }
 
 export const getHeaderCategories = memoizePerRequest(getHeaderCategoriesInternal);

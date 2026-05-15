@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../../../../../lib/auth";
 import { getWebsiteSettings } from "../../../../../../lib/settings";
 import { syncAffiliateCommissionLifecycleForOrder } from "../../../../../../lib/affiliate-commission-lifecycle";
+import { notifyAffiliateReferralOrderLifecycleAfterAdminPatch } from "../../../../../../lib/affiliate/affiliate-referral-notifications";
 import { notifyCustomerOrderCancelledByCustomer } from "../../../../../../lib/order-customer-notifications";
 import { canCancelOrder, getAccountOrderTimeline, getOrderStatusGroup, getOrderStatusLabel, getOrderStatusTone } from "../../../../../../lib/order-status";
 
@@ -52,10 +54,23 @@ async function runCancelOrder(request: Request, segment: { params: ParamsInput }
         orderStatus: true,
         paymentStatus: true,
         totalAmount: true,
+        customerFullName: true,
+        affiliateProfileId: true,
         createdAt: true,
         updatedAt: true,
         canceledAt: true,
         cancelReason: true,
+        items: {
+          take: 1,
+          orderBy: { id: "asc" },
+          select: {
+            product: {
+              select: {
+                images: { orderBy: [{ isPrimary: "desc" }], take: 1, select: { url: true } },
+              },
+            },
+          },
+        },
       },
     });
 
@@ -98,9 +113,40 @@ async function runCancelOrder(request: Request, segment: { params: ParamsInput }
     await syncAffiliateCommissionLifecycleForOrder(db, updated.id);
 
     try {
+      const { applyOrderLoyaltyEffects } = await import("../../../../../../lib/loyalty/order-loyalty");
+      await applyOrderLoyaltyEffects(db, updated.id);
+    } catch {
+      /* loyalty must not block cancel */
+    }
+
+    revalidatePath("/tai-khoan");
+
+    try {
       await notifyCustomerOrderCancelledByCustomer(db, updated.id, reason);
     } catch {
       /* noop */
+    }
+
+    if (existing.affiliateProfileId) {
+      try {
+        const previewImage = existing.items[0]?.product?.images[0]?.url ?? null;
+        await notifyAffiliateReferralOrderLifecycleAfterAdminPatch(
+          db,
+          {
+            orderId: existing.id,
+            affiliateProfileId: existing.affiliateProfileId,
+            code: existing.code,
+            customerFullName: existing.customerFullName,
+            totalAmount: Number(existing.totalAmount),
+            previewImage,
+            orderStatus: existing.orderStatus,
+            paymentStatus: existing.paymentStatus,
+          },
+          { orderStatus: updated.orderStatus, paymentStatus: updated.paymentStatus },
+        );
+      } catch {
+        /* noop */
+      }
     }
 
     const timeline = getAccountOrderTimeline(updated.orderStatus);

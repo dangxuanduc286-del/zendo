@@ -356,7 +356,7 @@ export async function approveAffiliatePayoutAccountChangeRequest(id: string, act
     select: { affiliateProfile: { select: { customerId: true } } },
   });
   const cid = crRow?.affiliateProfile?.customerId;
-  if (cid) publishAffiliatePayoutChangeRequestApproved({ customerId: cid, changeRequestId: id });
+  if (cid) await publishAffiliatePayoutChangeRequestApproved({ customerId: cid, changeRequestId: id });
 }
 
 export async function rejectAffiliatePayoutAccountChangeRequest(
@@ -414,7 +414,7 @@ export async function rejectAffiliatePayoutAccountChangeRequest(
   });
   const cid = crRow?.affiliateProfile?.customerId;
   if (cid) {
-    publishAffiliatePayoutChangeRequestRejected({
+    await publishAffiliatePayoutChangeRequestRejected({
       customerId: cid,
       changeRequestId: id,
       rejectionReason: trimmed.slice(0, 2000),

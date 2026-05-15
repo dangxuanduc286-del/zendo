@@ -127,7 +127,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       return req.id;
     });
 
-    publishAffiliatePayoutChangeRequestSubmitted({
+    await publishAffiliatePayoutChangeRequestSubmitted({
       customerId,
       changeRequestId: createdId,
     });
