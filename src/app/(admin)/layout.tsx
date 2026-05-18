@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import { getServerSession } from "next-auth";
-import "../globals.css";
 import AppSessionProvider from "../../components/providers/session-provider";
 import { authOptions } from "../../lib/auth";
 
@@ -20,10 +19,8 @@ export default async function AdminRootLayout({ children }: AdminRootLayoutProps
   const session = await getSafeAdminSession();
 
   return (
-    <html lang="vi">
-      <body className="min-h-screen bg-[#F8FAFC] text-[#0F172A] antialiased">
-        <AppSessionProvider session={session}>{children}</AppSessionProvider>
-      </body>
-    </html>
+    <div className="min-h-screen bg-[#F8FAFC] text-[#0F172A]">
+      <AppSessionProvider session={session}>{children}</AppSessionProvider>
+    </div>
   );
 }

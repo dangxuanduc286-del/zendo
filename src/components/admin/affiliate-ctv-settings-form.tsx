@@ -2,7 +2,7 @@ import Link from "next/link";
 import {
   AFFILIATE_ATTRIBUTION_OPTIONS,
   type AffiliateSettings,
-} from "@/lib/admin/affiliate";
+} from "@/lib/admin/affiliate-settings-shared";
 
 type Props = {
   settings: AffiliateSettings;

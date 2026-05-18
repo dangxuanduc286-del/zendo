@@ -535,6 +535,9 @@ model AffiliateCommission {
   status             AffiliateCommissionStatus @default(PENDING)
   createdAt          DateTime                  @default(now())
   approvedAt         DateTime?
+  unlockAt           DateTime?
+  availableAt        DateTime?
+  releasedAt         DateTime?
   paidAt             DateTime?
   affiliateProfile   AffiliateProfile          @relation(fields: [affiliateProfileId], references: [id], onDelete: Cascade)
   order              Order                     @relation(fields: [orderId], references: [id], onDelete: Cascade)
@@ -543,6 +546,7 @@ model AffiliateCommission {
   @@index([affiliateProfileId])
   @@index([orderId])
   @@index([status])
+  @@index([status, unlockAt])
   @@index([createdAt])
 }
 
@@ -1055,6 +1059,8 @@ enum AffiliateStatus {
 enum AffiliateCommissionStatus {
   PENDING
   APPROVED
+  WAITING_RELEASE
+  AVAILABLE
   PAID
   CANCELLED
 }

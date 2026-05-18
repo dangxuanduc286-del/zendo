@@ -1,7 +1,5 @@
-import {
-  notifyAffiliateCommissionApproved,
-  notifyAffiliateCommissionPaid,
-} from "@/lib/affiliate/affiliate-referral-notifications";
+import "server-only";
+
 import { publishCustomerAccountNotification, sanitizeCustomerNotificationText } from "@/lib/customer-account-notifications";
 import { getServerSession } from "next-auth";
 import type {
@@ -17,14 +15,24 @@ import type {
 import { authOptions } from "../auth";
 import {
   DEFAULT_AFFILIATE_COMMISSION_TAB_SETTINGS,
-  normalizeAffiliateCommissionTabSettings,
   serializeAffiliateCommissionTabForWebsiteJson,
   type AffiliateCommissionTabSettings,
 } from "../affiliate-commission-tab-settings";
 import { getWebsiteSettings } from "../settings";
 import { composeWebsiteDbPayload } from "../website-settings-compose";
+import {
+  AFFILIATE_COMMISSION_RECONCILIATION_PAYABLE_STATUSES,
+  AFFILIATE_COMMISSION_STATUS_VI,
+  orderDisqualifiesAffiliateCommission,
+} from "../affiliate/commission-hold";
+import {
+  approveAffiliateCommissionToHold,
+  cancelAffiliateCommissionIfAllowed,
+} from "../affiliate/commission-release";
 
 export type { AffiliateCommissionTabSettings };
+
+const COMMISSION_STATUS_VI = AFFILIATE_COMMISSION_STATUS_VI;
 
 type AffiliateListStatusFilter = "ALL" | "ACTIVE" | "PAUSED" | "LOCKED";
 type AffiliateListSort =
@@ -49,128 +57,20 @@ export type AffiliateProfileListItem = {
   revenueAmount: number;
 };
 
-export type AffiliateSettings = {
-  affiliateEnabled: boolean;
-  commissionRate: number;
-  payoutThreshold: number;
-  cookieDuration: number;
-  attributionRule: string;
-  rewardPointEnabled: boolean;
-  withdrawalEnabled: boolean;
-  ctvGuideContent: string;
-  commissionTab: AffiliateCommissionTabSettings;
-};
-
-export const DEFAULT_AFFILIATE_SETTINGS: AffiliateSettings = {
-  affiliateEnabled: false,
-  commissionRate: 5,
-  payoutThreshold: 100000,
-  cookieDuration: 30,
-  attributionRule: "last_click",
-  rewardPointEnabled: false,
-  withdrawalEnabled: false,
-  /** Chuỗi rỗng: không ghi đè nội dung đã lưu; tab hướng dẫn dùng `DEFAULT_CTV_GUIDE_CONTENT_VI` khi hiển thị. */
-  ctvGuideContent: "",
-  commissionTab: { ...DEFAULT_AFFILIATE_COMMISSION_TAB_SETTINGS },
-};
-
-/** Bản hướng dẫn mẫu (tiếng Việt có dấu) khi `ctvGuideContent` trong settings còn trống — chỉ dùng cho hiển thị, không tự ghi DB. */
-export const DEFAULT_CTV_GUIDE_CONTENT_VI = `1. Cách lấy link giới thiệu
-
-Đăng nhập tài khoản đã được gắn hồ sơ cộng tác viên (CTV) trên Zendo.vn. Trong khu vực tài khoản hoặc trang dành cho CTV (nếu storefront đã bật), bạn sẽ thấy liên kết giới thiệu cá nhân kèm mã ref. Nhấn “Sao chép liên kết” để lấy URL và bắt đầu chia sẻ.
-
-2. Cách chia sẻ link CTV
-
-- Chia sẻ công khai trên mạng xã hội, blog, video hoặc gửi cho người thân có nhu cầu mua hàng.
-- Không gửi tin nhắn quảng cáo không được phép (spam), không giả mạo thương hiệu Zendo.vn.
-- Khuyến khích mô tả trung thực sản phẩm và ưu đãi đang áp dụng trên website.
-
-3. Cách tính hoa hồng
-
-Hoa hồng thường được tính theo tỷ lệ phần trăm trên giá trị đơn hàng hợp lệ sau khi đơn được xác nhận theo quy tắc chương trình (ví dụ: sau khi thanh toán thành công và đơn không thuộc trường hợp loại trừ). Tỷ lệ cụ thể do Zendo.vn cấu hình và có thể khác nhau theo từng CTV hoặc chiến dịch — xem phần cài đặt / thông báo nội bộ để biết mức áp dụng cho tài khoản của bạn.
-
-4. Khi nào hoa hồng được duyệt
-
-Đơn hàng phát sinh từ liên kết giới thiệu hợp lệ sẽ được ghi nhận hoa hồng ở trạng thái “chờ duyệt”. Đội vận hành duyệt hoa hồng khi đơn đạt điều kiện theo chính sách (đã thanh toán, không hủy, không vi phạm quy tắc ghi nhận). Bạn có thể theo dõi trạng thái trong khu vực dành cho CTV trên tài khoản.
-
-5. Khi nào được thanh toán
-
-Sau khi hoa hồng ở trạng thái “đã duyệt”, Zendo.vn sẽ thực hiện đối soát theo chu kỳ và ngưỡng thanh toán đã công bố. Khi đủ điều kiện, khoản thanh toán sẽ được chuyển theo phương thức bạn đã đăng ký (nếu chương trình rút tiền / thanh toán CTV được bật).
-
-6. Quy định đơn hợp lệ
-
-- Đơn phát sinh từ cookie / liên kết giới thiệu còn hiệu lực theo thời gian cookie cấu hình.
-- Đơn không bị hủy, không hoàn tiền toàn phần theo chính sách loại trừ hoa hồng.
-- Thông tin người mua và sản phẩm trung thực; không lạm dụng mã giảm giá hoặc gian lận ghi nhận.
-
-7. Chính sách hủy / hoàn tiền (refund)
-
-Nếu đơn hàng bị hủy trước khi giao hoặc được hoàn tiền theo chính sách đổi trả của Zendo.vn, hoa hồng có thể không được ghi nhận hoặc bị điều chỉnh / hủy tương ứng. Mọi thay đổi tuân theo điều khoản chương trình CTV và chính sách bán hàng hiện hành trên website.
-
-8. Hỏi chung
-
-- Tôi có thể đổi link giới thiệu không? Mã ref gắn với hồ sơ CTV; thay đổi nếu có sẽ do quản trị viên cấu hình.
-- Tại sao đơn của tôi không có hoa hồng? Có thể do cookie hết hạn, đơn không hợp lệ, hoặc sản phẩm thuộc danh mục loại trừ — kiểm tra trạng thái đơn và liên hệ hỗ trợ nếu cần.
-- Làm sao để biết chương trình CTV có đang bật? Trên website, phần hướng dẫn / khu vực CTV chỉ hiển thị khi chương trình được kích hoạt phía hệ thống.`;
-
-export function resolveCtvGuideContentForDisplay(settings: AffiliateSettings): string {
-  const raw = settings.ctvGuideContent?.trim() ?? "";
-  return raw.length > 0 ? settings.ctvGuideContent : DEFAULT_CTV_GUIDE_CONTENT_VI;
-}
-
-function toNumber(value: unknown, fallback: number): number {
-  const n = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(n) ? n : fallback;
-}
-
-function toString(value: unknown, fallback = ""): string {
-  return typeof value === "string" ? value.trim() : fallback;
-}
-
-function toBoolean(value: unknown, fallback: boolean): boolean {
-  return typeof value === "boolean" ? value : fallback;
-}
-
-export function normalizeAffiliateSettings(
-  raw: Record<string, unknown> | null | undefined,
-): AffiliateSettings {
-  const source = raw ?? {};
-  return {
-    affiliateEnabled: toBoolean(
-      source.affiliateEnabled,
-      DEFAULT_AFFILIATE_SETTINGS.affiliateEnabled,
-    ),
-    commissionRate: toNumber(
-      source.commissionRate ?? source.affiliateCommissionRate,
-      DEFAULT_AFFILIATE_SETTINGS.commissionRate,
-    ),
-    payoutThreshold: toNumber(
-      source.payoutThreshold ?? source.affiliatePayoutThreshold,
-      DEFAULT_AFFILIATE_SETTINGS.payoutThreshold,
-    ),
-    cookieDuration: toNumber(
-      source.cookieDuration ?? source.affiliateCookieDurationDays,
-      DEFAULT_AFFILIATE_SETTINGS.cookieDuration,
-    ),
-    attributionRule: toString(
-      source.attributionRule ?? source.affiliateAttributionRule,
-      DEFAULT_AFFILIATE_SETTINGS.attributionRule,
-    ),
-    rewardPointEnabled: toBoolean(
-      source.rewardPointEnabled ?? source.affiliateRewardPointsEnabled,
-      DEFAULT_AFFILIATE_SETTINGS.rewardPointEnabled,
-    ),
-    withdrawalEnabled: toBoolean(
-      source.withdrawalEnabled,
-      DEFAULT_AFFILIATE_SETTINGS.withdrawalEnabled,
-    ),
-    ctvGuideContent: toString(
-      source.ctvGuideContent,
-      DEFAULT_AFFILIATE_SETTINGS.ctvGuideContent,
-    ),
-    commissionTab: normalizeAffiliateCommissionTabSettings(source),
-  };
-}
+export type { AffiliateSettings } from "./affiliate-settings-shared";
+export {
+  AFFILIATE_ATTRIBUTION_OPTIONS,
+  DEFAULT_AFFILIATE_SETTINGS,
+  DEFAULT_CTV_GUIDE_CONTENT_VI,
+  normalizeAffiliateSettings,
+  resolveCtvGuideContentForDisplay,
+} from "./affiliate-settings-shared";
+import type { AffiliateSettings } from "./affiliate-settings-shared";
+import {
+  AFFILIATE_ATTRIBUTION_OPTIONS,
+  DEFAULT_AFFILIATE_SETTINGS,
+  normalizeAffiliateSettings,
+} from "./affiliate-settings-shared";
 
 async function getDbClient() {
   if (!process.env.DATABASE_URL) return null;
@@ -282,6 +182,9 @@ export async function getAffiliateOverview(): Promise<{
   totalClicks: number;
   totalOrders: number;
   pendingCommissions: number;
+  waitingReleaseCommissions: number;
+  availableCommissions: number;
+  /** @deprecated dùng availableCommissions — giữ cho UI admin cũ */
   approvedCommissions: number;
   paidCommissions: number;
   ctvRevenue: number;
@@ -297,6 +200,8 @@ export async function getAffiliateOverview(): Promise<{
       totalClicks: 0,
       totalOrders: 0,
       pendingCommissions: 0,
+      waitingReleaseCommissions: 0,
+      availableCommissions: 0,
       approvedCommissions: 0,
       paidCommissions: 0,
       ctvRevenue: 0,
@@ -310,7 +215,8 @@ export async function getAffiliateOverview(): Promise<{
     totalClicks,
     totalOrders,
     pendingCommissions,
-    approvedCommissions,
+    waitingReleaseCommissions,
+    availableCommissions,
     paidCommissions,
     rewardSum,
     revenueSum,
@@ -321,7 +227,8 @@ export async function getAffiliateOverview(): Promise<{
       db.affiliateClick.count(),
       db.order.count({ where: { affiliateProfileId: { not: null } } }),
       db.affiliateCommission.count({ where: { status: "PENDING" } }),
-      db.affiliateCommission.count({ where: { status: "APPROVED" } }),
+      db.affiliateCommission.count({ where: { status: "WAITING_RELEASE" } }),
+      db.affiliateCommission.count({ where: { status: "AVAILABLE" } }),
       db.affiliateCommission.count({ where: { status: "PAID" } }),
       db.rewardPointLedger.aggregate({
         _sum: { points: true },
@@ -343,7 +250,9 @@ export async function getAffiliateOverview(): Promise<{
     totalClicks,
     totalOrders,
     pendingCommissions,
-    approvedCommissions,
+    waitingReleaseCommissions,
+    availableCommissions,
+    approvedCommissions: availableCommissions,
     paidCommissions,
     ctvRevenue,
     trackedRewardPoints: Number(rewardSum._sum.points ?? 0),
@@ -1070,6 +979,9 @@ export type AffiliateCommissionListParams = {
 export type AffiliateCommissionKpis = {
   totalCommissionAmount: number;
   pendingAmount: number;
+  waitingReleaseAmount: number;
+  availableAmount: number;
+  /** @deprecated dùng availableAmount */
   approvedAmount: number;
   paidAmount: number;
   cancelledAmount: number;
@@ -1089,21 +1001,18 @@ export type AffiliateCommissionRow = {
   statusLabel: string;
   createdAt: Date;
   approvedAt: Date | null;
+  unlockAt: Date | null;
+  availableAt: Date | null;
   paidAt: Date | null;
   /** Đơn không đủ điều kiện duyệt / đánh dấu thanh toán (ẩn nút tương ứng). */
   orderBlocksApproveAndPay: boolean;
 };
 
-const COMMISSION_STATUS_VI: Record<AffiliateCommissionStatus, string> = {
-  PENDING: "Chờ duyệt",
-  APPROVED: "Đã duyệt",
-  PAID: "Đã thanh toán",
-  CANCELLED: "Bị hủy",
-};
-
 const EMPTY_COMMISSION_KPIS: AffiliateCommissionKpis = {
   totalCommissionAmount: 0,
   pendingAmount: 0,
+  waitingReleaseAmount: 0,
+  availableAmount: 0,
   approvedAmount: 0,
   paidAmount: 0,
   cancelledAmount: 0,
@@ -1143,12 +1052,7 @@ function orderDisqualifiesCommissionApproveOrPay(order: {
   orderStatus: OrderStatus;
   paymentStatus: PaymentStatus;
 }): boolean {
-  if (order.orderStatus === "CANCELED" || order.orderStatus === "REFUNDED") return true;
-  return (
-    order.paymentStatus === "FAILED" ||
-    order.paymentStatus === "REFUNDED" ||
-    order.paymentStatus === "PARTIALLY_REFUNDED"
-  );
+  return orderDisqualifiesAffiliateCommission(order);
 }
 
 /** Đơn hợp lệ cho đối soát / thanh toán hoa hồng (không hủy, không hoàn, không thất bại thanh toán). */
@@ -1209,7 +1113,7 @@ export async function payApprovedCommissionsForProfile(
   const pending = await db.affiliateCommission.findMany({
     where: {
       affiliateProfileId,
-      status: "APPROVED",
+      status: { in: [...AFFILIATE_COMMISSION_RECONCILIATION_PAYABLE_STATUSES] },
       order: orderOk,
     },
     select: { id: true, amount: true },
@@ -1217,7 +1121,7 @@ export async function payApprovedCommissionsForProfile(
   const pendingIds = pending.map((p) => p.id);
 
   if (!pending.length) {
-    throw new Error("Không có hoa hồng đã duyệt chờ thanh toán cho CTV này.");
+    throw new Error("Không có hoa hồng khả dụng chờ thanh toán cho CTV này.");
   }
 
   const total = pending.reduce((s, r) => s + Number(r.amount), 0);
@@ -1229,12 +1133,13 @@ export async function payApprovedCommissionsForProfile(
   const result = await db.affiliateCommission.updateMany({
     where: {
       affiliateProfileId,
-      status: "APPROVED",
+      status: { in: [...AFFILIATE_COMMISSION_RECONCILIATION_PAYABLE_STATUSES] },
       order: orderOk,
     },
     data: { status: "PAID", paidAt: now },
   });
 
+  const { notifyAffiliateCommissionPaid } = await import("@/lib/affiliate/affiliate-referral-notifications");
   for (const id of pendingIds) {
     void notifyAffiliateCommissionPaid(id);
   }
@@ -1271,7 +1176,7 @@ export async function getAffiliateReconciliation(
   const [approvedGroups, paidGroups, countGroups, globalApproved, globalPaid] = await Promise.all([
     db.affiliateCommission.groupBy({
       by: ["affiliateProfileId"],
-      where: { status: "APPROVED", order: orderOk },
+      where: { status: { in: [...AFFILIATE_COMMISSION_RECONCILIATION_PAYABLE_STATUSES] }, order: orderOk },
       _sum: { amount: true },
     }),
     db.affiliateCommission.groupBy({
@@ -1281,11 +1186,14 @@ export async function getAffiliateReconciliation(
     }),
     db.affiliateCommission.groupBy({
       by: ["affiliateProfileId"],
-      where: { status: { in: ["APPROVED", "PAID"] }, order: orderOk },
+      where: {
+        status: { in: [...AFFILIATE_COMMISSION_RECONCILIATION_PAYABLE_STATUSES, "PAID"] },
+        order: orderOk,
+      },
       _count: { _all: true },
     }),
     db.affiliateCommission.aggregate({
-      where: { status: "APPROVED", order: orderOk },
+      where: { status: { in: [...AFFILIATE_COMMISSION_RECONCILIATION_PAYABLE_STATUSES] }, order: orderOk },
       _sum: { amount: true },
     }),
     db.affiliateCommission.aggregate({
@@ -1425,17 +1333,13 @@ export async function updateAffiliateCommissionStatus(
     if (badOrder) {
       throw new Error("Không thể duyệt hoa hồng khi đơn đã hủy, hoàn tiền hoặc thanh toán thất bại.");
     }
-    await db.affiliateCommission.update({
-      where: { id: commissionId },
-      data: { status: "APPROVED", approvedAt: new Date() },
-    });
-    void notifyAffiliateCommissionApproved(row.orderId);
+    await approveAffiliateCommissionToHold(db, commissionId);
     return;
   }
 
   if (action === "mark_paid") {
-    if (row.status !== "APPROVED") {
-      throw new Error("Chỉ có thể đánh dấu thanh toán sau khi hoa hồng đã được duyệt.");
+    if (!AFFILIATE_COMMISSION_RECONCILIATION_PAYABLE_STATUSES.includes(row.status)) {
+      throw new Error("Chỉ có thể thanh toán hoa hồng đã mở khóa khả dụng.");
     }
     if (badOrder) {
       throw new Error("Không thể thanh toán hoa hồng khi đơn đã hủy, hoàn tiền hoặc thanh toán thất bại.");
@@ -1444,21 +1348,13 @@ export async function updateAffiliateCommissionStatus(
       where: { id: commissionId },
       data: { status: "PAID", paidAt: new Date() },
     });
+    const { notifyAffiliateCommissionPaid } = await import("@/lib/affiliate/affiliate-referral-notifications");
     void notifyAffiliateCommissionPaid(commissionId);
     return;
   }
 
   if (action === "cancel") {
-    if (row.status === "PAID") {
-      throw new Error("Không thể hủy hoa hồng đã thanh toán.");
-    }
-    if (row.status !== "PENDING" && row.status !== "APPROVED") {
-      throw new Error("Chỉ có thể hủy hoa hồng đang chờ duyệt hoặc đã duyệt.");
-    }
-    await db.affiliateCommission.update({
-      where: { id: commissionId },
-      data: { status: "CANCELLED" },
-    });
+    await cancelAffiliateCommissionIfAllowed(db, commissionId);
     return;
   }
 
@@ -1727,7 +1623,8 @@ export async function getAffiliateCommissions(
     orderCountWithCommission,
     sumTotal,
     sumPending,
-    sumApproved,
+    sumWaitingRelease,
+    sumAvailable,
     sumPaid,
     sumCancelled,
     listRaw,
@@ -1742,7 +1639,11 @@ export async function getAffiliateCommissions(
       _sum: { amount: true },
     }),
     db.affiliateCommission.aggregate({
-      where: { ...kpiWhere, status: "APPROVED" },
+      where: { ...kpiWhere, status: "WAITING_RELEASE" },
+      _sum: { amount: true },
+    }),
+    db.affiliateCommission.aggregate({
+      where: { ...kpiWhere, status: "AVAILABLE" },
       _sum: { amount: true },
     }),
     db.affiliateCommission.aggregate({
@@ -1765,6 +1666,8 @@ export async function getAffiliateCommissions(
         status: true,
         createdAt: true,
         approvedAt: true,
+        unlockAt: true,
+        availableAt: true,
         paidAt: true,
         order: {
           select: {
@@ -1804,17 +1707,23 @@ export async function getAffiliateCommissions(
       statusLabel: COMMISSION_STATUS_VI[row.status],
       createdAt: row.createdAt,
       approvedAt: row.approvedAt,
+      unlockAt: row.unlockAt,
+      availableAt: row.availableAt,
       paidAt: row.paidAt,
       orderBlocksApproveAndPay,
     };
   });
+
+  const availableAmount = Number(sumAvailable._sum.amount ?? 0);
 
   return {
     rows,
     kpis: {
       totalCommissionAmount: Number(sumTotal._sum.amount ?? 0),
       pendingAmount: Number(sumPending._sum.amount ?? 0),
-      approvedAmount: Number(sumApproved._sum.amount ?? 0),
+      waitingReleaseAmount: Number(sumWaitingRelease._sum.amount ?? 0),
+      availableAmount,
+      approvedAmount: availableAmount,
       paidAmount: Number(sumPaid._sum.amount ?? 0),
       cancelledAmount: Number(sumCancelled._sum.amount ?? 0),
       orderCountWithCommission,
@@ -2053,12 +1962,6 @@ export function toAffiliateSettingsPayload(
     affiliateRewardPointsEnabled: normalizedSettings.rewardPointEnabled,
   };
 }
-
-export const AFFILIATE_ATTRIBUTION_OPTIONS = [
-  { value: "last_click", label: "Click cuối cùng" },
-  { value: "first_click", label: "Click đầu tiên" },
-  { value: "ref_priority", label: "Ưu tiên mã ref" },
-] as const;
 
 export type ParseAffiliateProgramSettingsResult =
   | { ok: true; settings: AffiliateSettings }

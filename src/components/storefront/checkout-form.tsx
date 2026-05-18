@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import MediaImage from "../shared/media-image";
 import { formatVnd } from "../../lib/currency";
@@ -13,7 +13,6 @@ import { laySessionKey, layVisitorKey } from "../../lib/analytics/visitor-sessio
 import { matchLocationCode } from "../../lib/location-utils";
 import type { AddressSelectorValue } from "./address-selector";
 import { buildFullAddress } from "../../lib/vietnam-addresses";
-import { getDistrictsByProvince, getProvinces, getWardsByDistrict } from "../../lib/vietnam-addresses";
 
 const AddressSelector = dynamic(() => import("./address-selector"), {
   loading: () => <div className="h-11 w-full rounded-xl border border-zinc-200 bg-zinc-50" />,
@@ -124,20 +123,27 @@ export default function CheckoutForm(
 
   const normalizePhone = (rawPhone: string): string => rawPhone.replace(/[^\d+]/g, "");
 
-  const applySavedAddress = (address: SavedAddress): void => {
-    const provinces = getProvinces("legacy");
+  const applySavedAddressWithLookup = useCallback((
+    address: SavedAddress,
+    lookup: {
+      getProvinces: typeof import("../../lib/vietnam-addresses").getProvinces;
+      getDistrictsByProvince: typeof import("../../lib/vietnam-addresses").getDistrictsByProvince;
+      getWardsByDistrict: typeof import("../../lib/vietnam-addresses").getWardsByDistrict;
+    },
+  ): void => {
+    const provinces = lookup.getProvinces("legacy");
     const provinceOptions = provinces.flatMap((province) => [
       { label: province.name, value: province.code },
       ...(province.legacyNames ?? []).map((legacyName) => ({ label: legacyName, value: province.code })),
     ]);
     const matchedProvinceCode = matchLocationCode(address.province || "", provinceOptions);
     const matchedProvince = provinces.find((province) => province.code === matchedProvinceCode);
-    const districts = matchedProvince ? getDistrictsByProvince(matchedProvince.code, "legacy") : [];
+    const districts = matchedProvince ? lookup.getDistrictsByProvince(matchedProvince.code, "legacy") : [];
     const districtOptions = districts.map((district) => ({ label: district.name, value: district.code }));
     const matchedDistrictCode = matchLocationCode(address.district || "", districtOptions);
     const matchedDistrict = districts.find((district) => district.code === matchedDistrictCode);
     const wards = matchedProvince && matchedDistrict
-      ? getWardsByDistrict(matchedDistrict.code, matchedProvince.code, "legacy")
+      ? lookup.getWardsByDistrict(matchedDistrict.code, matchedProvince.code, "legacy")
       : [];
     const wardOptions = wards.map((ward) => ({ label: ward.name, value: ward.code }));
     const matchedWardCode = matchLocationCode(address.ward || "", wardOptions);
@@ -168,7 +174,14 @@ export default function CheckoutForm(
       setAddressMappingWarning("Không thể tự động khớp Tỉnh/Thành phố. Vui lòng chọn lại địa chỉ khu vực.");
     }
     setIsMappingAddress(false);
-  };
+  }, []);
+
+  const applySavedAddress = useCallback((address: SavedAddress): void => {
+    void (async () => {
+      const { getDistrictsByProvince, getProvinces, getWardsByDistrict } = await import("../../lib/vietnam-addresses");
+      applySavedAddressWithLookup(address, { getProvinces, getDistrictsByProvince, getWardsByDistrict });
+    })();
+  }, [applySavedAddressWithLookup]);
 
   useEffect(() => {
     let cancelled = false;
@@ -197,7 +210,7 @@ export default function CheckoutForm(
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [applySavedAddress]);
 
   useEffect(() => {
     if (!items.length || daTrackBeginCheckout.current) return;

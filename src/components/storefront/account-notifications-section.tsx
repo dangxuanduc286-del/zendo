@@ -10,6 +10,10 @@ import {
   type CustomerNotificationTabCategory,
 } from "@/lib/customer-account-notification-category";
 import type { CustomerNotificationsPollBundle } from "@/lib/use-customer-notifications-poll";
+import {
+  commissionLifecycleNotificationVisual,
+  readAffiliateCommissionNotificationType,
+} from "@/lib/affiliate/affiliate-commission-notification-types";
 
 export type AccountNotificationListItem = CustomerNotificationsPollBundle["items"][number];
 
@@ -19,7 +23,14 @@ type IncomeSummary = {
   pendingTotal: number;
   paidTotal: number;
   affiliateOrderCount: number;
-  statusTotals: { PENDING: number; APPROVED: number; PAID: number; CANCELLED: number };
+  statusTotals: {
+    PENDING: number;
+    WAITING_RELEASE?: number;
+    AVAILABLE?: number;
+    APPROVED?: number;
+    PAID: number;
+    CANCELLED: number;
+  };
 };
 
 type NotificationFilter = "all" | "order" | "commission" | "promotion" | "system";
@@ -370,6 +381,8 @@ export function AccountNotificationsSection({
         affiliateOrderCount: Number(j.affiliateOrderCount ?? 0),
         statusTotals: {
           PENDING: Number(j.statusTotals?.PENDING ?? 0),
+          WAITING_RELEASE: Number(j.statusTotals?.WAITING_RELEASE ?? 0),
+          AVAILABLE: Number(j.statusTotals?.AVAILABLE ?? 0),
           APPROVED: Number(j.statusTotals?.APPROVED ?? 0),
           PAID: Number(j.statusTotals?.PAID ?? 0),
           CANCELLED: Number(j.statusTotals?.CANCELLED ?? 0),
@@ -1038,6 +1051,82 @@ export function AccountNotificationsSection({
               }
 
               // promotion handled above (always)
+
+              if (cat === "commission") {
+                const m = (meta && typeof meta === "object" ? meta : null) as Record<string, unknown> | null;
+                const lifecycleType = readAffiliateCommissionNotificationType(m);
+                if (lifecycleType) {
+                  const vis = commissionLifecycleNotificationVisual(lifecycleType);
+                  const href =
+                    typeof item.actionHref === "string" && item.actionHref.startsWith("/")
+                      ? item.actionHref
+                      : typeof m?.actionWalletHref === "string" && (m.actionWalletHref as string).startsWith("/")
+                        ? (m.actionWalletHref as string)
+                        : "/tai-khoan?tab=affiliate&sub=earnings";
+                  const orderCode =
+                    typeof m?.orderCode === "string"
+                      ? (m.orderCode as string).length > 14
+                        ? `…${(m.orderCode as string).slice(-10)}`
+                        : (m.orderCode as string)
+                      : null;
+                  const amount =
+                    typeof m?.commissionAmount === "number"
+                      ? (m.commissionAmount as number)
+                      : Number(m?.commissionAmount ?? 0);
+
+                  return (
+                    <li key={item.id}>
+                      <NotificationRowClickable
+                        onActivate={() => onOpenItem(item, href)}
+                        className={`relative w-full rounded-xl border px-3 py-3 text-left transition hover:opacity-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] focus-visible:ring-offset-2 ${
+                          item.read
+                            ? "border-[#E2E8F0] bg-white"
+                            : `${vis.unreadBorder} ${vis.unreadBg}`
+                        } cursor-pointer`}
+                      >
+                        {!item.read ? (
+                          <span
+                            className="absolute right-3 top-3 h-2 w-2 rounded-full bg-[#2563EB]"
+                            aria-hidden
+                          />
+                        ) : null}
+                        <div className="flex gap-3 pr-4">
+                          <span className="text-2xl leading-none" aria-hidden>
+                            {vis.icon}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <span className="text-sm font-semibold text-[#0F172A]">{item.title}</span>
+                              <span className="text-[11px] text-[#64748B]">
+                                <RelativeTimeVi iso={item.createdAt} />
+                              </span>
+                            </div>
+                            <p className={`mt-0.5 text-[11px] font-semibold ${vis.accentText}`}>{vis.label}</p>
+                            {orderCode || Number.isFinite(amount) ? (
+                              <dl className="mt-1 grid grid-cols-1 gap-0.5 text-[11px] text-[#64748B] sm:grid-cols-2">
+                                {orderCode ? (
+                                  <div className="flex justify-between gap-2 sm:block">
+                                    <dt>Mã đơn</dt>
+                                    <dd className="font-semibold text-[#0F172A]">#{orderCode}</dd>
+                                  </div>
+                                ) : null}
+                                {Number.isFinite(amount) && amount > 0 ? (
+                                  <div className="flex justify-between gap-2 sm:block">
+                                    <dt>Hoa hồng</dt>
+                                    <dd className="font-semibold tabular-nums text-emerald-700">{fmtVnd(amount)}</dd>
+                                  </div>
+                                ) : null}
+                              </dl>
+                            ) : null}
+                            <p className="mt-1 whitespace-pre-wrap text-sm text-[#334155]">{item.body}</p>
+                            <p className="mt-2 text-xs font-semibold text-[#2563EB]">Xem hoa hồng & đối soát →</p>
+                          </div>
+                        </div>
+                      </NotificationRowClickable>
+                    </li>
+                  );
+                }
+              }
 
               if (cat === "system") {
                 const deep =

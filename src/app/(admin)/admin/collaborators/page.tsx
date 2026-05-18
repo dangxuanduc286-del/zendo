@@ -154,6 +154,8 @@ export default async function AdminCollaboratorsPage({
   const hhStatus: AffiliateCommissionListStatusFilter =
     hhStatusRaw === "PENDING" ||
     hhStatusRaw === "APPROVED" ||
+    hhStatusRaw === "WAITING_RELEASE" ||
+    hhStatusRaw === "AVAILABLE" ||
     hhStatusRaw === "PAID" ||
     hhStatusRaw === "CANCELLED"
       ? hhStatusRaw
@@ -311,6 +313,8 @@ export default async function AdminCollaboratorsPage({
           kpis: {
             totalCommissionAmount: 0,
             pendingAmount: 0,
+            waitingReleaseAmount: 0,
+            availableAmount: 0,
             approvedAmount: 0,
             paidAmount: 0,
             cancelledAmount: 0,
@@ -1406,9 +1410,15 @@ export default async function AdminCollaboratorsPage({
               <p className="text-xs font-medium text-[#64748B]">Chờ duyệt</p>
               <p className="mt-1 text-xl font-bold text-[#0F172A]">{formatCurrency(commissionKpis.pendingAmount)}</p>
             </article>
-            <article className="rounded-2xl border border-[#E2E8F0] bg-white p-4">
-              <p className="text-xs font-medium text-[#64748B]">Đã duyệt</p>
-              <p className="mt-1 text-xl font-bold text-[#0F172A]">{formatCurrency(commissionKpis.approvedAmount)}</p>
+            <article className="rounded-2xl border border-cyan-100 bg-cyan-50/40 p-4">
+              <p className="text-xs font-medium text-cyan-800">Đang chờ mở khóa</p>
+              <p className="mt-1 text-xl font-bold text-[#0F172A]">
+                {formatCurrency(commissionKpis.waitingReleaseAmount)}
+              </p>
+            </article>
+            <article className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4">
+              <p className="text-xs font-medium text-emerald-800">Khả dụng</p>
+              <p className="mt-1 text-xl font-bold text-[#0F172A]">{formatCurrency(commissionKpis.availableAmount)}</p>
             </article>
             <article className="rounded-2xl border border-[#E2E8F0] bg-white p-4">
               <p className="text-xs font-medium text-[#64748B]">Đã thanh toán</p>
@@ -1444,7 +1454,8 @@ export default async function AdminCollaboratorsPage({
               >
                 <option value="ALL">Tất cả</option>
                 <option value="PENDING">Chờ duyệt</option>
-                <option value="APPROVED">Đã duyệt</option>
+                <option value="WAITING_RELEASE">Đang chờ mở khóa</option>
+                <option value="AVAILABLE">Khả dụng</option>
                 <option value="PAID">Đã thanh toán</option>
                 <option value="CANCELLED">Bị hủy</option>
               </select>

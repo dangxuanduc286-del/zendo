@@ -4,7 +4,6 @@
 import {
   BarChart3,
   Bell,
-  Copy,
   FileText,
   HandCoins,
   LayoutDashboard,
@@ -12,7 +11,6 @@ import {
   Share2,
   Shield,
   ShoppingBag,
-  Sparkles,
   Target,
   UserRound,
 } from "lucide-react";
@@ -27,7 +25,15 @@ export type CtvNavChild =
   | { kind: "link"; href: string; label: string; Icon: LucideIcon };
 
 export type CtvNavEntry =
-  | { kind: "tab"; tab: string; label: string; Icon: LucideIcon; enabled: boolean }
+  | {
+      kind: "tab";
+      tab: string;
+      label: string;
+      Icon: LucideIcon;
+      enabled: boolean;
+      subTab?: string;
+      scrollId?: string;
+    }
   | { kind: "link"; href: string; label: string; Icon: LucideIcon; enabled: boolean }
   | {
       kind: "expandable";
@@ -47,6 +53,8 @@ export type AccountMenuItemDef = {
   icon: LucideIcon;
   tab?: string;
   href?: string;
+  subTab?: string;
+  scrollId?: string;
   group: "primary" | "ctv" | "insights" | "account" | "commerce";
   mobile: boolean;
   desktop: boolean;
@@ -76,33 +84,25 @@ export const ACCOUNT_MENU_ITEMS: readonly AccountMenuItemDef[] = [
     tab: "overview",
   },
   {
-    key: "ctv-tools",
-    kind: "expandable",
+    key: "share",
+    kind: "tab",
     group: "ctv",
     mobile: true,
     desktop: true,
-    label: "Công cụ CTV",
-    icon: Sparkles,
-    expandableId: "ctv-tools",
-    children: [
-      {
-        key: "copy-link",
-        kind: "tab",
-        label: "Sao chép liên kết",
-        icon: Copy,
-        tab: "affiliate",
-        subTab: "overview",
-        scrollId: "affiliate-promo-tools",
-      },
-      { key: "share", kind: "tab", label: "Chia sẻ", icon: Share2, tab: "affiliate", subTab: "links" },
-      {
-        key: "promo",
-        kind: "link",
-        label: "Quảng bá",
-        icon: Megaphone,
-        href: "/tai-khoan/affiliate/analytics?tab=campaign",
-      },
-    ],
+    label: "Chia sẻ",
+    icon: Share2,
+    tab: "affiliate",
+    subTab: "links",
+  },
+  {
+    key: "promo",
+    kind: "link",
+    group: "ctv",
+    mobile: true,
+    desktop: true,
+    label: "Quảng bá",
+    icon: Megaphone,
+    href: "/tai-khoan/affiliate/analytics?tab=campaign",
   },
   {
     key: "analytics",
@@ -195,7 +195,8 @@ function defToEntry(
     switch (def.key) {
       case "overview":
         return flags.showOverview;
-      case "ctv-tools":
+      case "share":
+      case "promo":
         return flags.showAffiliate && a;
       case "analytics":
         return flags.showAffiliate && a;
@@ -219,7 +220,15 @@ function defToEntry(
   if (!enabled) return null;
 
   if (def.kind === "tab" && def.tab) {
-    return { kind: "tab", tab: def.tab, label: def.label, Icon: def.icon, enabled: true };
+    return {
+      kind: "tab",
+      tab: def.tab,
+      label: def.label,
+      Icon: def.icon,
+      enabled: true,
+      subTab: def.subTab,
+      scrollId: def.scrollId,
+    };
   }
   if (def.kind === "link" && def.href) {
     return { kind: "link", href: def.href, label: def.label, Icon: def.icon, enabled: true };

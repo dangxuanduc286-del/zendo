@@ -46,7 +46,13 @@ export async function GET(): Promise<NextResponse> {
           pendingTotal: 0,
           paidTotal: 0,
           affiliateOrderCount: 0,
-          statusTotals: { PENDING: 0, APPROVED: 0, PAID: 0, CANCELLED: 0 },
+          statusTotals: {
+            PENDING: 0,
+            WAITING_RELEASE: 0,
+            AVAILABLE: 0,
+            PAID: 0,
+            CANCELLED: 0,
+          },
         },
         { status: 200, headers: { "Cache-Control": "private, no-store, max-age=0" } },
       );
@@ -63,7 +69,8 @@ export async function GET(): Promise<NextResponse> {
       paidAgg,
       orderCount,
       pendingRows,
-      approvedRows,
+      waitingReleaseRows,
+      availableRows,
       paidRows,
       cancelledRows,
     ] = await Promise.all([
@@ -89,7 +96,11 @@ export async function GET(): Promise<NextResponse> {
         _count: { _all: true },
       }),
       db.affiliateCommission.aggregate({
-        where: { affiliateProfileId: profile.id, status: "APPROVED" },
+        where: { affiliateProfileId: profile.id, status: "WAITING_RELEASE" },
+        _count: { _all: true },
+      }),
+      db.affiliateCommission.aggregate({
+        where: { affiliateProfileId: profile.id, status: "AVAILABLE" },
         _count: { _all: true },
       }),
       db.affiliateCommission.aggregate({
@@ -113,7 +124,8 @@ export async function GET(): Promise<NextResponse> {
         affiliateOrderCount: orderCount,
         statusTotals: {
           PENDING: Number(pendingRows._count._all ?? 0),
-          APPROVED: Number(approvedRows._count._all ?? 0),
+          WAITING_RELEASE: Number(waitingReleaseRows._count._all ?? 0),
+          AVAILABLE: Number(availableRows._count._all ?? 0),
           PAID: Number(paidRows._count._all ?? 0),
           CANCELLED: Number(cancelledRows._count._all ?? 0),
         },

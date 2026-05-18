@@ -111,7 +111,7 @@ export async function getAffiliateAnalyticsOverview(args: {
       _sum: { amount: true },
     }),
     args.db.affiliateCommission.aggregate({
-      where: { affiliateProfileId: args.affiliateProfileId, status: "APPROVED" },
+      where: { affiliateProfileId: args.affiliateProfileId, status: "AVAILABLE" },
       _sum: { amount: true },
     }),
     // uniqueVisitors: distinct visitorKey (fallback sessionId) trong range

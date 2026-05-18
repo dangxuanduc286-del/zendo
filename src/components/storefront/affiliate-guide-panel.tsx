@@ -22,7 +22,7 @@ function policyLines(affiliateCanBuy: boolean): string[] {
       : "CTV không tự mua bằng tài khoản CTV (chế độ chỉ giới thiệu).",
     "Không spam link, không gửi tin quảng cáo gây phiền.",
     "Đơn hủy / không đủ điều kiện đối soát sẽ không được tính hoa hồng.",
-    "Hoa hồng được duyệt khi đơn hoàn thành theo chính sách đối soát.",
+    "Sau khi admin duyệt, hoa hồng được giữ 7 ngày rồi mới mở khóa khả dụng (tránh hoàn/hủy đơn).",
   ];
 }
 

@@ -1,5 +1,12 @@
 "use client";
 
+import type { AffiliateCommissionStatus } from "@prisma/client";
+import {
+  canAdminApproveCommissionStatus,
+  canAdminCancelCommissionStatus,
+  canAdminMarkCommissionPaidStatus,
+} from "@/lib/affiliate/commission-hold";
+
 type ActionKind = "approve" | "cancel" | "mark_paid";
 
 function ConfirmForm({
@@ -43,7 +50,7 @@ export default function AffiliateCommissionActions({
 }: {
   commissionId: string;
   redirectTo: string;
-  status: "PENDING" | "APPROVED" | "PAID" | "CANCELLED";
+  status: AffiliateCommissionStatus;
   orderBlocksApproveAndPay: boolean;
 }): JSX.Element {
   const baseBtn =
@@ -51,17 +58,17 @@ export default function AffiliateCommissionActions({
 
   return (
     <div className="flex flex-wrap gap-1.5">
-      {status === "PENDING" && !orderBlocksApproveAndPay ? (
+      {canAdminApproveCommissionStatus(status) && !orderBlocksApproveAndPay ? (
         <ConfirmForm
           commissionId={commissionId}
           redirectTo={redirectTo}
           action="approve"
-          label="Duyệt"
-          message="Bạn chắc chắn muốn duyệt hoa hồng này?"
+          label="Duyệt (giữ 7 ngày)"
+          message="Duyệt hoa hồng? Hệ thống sẽ giữ 7 ngày trước khi mở khóa khả dụng."
           className={`${baseBtn} border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100`}
         />
       ) : null}
-      {status === "APPROVED" && !orderBlocksApproveAndPay ? (
+      {canAdminMarkCommissionPaidStatus(status) && !orderBlocksApproveAndPay ? (
         <ConfirmForm
           commissionId={commissionId}
           redirectTo={redirectTo}
@@ -71,7 +78,7 @@ export default function AffiliateCommissionActions({
           className={`${baseBtn} border-[#2563EB] bg-sky-50 text-[#1D4ED8] hover:bg-sky-100`}
         />
       ) : null}
-      {(status === "PENDING" || status === "APPROVED") && (
+      {canAdminCancelCommissionStatus(status) ? (
         <ConfirmForm
           commissionId={commissionId}
           redirectTo={redirectTo}
@@ -80,7 +87,7 @@ export default function AffiliateCommissionActions({
           message="Bạn chắc chắn muốn hủy hoa hồng này?"
           className={`${baseBtn} border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100`}
         />
-      )}
+      ) : null}
     </div>
   );
 }

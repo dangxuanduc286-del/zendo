@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Breadcrumbs from "../../../../components/storefront/breadcrumbs";
-import CheckoutForm from "../../../../components/storefront/checkout-form";
+import CheckoutFormClient from "../../../../components/storefront/checkout-form-client";
 import { getStorefrontCheckoutLockState } from "../../../../lib/storefront-checkout-lock";
 
 export const metadata: Metadata = {
@@ -24,7 +24,7 @@ export default async function CheckoutPage(): Promise<JSX.Element> {
           { label: "Thanh toán" },
         ]}
       />
-      <CheckoutForm checkoutLocked={lock.locked} checkoutBlockMessage={lock.message} />
+      <CheckoutFormClient checkoutLocked={lock.locked} checkoutBlockMessage={lock.message} />
     </main>
   );
 }

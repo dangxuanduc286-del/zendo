@@ -1,7 +1,12 @@
 import type { AffiliateCommissionStatus, AffiliateWithdrawalStatus, OrderStatus } from "@prisma/client";
+import {
+  affiliateCommissionStatusLabel,
+  formatCommissionHoldRemainingVi,
+  formatCommissionUnlockDateVi,
+} from "@/lib/affiliate/commission-hold";
+import { normalizeAffiliateSettings, resolveCtvGuideContentForDisplay } from "@/lib/admin/affiliate-settings-shared";
 import { db } from "./db";
 import { getWebsiteSettings } from "./settings";
-import { normalizeAffiliateSettings, resolveCtvGuideContentForDisplay } from "./admin/affiliate";
 
 const money = (v: { toString(): string } | null | undefined): number => {
   if (v == null) return 0;
@@ -31,13 +36,7 @@ export function orderStatusVi(status: OrderStatus): string {
 }
 
 export function affiliateCommissionStatusVi(s: AffiliateCommissionStatus): string {
-  const map: Record<AffiliateCommissionStatus, string> = {
-    PENDING: "Chờ duyệt",
-    APPROVED: "Đã duyệt",
-    PAID: "Đã thanh toán",
-    CANCELLED: "Đã hủy",
-  };
-  return map[s] ?? s;
+  return affiliateCommissionStatusLabel(s);
 }
 
 export function affiliateWithdrawalStatusVi(s: AffiliateWithdrawalStatus): string {
@@ -55,6 +54,7 @@ export type StorefrontAffiliateReferredOrderRow = {
   code: string;
   createdAt: string;
   orderStatus: OrderStatus;
+  paymentStatus: string;
   orderStatusVi: string;
   totalAmount: number;
   estimatedCommission: number;
@@ -73,7 +73,10 @@ export type StorefrontAffiliateCommissionRow = {
   statusDisplayVi: string;
   orderCode: string;
   approvedAt: string | null;
+  unlockAt: string | null;
+  availableAt: string | null;
   paidAt: string | null;
+  holdHintVi: string | null;
 };
 
 export type StorefrontAffiliateWithdrawalRow = {
@@ -94,7 +97,12 @@ export type StorefrontAffiliateDashboardData = {
     totalClicks: number;
     referredOrdersCount: number;
     referralRevenue: number;
+    /** Doanh thu đơn giới thiệu: hoàn thành / đã giao + đã thanh toán (rank CTV). */
+    qualifiedReferralRevenue: number;
     commissionPending: number;
+    commissionWaitingRelease: number;
+    commissionAvailable: number;
+    /** Tổng khả dụng rút — alias commissionAvailable */
     commissionApprovedPool: number;
     commissionPaid: number;
     commissionCancelled: number;
@@ -146,7 +154,7 @@ export async function getStorefrontAffiliateDashboardForCustomer(
   const ctvGuideResolved = resolveCtvGuideContentForDisplay(affiliateSettings);
   const payoutThreshold = Math.max(website.payoutThreshold ?? 0, cas.affiliateMinWithdrawalAmount ?? 0);
 
-  const [totalClicks, orders, commissions, withdrawals, products] = await Promise.all([
+  const [totalClicks, orders, commissions, withdrawals, products, qualifiedRevenueAgg] = await Promise.all([
     db.affiliateClick.count({ where: { affiliateProfileId: profile.id } }),
     db.order.findMany({
       where: { affiliateProfileId: profile.id },
@@ -157,6 +165,7 @@ export async function getStorefrontAffiliateDashboardForCustomer(
         code: true,
         createdAt: true,
         orderStatus: true,
+        paymentStatus: true,
         totalAmount: true,
         affiliateCommissions: {
           take: 1,
@@ -179,6 +188,8 @@ export async function getStorefrontAffiliateDashboardForCustomer(
         status: true,
         createdAt: true,
         approvedAt: true,
+        unlockAt: true,
+        availableAt: true,
         paidAt: true,
         order: { select: { code: true } },
       },
@@ -202,10 +213,21 @@ export async function getStorefrontAffiliateDashboardForCustomer(
       take: 24,
       select: { id: true, name: true, slug: true },
     }),
+    db.order.aggregate({
+      where: {
+        affiliateProfileId: profile.id,
+        paymentStatus: "PAID",
+        orderStatus: { in: ["COMPLETED", "DELIVERED"] },
+      },
+      _sum: { totalAmount: true },
+    }),
   ]);
 
+  const qualifiedReferralRevenue = money(qualifiedRevenueAgg._sum.totalAmount);
+
   let commissionPending = 0;
-  let commissionApprovedPool = 0;
+  let commissionWaitingRelease = 0;
+  let commissionAvailable = 0;
   let commissionPaid = 0;
   let commissionCancelled = 0;
 
@@ -215,8 +237,12 @@ export async function getStorefrontAffiliateDashboardForCustomer(
       case "PENDING":
         commissionPending += a;
         break;
+      case "WAITING_RELEASE":
+        commissionWaitingRelease += a;
+        break;
+      case "AVAILABLE":
       case "APPROVED":
-        commissionApprovedPool += a;
+        commissionAvailable += a;
         break;
       case "PAID":
         commissionPaid += a;
@@ -229,6 +255,8 @@ export async function getStorefrontAffiliateDashboardForCustomer(
     }
   }
 
+  const commissionApprovedPool = commissionAvailable;
+
   let referralRevenue = 0;
   for (const row of commissions) {
     if (row.status !== "CANCELLED") referralRevenue += money(row.orderRevenue);
@@ -239,7 +267,7 @@ export async function getStorefrontAffiliateDashboardForCustomer(
     return sum;
   }, 0);
 
-  const withdrawableBalance = Math.max(0, commissionApprovedPool - reservedForWithdrawals);
+  const withdrawableBalance = Math.max(0, commissionAvailable - reservedForWithdrawals);
 
   const referredOrdersCount = orders.length;
   const conversionRatePercent =
@@ -254,6 +282,7 @@ export async function getStorefrontAffiliateDashboardForCustomer(
       code: formatAffiliateOrderCodeShort(o.code),
       createdAt: o.createdAt.toISOString(),
       orderStatus: o.orderStatus,
+      paymentStatus: o.paymentStatus,
       orderStatusVi: orderStatusVi(o.orderStatus),
       totalAmount: money(o.totalAmount),
       estimatedCommission: commissionAmount,
@@ -262,18 +291,28 @@ export async function getStorefrontAffiliateDashboardForCustomer(
     };
   });
 
-  const commissionRows: StorefrontAffiliateCommissionRow[] = commissions.map((c) => ({
-    id: c.id,
-    createdAt: c.createdAt.toISOString(),
-    amount: money(c.amount),
-    orderRevenue: money(c.orderRevenue),
-    status: c.status,
-    statusKey: c.status.toLowerCase(),
-    statusDisplayVi: affiliateCommissionStatusVi(c.status),
-    orderCode: formatAffiliateOrderCodeShort(c.order.code),
-    approvedAt: c.approvedAt ? c.approvedAt.toISOString() : null,
-    paidAt: c.paidAt ? c.paidAt.toISOString() : null,
-  }));
+  const commissionRows: StorefrontAffiliateCommissionRow[] = commissions.map((c) => {
+    const unlockAtIso = c.unlockAt ? c.unlockAt.toISOString() : null;
+    let holdHintVi: string | null = null;
+    if (c.status === "WAITING_RELEASE" && c.unlockAt) {
+      holdHintVi = `${formatCommissionHoldRemainingVi(c.unlockAt)} · Đang giữ đến: ${formatCommissionUnlockDateVi(c.unlockAt)}`;
+    }
+    return {
+      id: c.id,
+      createdAt: c.createdAt.toISOString(),
+      amount: money(c.amount),
+      orderRevenue: money(c.orderRevenue),
+      status: c.status,
+      statusKey: c.status.toLowerCase(),
+      statusDisplayVi: affiliateCommissionStatusVi(c.status),
+      orderCode: formatAffiliateOrderCodeShort(c.order.code),
+      approvedAt: c.approvedAt ? c.approvedAt.toISOString() : null,
+      unlockAt: unlockAtIso,
+      availableAt: c.availableAt ? c.availableAt.toISOString() : null,
+      paidAt: c.paidAt ? c.paidAt.toISOString() : null,
+      holdHintVi,
+    };
+  });
 
   const withdrawalRows: StorefrontAffiliateWithdrawalRow[] = withdrawals.map((w) => ({
     id: w.id,
@@ -293,7 +332,10 @@ export async function getStorefrontAffiliateDashboardForCustomer(
       totalClicks,
       referredOrdersCount,
       referralRevenue,
+      qualifiedReferralRevenue,
       commissionPending,
+      commissionWaitingRelease,
+      commissionAvailable,
       commissionApprovedPool,
       commissionPaid,
       commissionCancelled,

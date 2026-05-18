@@ -3,6 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { resolveAffiliatePublicOrigin } from "../../lib/affiliate-public-origin";
+import {
+  CTV_V2_BTN_PRIMARY,
+  CTV_V2_BTN_SECONDARY,
+  CTV_V2_FORM_CARD,
+  CTV_V2_FORM_LABEL,
+  CTV_V2_INPUT,
+  CTV_V2_INPUT_READONLY,
+  CTV_V2_SELECT,
+} from "./ctv/ctv-ui-tokens";
 
 type LinkType = "home" | "product" | "category" | "custom";
 
@@ -44,9 +53,24 @@ function sanitizeSlug(value: string): string {
 
 export default function AffiliateLinkBuilder({
   refCode,
+  variant = "default",
 }: {
   refCode: string;
+  variant?: "default" | "ctv";
 }): JSX.Element {
+  const isCtv = variant === "ctv";
+  const shellClass = isCtv
+    ? CTV_V2_FORM_CARD
+    : "mt-4 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3 sm:p-4";
+  const labelClass = isCtv ? CTV_V2_FORM_LABEL : "text-xs text-[#64748B]";
+  const fieldClass = isCtv ? CTV_V2_INPUT : "h-10 w-full rounded-lg border border-[#E2E8F0] bg-white px-3 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]";
+  const selectClass = isCtv ? CTV_V2_SELECT : fieldClass;
+  const btnPrimary = isCtv
+    ? `${CTV_V2_BTN_PRIMARY} text-xs sm:text-sm`
+    : "rounded-lg bg-[#2563EB] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#1D4ED8]";
+  const btnSecondary = isCtv
+    ? `${CTV_V2_BTN_SECONDARY} text-xs sm:text-sm`
+    : "rounded-lg border border-[#E2E8F0] bg-white px-3 py-1.5 text-xs font-medium text-[#0F172A] disabled:opacity-50";
   const [linkType, setLinkType] = useState<LinkType>("home");
   const [productQuery, setProductQuery] = useState("");
   const [productResults, setProductResults] = useState<ProductOption[]>([]);
@@ -165,15 +189,20 @@ export default function AffiliateLinkBuilder({
   };
 
   return (
-    <section className="mt-4 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3 sm:p-4">
-      <h4 className="text-sm font-semibold text-[#0F172A]">Bộ tạo link giới thiệu</h4>
-      <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
-        <label className="space-y-1">
-          <span className="text-xs text-[#64748B]">Loại link</span>
+    <section className={shellClass}>
+      <h4 className={isCtv ? "text-base font-bold text-slate-900 sm:text-lg" : "text-sm font-semibold text-[#0F172A]"}>
+        Bộ tạo link giới thiệu
+      </h4>
+      <p className={isCtv ? "mt-1 text-sm text-slate-500" : "hidden"}>
+        Tạo link ref cho trang chủ, sản phẩm, danh mục hoặc URL tùy chỉnh.
+      </p>
+      <div className={`mt-4 grid grid-cols-1 ${isCtv ? "gap-4 lg:grid-cols-2 lg:gap-5" : "gap-3 lg:grid-cols-2"}`}>
+        <label className="space-y-2">
+          <span className={labelClass}>Loại link</span>
           <select
             value={linkType}
             onChange={(event) => setLinkType(event.target.value as LinkType)}
-            className="h-10 w-full rounded-lg border border-[#E2E8F0] bg-white px-3 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
+            className={selectClass}
           >
             <option value="home">Trang chủ</option>
             <option value="product">Sản phẩm</option>
@@ -181,13 +210,13 @@ export default function AffiliateLinkBuilder({
             <option value="custom">Link tùy chỉnh</option>
           </select>
         </label>
-        <label className="space-y-1">
-          <span className="text-xs text-[#64748B]">UTM Campaign (tùy chọn)</span>
+        <label className="space-y-2">
+          <span className={labelClass}>UTM Campaign (tùy chọn)</span>
           <input
             value={campaign}
             onChange={(event) => setCampaign(event.target.value)}
             placeholder="vd: sale-thang-5"
-            className="h-10 w-full rounded-lg border border-[#E2E8F0] bg-white px-3 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
+            className={fieldClass}
           />
         </label>
         {linkType === "product" ? (
@@ -200,7 +229,7 @@ export default function AffiliateLinkBuilder({
                 setSelectedProduct(null);
               }}
               placeholder="Tìm sản phẩm để tạo link giới thiệu..."
-              className="h-10 w-full rounded-lg border border-[#E2E8F0] bg-white px-3 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
+              className={fieldClass}
             />
             {selectedProduct ? (
               <div className="mt-2 flex items-center justify-between rounded-lg border border-[#E2E8F0] bg-[#EFF6FF] px-3 py-2">
@@ -301,7 +330,7 @@ export default function AffiliateLinkBuilder({
               value={categorySlug}
               onChange={(event) => setCategorySlug(event.target.value)}
               placeholder="dien-tu"
-              className="h-10 w-full rounded-lg border border-[#E2E8F0] bg-white px-3 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
+              className={fieldClass}
             />
           </label>
         ) : null}
@@ -312,36 +341,29 @@ export default function AffiliateLinkBuilder({
               value={customPath}
               onChange={(event) => setCustomPath(event.target.value)}
               placeholder="/khuyen-mai hoặc https://www.zendo.vn/khuyen-mai"
-              className="h-10 w-full rounded-lg border border-[#E2E8F0] bg-white px-3 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
+              className={fieldClass}
             />
           </label>
         ) : null}
       </div>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={buildLink}
-          className="rounded-lg bg-[#2563EB] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#1D4ED8]"
-        >
+      <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        <button type="button" onClick={buildLink} className={btnPrimary}>
           Tạo link
         </button>
-        <button
-          type="button"
-          onClick={() => copyLink(outputUrl)}
-          disabled={!outputUrl}
-          className="rounded-lg border border-[#E2E8F0] bg-white px-3 py-1.5 text-xs font-medium text-[#0F172A] disabled:opacity-50"
-        >
+        <button type="button" onClick={() => copyLink(outputUrl)} disabled={!outputUrl} className={btnSecondary}>
           Sao chép link
         </button>
-        <LinkButton href={outputUrl}>Mở link</LinkButton>
+        <LinkButton href={outputUrl} variant={variant}>
+          Mở link
+        </LinkButton>
       </div>
-      <div className="mt-3">
-        <label className="space-y-1">
-          <span className="text-xs text-[#64748B]">Link đầu ra</span>
+      <div className="mt-4">
+        <label className="space-y-2">
+          <span className={labelClass}>Link đầu ra</span>
           <input
             readOnly
             value={outputUrl}
-            className="h-10 w-full rounded-lg border border-[#E2E8F0] bg-white px-3 text-xs text-[#0F172A] outline-none"
+            className={isCtv ? `${CTV_V2_INPUT_READONLY} text-xs` : `${fieldClass} break-all text-xs`}
           />
         </label>
       </div>
@@ -389,28 +411,25 @@ export default function AffiliateLinkBuilder({
 function LinkButton({
   href,
   children,
+  variant = "default",
 }: {
   href: string;
   children: string;
+  variant?: "default" | "ctv";
 }): JSX.Element {
+  const cls =
+    variant === "ctv"
+      ? `${CTV_V2_BTN_SECONDARY} text-xs sm:text-sm`
+      : "rounded-lg border border-[#E2E8F0] bg-white px-3 py-1.5 text-xs font-medium text-[#0F172A]";
   if (!href) {
     return (
-      <button
-        type="button"
-        disabled
-        className="rounded-lg border border-[#E2E8F0] bg-white px-3 py-1.5 text-xs font-medium text-[#0F172A] opacity-50"
-      >
+      <button type="button" disabled className={`${cls} opacity-50`}>
         {children}
       </button>
     );
   }
   return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noreferrer"
-      className="rounded-lg border border-[#E2E8F0] bg-white px-3 py-1.5 text-xs font-medium text-[#0F172A]"
-    >
+    <a href={href} target="_blank" rel="noreferrer" className={cls}>
       {children}
     </a>
   );

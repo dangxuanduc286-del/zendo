@@ -41,6 +41,8 @@ export function useCustomerNotificationsPoll(
     unread: initial.unread,
     groups: initial.groups,
   });
+  const notificationsTabActiveRef = useRef(notificationsTabActive);
+  notificationsTabActiveRef.current = notificationsTabActive;
 
   useEffect(() => {
     setState(initial);
@@ -121,7 +123,7 @@ export function useCustomerNotificationsPoll(
         const signal = ac.signal;
 
         // Tab Thông báo đang mở: luôn tải full list để không lệch items vs UI (commission realtime chỉ áp khi tab khác → tiết kiệm)
-        if (notificationsTabActive) {
+        if (notificationsTabActiveRef.current) {
           await fetchFull(signal);
           return;
         }
@@ -141,7 +143,7 @@ export function useCustomerNotificationsPoll(
       }
     }
 
-    const pickInterval = (): number => customerNotificationsPollMs(notificationsTabActive);
+    const pickInterval = (): number => customerNotificationsPollMs(notificationsTabActiveRef.current);
 
     const onVis = (): void => {
       if (document.visibilityState === "visible") {
@@ -163,7 +165,7 @@ export function useCustomerNotificationsPoll(
       if (intervalId != null) window.clearInterval(intervalId);
       document.removeEventListener("visibilitychange", onVis);
     };
-  }, [enabled, notificationsTabActive, affiliateCommissionRealtime]);
+  }, [enabled, affiliateCommissionRealtime]);
 
   return enabled ? state : initial;
 }

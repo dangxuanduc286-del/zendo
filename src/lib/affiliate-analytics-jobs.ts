@@ -29,7 +29,8 @@ export async function rebuildAffiliateHourlyAggregates(args: {
     FROM "AffiliateTrafficEvent" e
     WHERE e."createdAt" >= ${args.from} AND e."createdAt" < ${args.to}
     GROUP BY e."affiliateProfileId", date_trunc('hour', e."createdAt")
-  `);  return { deleted: del.count, inserted: Number(inserted) };
+  `);
+  return { deleted: del.count, inserted: Number(inserted) };
 }
 
 /** Rebuild daily buckets (VN day, same as chart API) for [from, to). */
@@ -57,7 +58,8 @@ export async function rebuildAffiliateDailyAggregates(args: {
     FROM "AffiliateTrafficEvent" e
     WHERE e."createdAt" >= ${args.from} AND e."createdAt" < ${args.to}
     GROUP BY e."affiliateProfileId", date_trunc('day', e."createdAt" + interval '7 hour')
-  `);  return { deleted: del.count, inserted: Number(inserted) };
+  `);
+  return { deleted: del.count, inserted: Number(inserted) };
 }
 
 export async function cleanupStaleAffiliateRealtimeSessions(args: {
@@ -66,7 +68,8 @@ export async function cleanupStaleAffiliateRealtimeSessions(args: {
 }): Promise<{ deleted: number }> {
   const r = await args.db.affiliateRealtimeSession.deleteMany({
     where: { lastSeenAt: { lt: args.olderThan } },
-  });  return { deleted: r.count };
+  });
+  return { deleted: r.count };
 }
 
 export async function deleteOrphanAffiliateTrafficEvents(args: { db: PrismaClient }): Promise<{ deleted: number }> {
@@ -75,7 +78,8 @@ export async function deleteOrphanAffiliateTrafficEvents(args: { db: PrismaClien
     WHERE NOT EXISTS (
       SELECT 1 FROM "AffiliateProfile" p WHERE p."id" = e."affiliateProfileId"
     )
-  `);  return { deleted: Number(r) };
+  `);
+  return { deleted: Number(r) };
 }
 
 export type AffiliateAnalyticsHealth = {
@@ -132,7 +136,8 @@ export async function purgeAffiliateTrafficEventsOlderThan(args: {
     const deleted = Number(n);
     total += deleted;
     if (deleted === 0) break;
-  }  return { deleted: total, batches };
+  }
+  return { deleted: total, batches };
 }
 
 export async function runAffiliateCronTasks(args: {
@@ -144,7 +149,8 @@ export async function runAffiliateCronTasks(args: {
   const hours = args.hours ?? 52;
   const days = args.days ?? 120;
   const staleH = args.staleRealtimeHours ?? 3;
-  const now = Date.now();  const { clearAllAffiliateAnalyticsCaches } = await import("@/lib/affiliate-ops-cache");
+  const now = Date.now();
+  const { clearAllAffiliateAnalyticsCaches } = await import("@/lib/affiliate-ops-cache");
 
   const hourly = await rebuildAffiliateHourlyAggregates({
     db: args.db,
@@ -173,12 +179,16 @@ export async function runAffiliateCronTasks(args: {
 
   await clearAllAffiliateAnalyticsCaches();
 
+  const { releaseDueAffiliateCommissions } = await import("@/lib/affiliate/commission-release");
+  const commissionRelease = await releaseDueAffiliateCommissions(args.db);
+
   return {
     hourly,
     daily,
     realtimeCleanup,
     orphan,
     purge,
+    commissionRelease,
     cacheCleared: true,
   };
 }

@@ -1,11 +1,18 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import type { ComponentProps } from "react";
 import type { AffiliateCommissionTabSettings } from "../../lib/affiliate-commission-tab-settings";
 import type { CustomerAccountSettings } from "../../lib/settings";
 import { isAffiliateOnly, isCustomerBuyer } from "../../lib/account-role";
-import AffiliateOnlyAccountView from "./affiliate-only-account-view";
-import CustomerBuyerAccountView from "./customer-buyer-account-view";
+import { AccountRouteLoading } from "./account-route-loading";
+
+const AffiliateOnlyAccountView = dynamic(() => import("./affiliate-only-account-view"), {
+  loading: () => <AccountRouteLoading />,
+});
+const CustomerBuyerAccountView = dynamic(() => import("./customer-buyer-account-view"), {
+  loading: () => <AccountRouteLoading />,
+});
 
 type DashboardProps = ComponentProps<typeof CustomerBuyerAccountView> & {
   initialAccountTab?: string;

@@ -18,7 +18,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AnalyticsErrorBoundary } from "@/components/analytics/analytics-error-boundary";
 import { SafeProductThumbnail } from "@/components/ui/safe-product-thumbnail";
 import AffiliateAnalyticsBarChartLazy from "./affiliate-analytics-bar-chart-lazy";
-import AffiliateAnalyticsTrafficInsights from "./affiliate-analytics-traffic-insights";
 import AffiliateConversionFunnelVisual from "./affiliate-conversion-funnel-visual";
 import { CreatorEmptyState, CreatorMetricCard, CreatorSectionShell } from "./affiliate-creator-metric-card";
 import {
@@ -46,7 +45,6 @@ import {
   AFFILIATE_ANALYTICS_TOOLBAR_BTN_SECONDARY,
 } from "@/lib/affiliate-analytics-ui-tokens";
 import { useAffiliateTrackingSse } from "@/hooks/use-affiliate-tracking-sse";
-import AffiliateOperationsCenter from "@/components/storefront/affiliate-operations-center";
 import { mergeAffiliateStreamTicksIntoActivity } from "@/lib/affiliate-tracking-stream-client-merge";
 import type { AffiliateTrackingStreamTickV1 } from "@/lib/affiliate-tracking-stream-types";
 import type { RtPoint } from "./affiliate-creator-charts/creator-realtime-sparkline-inner";
@@ -63,6 +61,16 @@ const AffiliateCreatorChartsSection = dynamic(() => import("./affiliate-creator-
 
 const AffiliateTrackingWorkspace = dynamic(() => import("./affiliate-tracking-workspace"), {
   loading: () => <div className="min-h-[14rem] w-full animate-pulse rounded-2xl bg-[#EFF6FF]/60 ring-1 ring-[#DBEAFE]/80" />,
+  ssr: false,
+});
+
+const AffiliateAnalyticsTrafficInsights = dynamic(() => import("./affiliate-analytics-traffic-insights"), {
+  loading: () => <div className="min-h-[12rem] animate-pulse rounded-2xl bg-[#F1F5F9]/90" />,
+  ssr: false,
+});
+
+const AffiliateOperationsCenter = dynamic(() => import("@/components/storefront/affiliate-operations-center"), {
+  loading: () => <div className="min-h-[16rem] animate-pulse rounded-2xl bg-[#F1F5F9]/90" />,
   ssr: false,
 });
 

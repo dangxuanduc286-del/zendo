@@ -1,10 +1,35 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useMemo, useRef, useState } from "react";
-import { signIn } from "next-auth/react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { getSession, signIn } from "next-auth/react";
+import {
+  markAccountLoginOverviewEntry,
+  resolveCustomerLoginCallbackUrl,
+} from "../../lib/account-tab-navigation";
+import {
+  normalizeSavedLoginProfileId,
+  readCustomerSavedLoginProfiles,
+  upsertCustomerSavedLoginProfile,
+  type CustomerSavedLoginProfile,
+} from "../../lib/customer-saved-login-profiles";
+import CustomerSavedLoginPicker from "./customer-saved-login-picker";
 
 type TabType = "login" | "register";
+
+const MOBILE_LOGIN_MQ = "(max-width: 767px)";
+
+function isMobileLoginViewport(): boolean {
+  return typeof window !== "undefined" && window.matchMedia(MOBILE_LOGIN_MQ).matches;
+}
+
+function mobilePasswordLocked(
+  isMobile: boolean,
+  selectedProfile: CustomerSavedLoginProfile | null,
+  passwordReady: boolean,
+): boolean {
+  return isMobile && Boolean(selectedProfile) && !passwordReady;
+}
 
 function resolveSafeCallbackUrl(callbackUrl: string | null | undefined): string {
   const value = (callbackUrl ?? "").trim();
@@ -26,7 +51,10 @@ export default function CustomerAuthCard({
   googleEnabled: boolean;
   authError?: string | null;
 }): JSX.Element {
-  const safeCallback = useMemo(() => resolveSafeCallbackUrl(callbackUrl), [callbackUrl]);
+  const safeCallback = useMemo(
+    () => resolveCustomerLoginCallbackUrl(resolveSafeCallbackUrl(callbackUrl)),
+    [callbackUrl],
+  );
   const [tab, setTab] = useState<TabType>("login");
   const [fullName, setFullName] = useState("");
   const [identifier, setIdentifier] = useState("");
@@ -41,8 +69,31 @@ export default function CustomerAuthCard({
   const passwordInputRef = useRef<HTMLInputElement | null>(null);
   const loginAttemptSeqRef = useRef(0);
   const loginInFlightRef = useRef(false);
+  /** Mobile: chỉ true sau khi user bấm Đăng nhập / Tiếp tục đăng nhập — chặn autofill/submit giả. */
+  const mobileLoginArmedRef = useRef(false);
+  const [isMobileLogin, setIsMobileLogin] = useState(false);
+  const [mobilePasswordReady, setMobilePasswordReady] = useState(false);
   const [accessDeniedNotice, setAccessDeniedNotice] = useState(
     authError === "admin-denied" ? "Tài khoản không có quyền quản trị." : "",
+  );
+  const [savedProfiles, setSavedProfiles] = useState<CustomerSavedLoginProfile[]>([]);
+  const [selectedSavedProfileId, setSelectedSavedProfileId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSavedProfiles(readCustomerSavedLoginProfiles());
+  }, []);
+
+  useEffect(() => {
+    const mq = window.matchMedia(MOBILE_LOGIN_MQ);
+    const sync = () => setIsMobileLogin(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
+  const selectedSavedProfile = useMemo(
+    () => savedProfiles.find((profile) => profile.id === selectedSavedProfileId) ?? null,
+    [savedProfiles, selectedSavedProfileId],
   );
 
   const inputClassName =
@@ -54,8 +105,51 @@ export default function CustomerAuthCard({
     setAccessDeniedNotice("");
   };
 
-  const onLogin = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const handleSelectSavedProfile = (profile: CustomerSavedLoginProfile) => {
+    const mobile = isMobileLoginViewport();
+    mobileLoginArmedRef.current = false;
+    setSelectedSavedProfileId(profile.id);
+    setIdentifier(profile.identifier);
+    setPassword("");
+    setMobilePasswordReady(false);
+    resetNotice();
+    // Desktop không hiển thị picker; trên mobile không focus password — tránh autofill + auto submit.
+    if (!mobile) {
+      passwordInputRef.current?.focus();
+    }
+  };
+
+  const handleMobileContinueToPassword = () => {
+    mobileLoginArmedRef.current = false;
+    setMobilePasswordReady(true);
+  };
+
+  useEffect(() => {
+    if (!mobilePasswordReady || !isMobileLogin) return;
+    const id = requestAnimationFrame(() => passwordInputRef.current?.focus());
+    return () => cancelAnimationFrame(id);
+  }, [mobilePasswordReady, isMobileLogin]);
+
+  const persistSavedProfileAfterLogin = async (loginIdentifier: string) => {
+    const session = await getSession();
+    upsertCustomerSavedLoginProfile({
+      identifier: loginIdentifier,
+      displayName: session?.user?.name ?? loginIdentifier,
+    });
+    setSavedProfiles(readCustomerSavedLoginProfiles());
+    setSelectedSavedProfileId(normalizeSavedLoginProfileId(loginIdentifier));
+  };
+
+  const runLogin = async () => {
+    const mobile = isMobileLoginViewport();
+    const armed = mobileLoginArmedRef.current;
+    const locked = mobilePasswordLocked(isMobileLogin, selectedSavedProfile, mobilePasswordReady);
+    if (mobile && !armed) {
+      return;
+    }
+    if (mobile && locked) {
+      return;
+    }
     if (loginInFlightRef.current) return;
     loginInFlightRef.current = true;
     const attemptId = `cust_login_${Date.now()}_${++loginAttemptSeqRef.current}`;
@@ -118,7 +212,9 @@ export default function CustomerAuthCard({
         }
 
         setMessage("Đăng nhập thành công.");
-        window.location.replace(safeCallback || "/");
+        await persistSavedProfileAfterLogin(identifier);
+        markAccountLoginOverviewEntry();
+        window.location.replace(safeCallback || "/tai-khoan?tab=overview");
         return;
       }
 
@@ -132,6 +228,20 @@ export default function CustomerAuthCard({
     } finally {
       setSubmitting(false);
       loginInFlightRef.current = false;
+    }
+  };
+
+  const triggerLogin = () => {
+    mobileLoginArmedRef.current = true;
+    void runLogin();
+  };
+
+  const onLogin = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const mobile = isMobileLoginViewport();
+    // Desktop: giữ submit form → đăng nhập. Mobile: không bao giờ login qua submit (autofill/Enter).
+    if (!mobile) {
+      triggerLogin();
     }
   };
 
@@ -212,15 +322,63 @@ export default function CustomerAuthCard({
       </div>
 
       {tab === "login" ? (
-        <form onSubmit={onLogin} className="mt-5 space-y-3">
+        <>
+          <div className="mt-5 md:hidden">
+            <CustomerSavedLoginPicker
+              profiles={savedProfiles}
+              selectedId={selectedSavedProfileId}
+              onSelect={handleSelectSavedProfile}
+            />
+            {selectedSavedProfile ? (
+              <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50/80 px-3 py-2.5">
+                <p className="text-xs font-semibold text-emerald-800">Đã chọn tài khoản</p>
+                <p className="mt-0.5 text-sm font-semibold text-[#0F172A]">
+                  {selectedSavedProfile.displayName.trim() || selectedSavedProfile.identifier}
+                </p>
+                <p className="text-xs text-[#64748B]">{selectedSavedProfile.identifier}</p>
+              </div>
+            ) : null}
+            {selectedSavedProfile && !mobilePasswordReady ? (
+              <button
+                type="button"
+                onClick={handleMobileContinueToPassword}
+                className="mt-3 inline-flex h-11 w-full items-center justify-center rounded-xl border border-emerald-500 bg-white px-4 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50 active:bg-emerald-100"
+              >
+                Tiếp tục đăng nhập
+              </button>
+            ) : null}
+          </div>
+
+          <form
+            onSubmit={onLogin}
+            className="mt-5 space-y-3"
+            autoComplete={isMobileLogin ? "off" : "on"}
+          >
           <label className="block space-y-1.5">
             <span className="text-sm font-medium text-[#0F172A]">Email hoặc số điện thoại</span>
             <input
               value={identifier}
-              onChange={(event) => setIdentifier(event.target.value)}
+              onChange={(event) => {
+                const next = event.target.value;
+                setIdentifier(next);
+                if (
+                  selectedSavedProfileId &&
+                  normalizeSavedLoginProfileId(next) !== selectedSavedProfileId
+                ) {
+                  setSelectedSavedProfileId(null);
+                  setMobilePasswordReady(false);
+                  mobileLoginArmedRef.current = false;
+                }
+              }}
               className={inputClassName}
               placeholder="Nhập email hoặc số điện thoại"
               autoComplete="username"
+              readOnly={isMobileLogin && Boolean(selectedSavedProfile) && !mobilePasswordReady}
+              onFocus={(event) => {
+                if (isMobileLogin && selectedSavedProfile && !mobilePasswordReady) {
+                  event.currentTarget.removeAttribute("readonly");
+                }
+              }}
             />
           </label>
 
@@ -236,10 +394,26 @@ export default function CustomerAuthCard({
                 ref={passwordInputRef}
                 type={showLoginPassword ? "text" : "password"}
                 value={password}
-                onChange={(event) => setPassword(event.target.value)}
+                onChange={(event) => {
+                  setPassword(event.target.value);
+                  mobileLoginArmedRef.current = false;
+                }}
                 className={inputClassName}
-                placeholder="Nhập mật khẩu"
-                autoComplete="current-password"
+                placeholder={
+                  mobilePasswordLocked(isMobileLogin, selectedSavedProfile, mobilePasswordReady)
+                    ? "Bấm Tiếp tục đăng nhập trước"
+                    : "Nhập mật khẩu"
+                }
+                autoComplete={
+                  mobilePasswordLocked(isMobileLogin, selectedSavedProfile, mobilePasswordReady)
+                    ? "off"
+                    : "current-password"
+                }
+                disabled={mobilePasswordLocked(
+                  isMobileLogin,
+                  selectedSavedProfile,
+                  mobilePasswordReady,
+                )}
               />
               <button
                 type="button"
@@ -253,13 +427,15 @@ export default function CustomerAuthCard({
           </div>
 
           <button
-            type="submit"
+            type={isMobileLogin ? "button" : "submit"}
             disabled={submitting}
+            onClick={isMobileLogin ? () => triggerLogin() : undefined}
             className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-[#2563EB] px-4 text-sm font-semibold text-white transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {submitting ? "Đang xử lý..." : "Đăng nhập"}
           </button>
         </form>
+        </>
       ) : (
         <form onSubmit={onRegister} className="mt-5 space-y-3">
           <label className="block space-y-1.5">

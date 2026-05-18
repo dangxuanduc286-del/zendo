@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image, { type ImageProps } from "next/image";
+import { clampNextImageQuality } from "../../lib/next-image-quality";
 
 interface MediaImageProps extends Omit<ImageProps, "src" | "alt"> {
   src: string;
@@ -23,8 +24,12 @@ export default function MediaImage({
   src,
   alt,
   fallbackLabel,
+  quality,
   ...props
 }: MediaImageProps): JSX.Element {
+  const safeQuality = clampNextImageQuality(
+    quality === undefined ? undefined : typeof quality === "number" ? quality : Number(quality),
+  );
   const fallbackSrc = useMemo(
     () => buildFallbackDataUrl(fallbackLabel ?? alt ?? "Image unavailable"),
     [fallbackLabel, alt],
@@ -42,6 +47,7 @@ export default function MediaImage({
       {...props}
       src={safeSrc}
       alt={alt}
+      quality={safeQuality}
       onError={() => setHasError(true)}
     />
   );

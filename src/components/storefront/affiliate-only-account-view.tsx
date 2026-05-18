@@ -1,24 +1,36 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { signOut } from "next-auth/react";
 import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState, startTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
-import { useAffiliateDashboardApi } from "./use-affiliate-dashboard-api";
+import { AFFILIATE_DASH_SUB_TAB_KEYS } from "../../lib/affiliate-account-dashboard-model";
+import type { AffiliateSubTab } from "../../lib/affiliate-account-dashboard-model";
+import { CtvAccountTabPanel } from "./ctv/ctv-account-tab-panel";
+import { AffiliateCtvAccountShell } from "./affiliate/affiliate-ctv-account-shell";
 import type { AffiliateCommissionTabSettings } from "../../lib/affiliate-commission-tab-settings";
 import type { CustomerAccountSettings } from "../../lib/settings";
-import { getDefaultAccountTab } from "../../lib/account-role";
+import { resolveCtvAccountTab } from "../../lib/account-tab-navigation";
+import { useStorefrontAccountTabBootstrap } from "../../lib/use-storefront-account-tab-bootstrap";
 import { useCustomerNotificationsPoll } from "../../lib/use-customer-notifications-poll";
 import { useAccountMobileMenuStore } from "../../stores/accountMobileMenuStore";
 import AccountMobileMenuDrawer from "./account-mobile-menu-drawer";
-import { StorefrontAccountTwoColumnLayout } from "./storefront-account-two-column-layout";
-import { AffiliateCtvAccountApplyGate } from "./affiliate-ctv-account-apply-gate";
+import { AccountNotificationsSection } from "./account-notifications-section";
+import { AffiliateCommissionNotificationToast } from "./affiliate/affiliate-commission-notification-toast";
+import { AffiliateCommissionUnlockBanner } from "./affiliate/affiliate-commission-unlock-banner";
+import AccountPolicyHubPanel from "./account-policy-hub-panel";
+import {
+  CTV_CONTENT_PANEL,
+  CTV_CTA_PRIMARY,
+  CTV_CTA_SECONDARY,
+  CTV_OVERVIEW_TILE,
+  CTV_TYPE_SECTION,
+} from "./affiliate/affiliate-ctv-account-ui-tokens";
 import { AccountOrderItemThumbnail } from "./account-order-item-thumbnail";
 import { AffiliateCtvAccountSidebar } from "./affiliate-ctv-account-sidebar";
 import { buildAffiliateCtvNavEntriesFromDashboard } from "@/lib/storefront-affiliate-ctv-nav-build";
-import { flattenEnabledMenuItems, MENU_BASE_CLASS } from "./affiliate-ctv-account-menu-config";
+import { flattenEnabledMenuItems } from "./affiliate-ctv-account-menu-config";
 import {
   getDistrictsByProvince,
   getProvinces,
@@ -26,39 +38,8 @@ import {
   normalizeAddressKeyword,
 } from "../../lib/vietnam-addresses";
 import type { PolicyHubCard } from "../../lib/site-policy-public";
-
-const PurchaseHistoryPanel = dynamic(() => import("./purchase-history-panel"), {
-  loading: () => <div className="rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm">Đang tải...</div>,
-});
-const AffiliateLinkBuilder = dynamic(() => import("./affiliate-link-builder"), {
-  loading: () => <div className="rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm">Đang tải...</div>,
-});
-const AffiliateProductRefActions = dynamic(() => import("./affiliate-product-ref-actions"), {
-  loading: () => <div className="rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm">Đang tải...</div>,
-});
-const AffiliateEarningsPanel = dynamic(() => import("./affiliate-earnings-panel"), {
-  loading: () => <div className="rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm">Đang tải...</div>,
-});
-const AffiliateOrdersPanel = dynamic(() => import("./affiliate-orders-panel"), {
-  loading: () => <div className="rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm">Đang tải...</div>,
-});
-const AffiliateWithdrawalPanel = dynamic(() => import("./affiliate-withdrawal-panel"), {
-  loading: () => <div className="rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm">Đang tải...</div>,
-});
-const AffiliatePayoutAccountPanel = dynamic(() => import("./affiliate-payout-account-panel"), {
-  loading: () => <div className="rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm">Đang tải...</div>,
-});
-const AffiliateGuidePanel = dynamic(() => import("./affiliate-guide-panel"), {
-  loading: () => <div className="rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm">Đang tải...</div>,
-});
-const AffiliateShortLinksPanel = dynamic(() => import("./affiliate-short-links-panel"), {
-  loading: () => <div className="rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm">Đang tải link ngắn…</div>,
-});
-const AffiliateRevenueInsightsCard = dynamic(() => import("./affiliate-revenue-insights-card"), {
-  loading: () => <div className="h-16 animate-pulse rounded-xl bg-[#F1F5F9]" />,
-});
-const AffiliateOnboardingChecklist = dynamic(() => import("./affiliate-onboarding-checklist"));
-const AffiliateQuickShareButtons = dynamic(() => import("./affiliate-quick-share-buttons"));
+import { AccountTabKeepAlive } from "./account-tab-keep-alive";
+import { prefetchStorefrontAccountTabsIdle } from "../../lib/account-tab-prefetch";
 
 const accountTabHeavyFallback = (): JSX.Element => (
   <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-sm" aria-hidden>
@@ -68,16 +49,27 @@ const accountTabHeavyFallback = (): JSX.Element => (
   </div>
 );
 
-const AccountNotificationsSection = dynamic(
-  () => import("./account-notifications-section").then((m) => ({ default: m.AccountNotificationsSection })),
-  { loading: accountTabHeavyFallback },
-);
-const AccountPolicyHubPanel = dynamic(() => import("./account-policy-hub-panel"), {
-  loading: accountTabHeavyFallback,
+const PurchaseHistoryPanel = dynamic(() => import("./purchase-history-panel"), {
+  loading: () => <div className="rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm">Đang tải...</div>,
+});
+const AffiliateProductRefActions = dynamic(() => import("./affiliate-product-ref-actions"), {
+  loading: () => <div className="rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm">Đang tải...</div>,
 });
 const ChangePasswordForm = dynamic(() => import("../auth/change-password-form"), {
   loading: accountTabHeavyFallback,
 });
+const AffiliateAccountDashboardTab = dynamic(
+  () => import("./affiliate/affiliate-account-dashboard-tab").then((m) => ({ default: m.AffiliateAccountDashboardTab })),
+  { loading: accountTabHeavyFallback, ssr: false },
+);
+const CtvOverviewDashboard = dynamic(
+  () => import("./ctv/ctv-overview-dashboard").then((m) => ({ default: m.CtvOverviewDashboard })),
+  { loading: accountTabHeavyFallback, ssr: false },
+);
+const CtvAffiliateWorkspaceDesktop = dynamic(
+  () => import("./ctv/ctv-affiliate-workspace-desktop").then((m) => ({ default: m.CtvAffiliateWorkspaceDesktop })),
+  { loading: accountTabHeavyFallback, ssr: false },
+);
 
 type DashboardStats = {
   totalOrders: number;
@@ -277,12 +269,6 @@ function getOrderStatusUi(status: string): { label: string; badgeClass: string; 
   };
 }
 
-function isPublicOrigin(value: string): boolean {
-  const text = value.trim().toLowerCase();
-  if (!text) return false;
-  return !text.includes("localhost") && !text.includes("127.0.0.1");
-}
-
 const ACCOUNT_TAB_KEYS = new Set<TabKey>([
   "overview",
   "orders",
@@ -296,15 +282,6 @@ const ACCOUNT_TAB_KEYS = new Set<TabKey>([
   "policyHub",
   "affiliate",
   "security",
-]);
-
-const AFFILIATE_DASH_SUB_TABS = new Set<string>([
-  "overview",
-  "orders",
-  "earnings",
-  "withdrawal",
-  "links",
-  "guide",
 ]);
 
 /** CTV chỉ giới thiệu (`affiliateCanBuy === false`): bảng điều khiển theo affiliateShow* và tab mặc định. */
@@ -330,54 +307,16 @@ export default function AffiliateOnlyAccountView({
   const searchParams = useSearchParams();
   const highlightOrderCode = (searchParams.get("highlightOrder") ?? "").trim();
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
-  type AffiliateSubTab = "overview" | "orders" | "earnings" | "withdrawal" | "links" | "guide";
   const [activeTab, setActiveTab] = useState<TabKey>(() => {
-    const pick = getDefaultAccountTab({ affiliateActive: data.affiliate.isActive }, accountSettings);
-    return pick === "affiliate" ? "affiliate" : "overview";
+    const resolved = resolveCtvAccountTab(initialAccountTab ?? "", initialAffiliateSubTab ?? "");
+    return ACCOUNT_TAB_KEYS.has(resolved.tab as TabKey) ? (resolved.tab as TabKey) : "overview";
   });
-  const [activeSubTab, setActiveSubTab] = useState<AffiliateSubTab>(() => {
-    const pick = getDefaultAccountTab({ affiliateActive: data.affiliate.isActive }, accountSettings);
-    if (pick === "affiliate") return "links";
-    return "overview";
-  });
-  const selectTab = useCallback((tab: TabKey) => {
-    startTransition(() => setActiveTab(tab));
-  }, []);
-  const selectAffiliateSubTab = useCallback((sub: AffiliateSubTab) => {
-    startTransition(() => setActiveSubTab(sub));
-  }, []);
-  const selectAffiliateSection = useCallback((sub: AffiliateSubTab) => {
-    startTransition(() => {
-      setActiveTab("affiliate");
-      setActiveSubTab(sub);
-    });
-  }, []);
+  const [activeSubTab, setActiveSubTab] = useState<AffiliateSubTab>("overview");
   const [orderStatusFilter, setOrderStatusFilter] = useState("all");
   const [orderSearch, setOrderSearch] = useState("");
   const [expandedOrderIds, setExpandedOrderIds] = useState<string[]>([]);
   const [trackingOrderId, setTrackingOrderId] = useState("");
   const [couponFilter, setCouponFilter] = useState<"active" | "used" | "expired">("active");
-  const [affiliateCopied, setAffiliateCopied] = useState(false);
-  const [affiliateCopyError, setAffiliateCopyError] = useState("");
-  const [payoutAccount, setPayoutAccount] = useState<null | {
-    id: string;
-    bankName: string;
-    bankAccountNumberMasked: string;
-    bankAccountHolder: string;
-    verificationStatus: "PENDING" | "APPROVED" | "REJECTED";
-    rejectionReason?: string;
-    verifiedAt?: string | null;
-    changeRequests?: Array<{
-      id: string;
-      status: "PENDING" | "APPROVED" | "REJECTED";
-      requestedAt: string;
-      reviewedAt: string | null;
-      rejectionReason: string;
-      requestedBankName: string;
-      requestedBankAccountNumberMasked: string;
-      requestedBankAccountHolder: string;
-    }>;
-  }>(null);
   const [avatarUrl, setAvatarUrl] = useState(data.avatarUrl || "");
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState("");
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -488,6 +427,51 @@ export default function AffiliateOnlyAccountView({
     [enabledMenuItems],
   );
   const fallbackTab = (allowedNavTabs[0] ?? "overview") as TabKey;
+
+  useEffect(() => {
+    prefetchStorefrontAccountTabsIdle(allowedNavTabs);
+  }, [allowedNavTabs]);
+
+  const { onSelectTab: navigateAccountTab } = useStorefrontAccountTabBootstrap({
+    affiliateActive: data.affiliate.isActive,
+    initialAccountTab,
+    initialAffiliateSubTab,
+    allowedTabs: allowedNavTabs,
+    accountTabKeys: ACCOUNT_TAB_KEYS,
+    affiliateSubTabKeys: AFFILIATE_DASH_SUB_TAB_KEYS,
+    setActiveTab,
+    setActiveSubTab,
+    overviewScrollTargetId: "ctv-account-card-heading",
+  });
+
+  const selectTab = useCallback(
+    (tab: TabKey) => {
+      startTransition(() => {
+        navigateAccountTab(tab);
+        if (tab === "overview") setActiveSubTab("overview");
+      });
+    },
+    [navigateAccountTab],
+  );
+  const selectAffiliateSubTab = useCallback(
+    (sub: AffiliateSubTab) => {
+      startTransition(() => {
+        setActiveSubTab(sub);
+        navigateAccountTab("affiliate", sub);
+      });
+    },
+    [navigateAccountTab],
+  );
+  const selectAffiliateSection = useCallback(
+    (sub: AffiliateSubTab) => {
+      startTransition(() => {
+        navigateAccountTab("affiliate", sub);
+        setActiveSubTab(sub);
+      });
+    },
+    [navigateAccountTab],
+  );
+
   const orderStatusTabs = [
     { key: "all", label: "Tất cả" },
     { key: "pending", label: "Chờ xác nhận" },
@@ -517,140 +501,13 @@ export default function AffiliateOnlyAccountView({
   } as const;
   const visibleCoupons = couponMap[couponFilter];
   const accountSubtitle = accountSettings.accountSubtitle || accountSettings.welcomeMessage || "Quản lý thông tin tài khoản của bạn.";
-  const runtimeOrigin =
-    typeof window !== "undefined" && isPublicOrigin(window.location.origin)
-      ? window.location.origin
-      : "";
-  const referralBaseOrigin = (() => {
-    if (isPublicOrigin(data.affiliate.referralUrl)) {
-      try {
-        return new URL(data.affiliate.referralUrl).origin;
-      } catch {
-        return "";
-      }
-    }
-    if (runtimeOrigin) return runtimeOrigin;
-    return "https://www.zendo.vn";
-  })();
-  const referralUrl = data.affiliate.refCode
-    ? `${referralBaseOrigin}/?ref=${encodeURIComponent(data.affiliate.refCode)}`
-    : "";
-  const affDash = useAffiliateDashboardApi(Boolean(data.affiliate.hasProfile));
-  const s = affDash.data?.summary;
-  const approvedCommission = s?.commissionApprovedPool ?? data.stats.affiliateCommission;
-  const pendingCommission = s?.commissionPending ?? 0;
-  const paidCommission = s?.commissionPaid ?? 0;
-  const cancelledCommission = s?.commissionCancelled ?? 0;
-  const referralRevenueUi = s?.referralRevenue ?? 0;
-  const totalClicksUi = s?.totalClicks ?? data.affiliate.totalClicks;
-  const referredOrdersUi = s?.referredOrdersCount ?? data.affiliate.referredOrders;
-  const withdrawableBalanceUi = s?.withdrawableBalance ?? 0;
-  const conversionRate =
-    s?.conversionRatePercent ??
-    (data.affiliate.totalClicks > 0
-      ? Math.round((data.affiliate.referredOrders / data.affiliate.totalClicks) * 1000) / 10
-      : 0);
-  const isAffiliateDataEmpty = affDash.data
-    ? affDash.data.summary.referredOrdersCount === 0 &&
-      affDash.data.summary.totalClicks === 0 &&
-      affDash.data.summary.commissionPending === 0 &&
-      affDash.data.summary.commissionApprovedPool === 0 &&
-      affDash.data.summary.referralRevenue === 0 &&
-      data.stats.rewardPoints === 0
-    : data.affiliate.totalClicks === 0 &&
-      data.affiliate.referredOrders === 0 &&
-      data.stats.affiliateCommission === 0 &&
-      data.stats.rewardPoints === 0;
-  const affiliateSubTabs: Array<{ key: AffiliateSubTab; label: string }> = [
-    { key: "overview", label: "Trung tâm CTV / Affiliate" },
-    { key: "links", label: "Bộ tạo link giới thiệu" },
-    { key: "orders", label: "Đơn phát sinh" },
-    { key: "earnings", label: "Hoa hồng & điểm thưởng" },
-    { key: "withdrawal", label: "Yêu cầu rút tiền" },
-    { key: "guide", label: "Hướng dẫn chi tiết" },
-  ].filter((row): row is { key: AffiliateSubTab; label: string } => {
-    if (!data.affiliate.isActive) return true;
-    if (row.key === "withdrawal" && !accountSettings.affiliateShowWithdrawals) return false;
-    if (row.key === "guide" && !accountSettings.affiliateShowGuide) return false;
-    return true;
-  });
-  const rewardRows: Array<{
-    id: string;
-    createdAt: string;
-    points: number;
-    status: string;
-    reason: string;
-  }> = data.stats.rewardPoints
-    ? [
-        {
-          id: "reward-summary",
-          createdAt: new Date().toISOString(),
-          points: data.stats.rewardPoints,
-          status: "AVAILABLE",
-          reason: "Tổng điểm khả dụng",
-        },
-      ]
-    : [];
-  const guideTitle = accountSettings.affiliateGuideTitle || "Hướng dẫn chi tiết CTV / Affiliate";
-  const guideIntro =
-    accountSettings.affiliateGuideIntro ||
-    "Làm theo từng bước để triển khai link giới thiệu hiệu quả và tuân thủ chính sách.";
-  const guideStepsRaw = [
-    accountSettings.affiliateGuideStep1,
-    accountSettings.affiliateGuideStep2,
-    accountSettings.affiliateGuideStep3,
-    accountSettings.affiliateGuideStep4,
-    accountSettings.affiliateGuideStep5,
-    accountSettings.affiliateGuideStep6,
-    accountSettings.affiliateGuideStep7,
-    accountSettings.affiliateGuideStep8,
-  ];
-  const fallbackGuideSteps = [
-    "Lấy link giới thiệu: vào Bộ tạo link giới thiệu, chọn loại link phù hợp và tạo link có mã ref cá nhân.",
-    "Chia sẻ link đúng cách: chia sẻ qua Zalo, Facebook, TikTok, website hoặc nhóm khách hàng phù hợp.",
-    "Khách bấm link và phát sinh đơn: hệ thống ghi nhận click/đơn hợp lệ theo mã ref, chỉ tính đơn đúng điều kiện.",
-    "Theo dõi đơn giới thiệu: vào mục Đơn giới thiệu để theo dõi trạng thái đơn và hoa hồng dự kiến.",
-    "Theo dõi hoa hồng & điểm thưởng: xem trạng thái chờ duyệt, đã duyệt, đã thanh toán.",
-    "Yêu cầu rút tiền: vào mục Yêu cầu rút tiền, kiểm tra mức rút tối thiểu và gửi yêu cầu khi được kích hoạt.",
-    "Quy định/lưu ý: không spam, không tự mua gian lận, chỉ tính đơn hợp lệ; vi phạm có thể bị khóa CTV.",
-    "Cần hỗ trợ: bấm Hỗ trợ trên thanh menu trên cùng, Zalo (nếu cửa hàng cấu hình) hoặc link hướng dẫn từ cài đặt quản trị.",
-  ];
-  const guideSteps = guideStepsRaw.every((item) => typeof item === "string" && item.trim())
-    ? (guideStepsRaw as string[]).map((item) => item.trim())
-    : fallbackGuideSteps;
-
-  useEffect(() => {
-    const rawIncoming = (initialAccountTab ?? "").trim();
-    const raw = rawIncoming === "support" ? "policyHub" : rawIncoming;
-    if (raw && ACCOUNT_TAB_KEYS.has(raw as TabKey)) {
-      setActiveTab(raw as TabKey);
-    }
-    const sub = (initialAffiliateSubTab ?? "").trim();
-    if (sub && AFFILIATE_DASH_SUB_TABS.has(sub)) {
-      setActiveSubTab(sub as AffiliateSubTab);
-    }
-  }, [initialAccountTab, initialAffiliateSubTab]);
-
-  useEffect(() => {
-    if (activeTab !== "affiliate" || activeSubTab !== "withdrawal") return;
-    const hash =
-      typeof window !== "undefined" ? window.location.hash.replace(/^#/, "") : "";
-    if (hash !== "affiliate-payout-account") return;
-    requestAnimationFrame(() => {
-      document.getElementById("affiliate-payout-account")?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    });
-  }, [activeTab, activeSubTab]);
-
   useEffect(() => {
     if (!allowedNavTabs.includes(activeTab)) {
-      setActiveTab(fallbackTab);
+      setActiveTab(allowedNavTabs.includes("overview") ? "overview" : fallbackTab);
     }
   }, [activeTab, allowedNavTabs, fallbackTab]);
   useEffect(() => {
-    if (activeTab !== "affiliate") {
+    if (activeTab !== "affiliate" && activeTab !== "overview") {
       setActiveSubTab("overview");
     }
   }, [activeTab]);
@@ -991,32 +848,126 @@ export default function AffiliateOnlyAccountView({
     }
   };
 
-  const statsGrid =
-    quickCards.length > 0 ? (
-      <div
-        id="tong-quan-stats"
-        className="grid min-w-0 w-full grid-cols-2 gap-2 sm:grid-cols-[repeat(auto-fit,minmax(11rem,1fr))] sm:gap-2.5 lg:gap-3"
-        role="region"
-        aria-label="Thống kê tài khoản"
-      >
-        {quickCards.map((card) => (
-          <article
-            key={card.key}
-            className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-2.5 py-2 shadow-sm sm:px-3 sm:py-2.5"
-          >
-            <p className="text-[11px] font-medium leading-snug text-[#64748B] sm:text-xs">{card.label}</p>
-            <p className="mt-0.5 truncate text-base font-bold tabular-nums text-[#0F172A] sm:text-lg">{card.value}</p>
-          </article>
-        ))}
-      </div>
-    ) : null;
+  const profileHeroProps = {
+    accountSettings,
+    accountSubtitle,
+    displayName: data.displayName,
+    contactText: data.contactText,
+    badge: data.badge,
+    currentAvatar,
+    avatarUrl,
+    avatarInputRef,
+    avatarUploading,
+    avatarMessage,
+    avatarError,
+    onPickAvatar,
+    onAvatarFileChange,
+    onRemoveAvatar,
+    onEditProfile: accountSettings.showProfile ? () => selectTab("profile") : undefined,
+    showProfileLink: accountSettings.showProfile,
+    showShoppingCta,
+    shoppingHomeHref,
+    orderLookupHref: accountSettings.orderLookupUrl || "/tra-cuu-don-hang",
+    refCode: data.affiliate.refCode,
+    quickCards,
+  };
+
 
   const toggleNavSection = (id: string) => {
     setNavExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
+  const showCommissionNavBadge = Boolean(
+    data.affiliate.isActive && affiliateProgramEnabled && affiliateCommissionTab.tabEnabled,
+  );
+
+  const desktopSidebar = useMemo(
+    () => (
+      <AffiliateCtvAccountSidebar
+        layout="desktop"
+        entries={ctvNavEntries}
+        activeTab={activeTab}
+        onSelectTab={(t) => selectTab(t as TabKey)}
+        activeAffiliateSubTab={activeSubTab}
+        onSelectAffiliateSubTab={(s) => selectAffiliateSubTab(s as AffiliateSubTab)}
+        expandedSections={navExpanded}
+        onToggleSection={toggleNavSection}
+        notificationsUnread={liveNotifications.unread}
+        commissionBadge={liveNotifications.groups.commission}
+        showCommissionBadge={showCommissionNavBadge}
+        onSignOut={() => {
+          signOut({ callbackUrl: "/" }).catch(() => {});
+        }}
+      />
+    ),
+    [
+      activeSubTab,
+      activeTab,
+      ctvNavEntries,
+      liveNotifications.groups.commission,
+      liveNotifications.unread,
+      navExpanded,
+      selectAffiliateSubTab,
+      selectTab,
+      showCommissionNavBadge,
+    ],
+  );
+
+  const affiliateDashboardBaseProps = useMemo(
+    () => ({
+      accountSettings,
+      data,
+      supportHref,
+      shoppingHomeHref,
+      highlightOrderCode,
+      activeSubTab,
+      onSelectSubTab: selectAffiliateSubTab,
+      showGrowthToolkit: true as const,
+      loyaltyPoints: data.loyalty.points,
+      refCode: data.affiliate.refCode,
+      ...profileHeroProps,
+    }),
+    [
+      accountSettings,
+      activeSubTab,
+      data,
+      highlightOrderCode,
+      profileHeroProps,
+      selectAffiliateSubTab,
+      shoppingHomeHref,
+      supportHref,
+    ],
+  );
+
+  const overviewDashboardProps = useMemo(
+    () => ({
+      ...affiliateDashboardBaseProps,
+      embedInPageOverview: true as const,
+      overviewLayout: "all" as const,
+    }),
+    [affiliateDashboardBaseProps],
+  );
+
+  const affiliateWorkspaceProps = useMemo(
+    () => ({
+      ...affiliateDashboardBaseProps,
+      embedInPageOverview: false as const,
+      overviewLayout: "desktop" as const,
+    }),
+    [affiliateDashboardBaseProps],
+  );
+
+  const commissionNotifyUiEnabled = Boolean(
+    data.affiliate.isActive && affiliateProgramEnabled && affiliateCommissionTab.tabEnabled,
+  );
+
   return (
-    <div className="w-full min-w-0 max-w-none space-y-4 overflow-x-hidden bg-transparent">
+    <div className="w-full min-w-0 max-w-none space-y-4 overflow-x-hidden bg-gradient-to-b from-[#f8fafc] to-[#f1f5f9] px-0 py-1 sm:space-y-5 lg:px-2 lg:py-2">
+      <AffiliateCommissionNotificationToast
+        notifications={liveNotifications}
+        enabled={commissionNotifyUiEnabled}
+        commissionTab={affiliateCommissionTab}
+      />
       <AccountMobileMenuDrawer
         items={[]}
         customNav={
@@ -1048,139 +999,54 @@ export default function AffiliateOnlyAccountView({
           signOut({ callbackUrl: "/" }).catch(() => {});
         }}
       />
-      <section className="w-full min-w-0 rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
-        <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(14rem,1fr)] lg:items-start lg:gap-6 xl:gap-8">
-          <div className="min-w-0 space-y-3">
-            <div className="flex flex-wrap items-center gap-3 lg:gap-4">
-              {currentAvatar ? (
-                <Image
-                  src={currentAvatar}
-                  alt={`${data.displayName} avatar`}
-                  width={72}
-                  height={72}
-                  className="h-12 w-12 shrink-0 rounded-full border border-[#E2E8F0] object-cover sm:h-14 sm:w-14 lg:h-[72px] lg:w-[72px]"
-                />
-              ) : (
-                <div className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#DBEAFE] text-lg font-bold text-[#1D4ED8] sm:h-14 sm:w-14 lg:h-[72px] lg:w-[72px]">
-                  {(data.displayName.trim()[0] || "Z").toUpperCase()}
-                </div>
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-medium uppercase tracking-wide text-[#64748B]">
-                  {accountSettings.accountTitle || "Tài khoản của tôi"}
-                </p>
-                <h2 className="truncate text-lg font-semibold text-[#0F172A]">{data.displayName}</h2>
-                <p className="truncate text-sm text-[#64748B]">{data.contactText}</p>
-                <p className="mt-0.5 line-clamp-1 text-xs text-[#64748B]">{accountSubtitle}</p>
-                {accountSettings.showProfile ? (
-                  <button
-                    type="button"
-                    onClick={() => selectTab("profile")}
-                    className="mt-1 text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8]"
-                  >
-                    Chỉnh sửa hồ sơ
-                  </button>
-                ) : null}
-              </div>
-              <span className="rounded-full border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-1 text-xs font-semibold text-[#2563EB]">
-                {data.badge}
-              </span>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <input
-                ref={avatarInputRef}
-                type="file"
-                accept="image/*,.jpg,.jpeg,.png,.webp,.gif,.avif,.heic"
-                className="hidden"
-                onChange={onAvatarFileChange}
-              />
-              <button
-                type="button"
-                onClick={onPickAvatar}
-                disabled={avatarUploading}
-                className={`${MENU_BASE_CLASS} inline-flex h-9 items-center text-xs font-semibold disabled:opacity-60`}
-              >
-                {avatarUrl ? "Đổi ảnh" : "Tải ảnh lên"}
-              </button>
-              {avatarUrl ? (
-                <button
-                  type="button"
-                  onClick={onRemoveAvatar}
-                  disabled={avatarUploading}
-                  className={`${MENU_BASE_CLASS} inline-flex h-9 items-center text-xs font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-60`}
-                >
-                  Xóa ảnh
-                </button>
-              ) : null}
-              {avatarUploading ? <p className="text-xs text-[#64748B]">Đang tải ảnh...</p> : null}
-              {avatarMessage ? <p className="text-xs text-emerald-700">{avatarMessage}</p> : null}
-              {avatarError ? <p className="text-xs text-rose-700">{avatarError}</p> : null}
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Link
-                href={accountSettings.orderLookupUrl || "/tra-cuu-don-hang"}
-                className="inline-flex h-10 min-h-10 shrink-0 items-center rounded-xl bg-[#2563EB] px-4 text-sm font-semibold text-white hover:bg-[#1D4ED8]"
-              >
-                Theo dõi đơn hàng
-              </Link>
-              {showShoppingCta ? (
-                <Link
-                  href={shoppingHomeHref}
-                  className="inline-flex h-10 min-h-10 shrink-0 items-center rounded-xl bg-[#F59E0B] px-4 text-sm font-semibold text-white hover:bg-[#D97706]"
-                >
-                  {accountSettings.shoppingCtaText || "Tiếp tục mua sắm"}
-                </Link>
-              ) : null}
-            </div>
+      <AffiliateCtvAccountShell contentId="tai-khoan-ctv-content" sidebar={desktopSidebar}>
+        {(activeTab === "overview" || activeTab === "affiliate") && commissionNotifyUiEnabled ? (
+          <div className="mb-4 min-w-0">
+            <AffiliateCommissionUnlockBanner notifications={liveNotifications} enabled={commissionNotifyUiEnabled} />
           </div>
-          {statsGrid}
-        </div>
-      </section>
+        ) : null}
+        {accountSettings.showOverview && accountSettings.showAffiliate ? (
+          <AccountTabKeepAlive tabKey="overview" activeTab={activeTab}>
+            <CtvOverviewDashboard {...overviewDashboardProps} />
+          </AccountTabKeepAlive>
+        ) : null}
 
-      <StorefrontAccountTwoColumnLayout
-        contentId="tai-khoan-ctv-content"
-        sidebar={
-          <AffiliateCtvAccountSidebar
-            entries={ctvNavEntries}
-            activeTab={activeTab}
-            onSelectTab={(t) => selectTab(t as TabKey)}
-            activeAffiliateSubTab={activeSubTab}
-            onSelectAffiliateSubTab={(s) => selectAffiliateSubTab(s as AffiliateSubTab)}
-            expandedSections={navExpanded}
-            onToggleSection={toggleNavSection}
-            notificationsUnread={liveNotifications.unread}
-            commissionBadge={liveNotifications.groups.commission}
-            showCommissionBadge={Boolean(
-              data.affiliate.isActive && affiliateProgramEnabled && affiliateCommissionTab.tabEnabled,
-            )}
-            onSignOut={() => {
-              signOut({ callbackUrl: "/" }).catch(() => {});
-            }}
-          />
-        }
-      >
-          {activeTab === "overview" ? (
-            <section className="w-full min-w-0 rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
-              <h3 className="text-base font-semibold text-[#0F172A]">Tổng quan tài khoản</h3>
+        {accountSettings.showAffiliate ? (
+          <AccountTabKeepAlive tabKey="affiliate" activeTab={activeTab}>
+            <div className="hidden lg:block">
+              <CtvAffiliateWorkspaceDesktop {...affiliateWorkspaceProps} />
+            </div>
+          </AccountTabKeepAlive>
+        ) : null}
+
+          {activeTab === "overview" && !(accountSettings.showOverview && accountSettings.showAffiliate) ? (
+            <section className={`${CTV_CONTENT_PANEL} lg:hidden`} aria-labelledby="ctv-overview-heading">
+              <h3 id="ctv-overview-heading" className={CTV_TYPE_SECTION}>
+                Tổng quan tài khoản
+              </h3>
               {accountSettings.showAffiliate ? (
-                <div className="mt-3 grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-3" role="group" aria-label="Thao tác CTV nhanh">
+                <div
+                  className="mt-5 grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-3 lg:gap-4"
+                  role="group"
+                  aria-label="Thao tác CTV nhanh"
+                >
                   <button
                     type="button"
-                    className="min-h-11 w-full shrink-0 rounded-xl bg-[#2563EB] px-3 py-2.5 text-center text-sm font-semibold text-white hover:bg-[#1D4ED8]"
+                    className={`${CTV_CTA_PRIMARY} w-full`}
                     onClick={() => selectAffiliateSection("links")}
                   >
                     Lấy link giới thiệu
                   </button>
                   <button
                     type="button"
-                    className="min-h-11 w-full shrink-0 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-center text-sm font-semibold text-emerald-900 hover:bg-emerald-100"
+                    className={`${CTV_CTA_SECONDARY} w-full border-emerald-200 bg-emerald-50 text-emerald-900 hover:bg-emerald-100`}
                     onClick={() => selectAffiliateSection("earnings")}
                   >
                     Xem hoa hồng
                   </button>
                   <button
                     type="button"
-                    className="min-h-11 w-full shrink-0 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2.5 text-center text-sm font-semibold text-[#0F172A] hover:bg-[#F8FAFC]"
+                    className={`${CTV_CTA_SECONDARY} w-full`}
                     onClick={() =>
                       selectAffiliateSection(accountSettings.affiliateShowGuide ? "guide" : "overview")
                     }
@@ -1189,9 +1055,9 @@ export default function AffiliateOnlyAccountView({
                   </button>
                 </div>
               ) : null}
-              <div className="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-2">
+              <div className="mt-5 grid grid-cols-1 gap-4 xl:grid-cols-2">
                 {buyerShortcutStatsOk ? (
-                  <article className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+                  <article className={CTV_OVERVIEW_TILE}>
                     <p className="text-sm font-semibold text-[#0F172A]">Đơn gần đây</p>
                     {data.orders.length ? (
                       <div className="mt-2 space-y-1.5">
@@ -1216,7 +1082,7 @@ export default function AffiliateOnlyAccountView({
                     )}
                   </article>
                 ) : null}
-                <article className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+                <article className={CTV_OVERVIEW_TILE}>
                   <p className="text-sm font-semibold text-[#0F172A]">Thông báo mới</p>
                   <div className="mt-2 space-y-1 text-sm text-[#64748B]">
                     <p>Đơn hàng: {liveNotifications.groups.order}</p>
@@ -1226,7 +1092,7 @@ export default function AffiliateOnlyAccountView({
                   </div>
                 </article>
                 {showCouponsEffective ? (
-                  <article className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+                  <article className={CTV_OVERVIEW_TILE}>
                     <p className="text-sm font-semibold text-[#0F172A]">Voucher nổi bật</p>
                     {data.vouchers.active.slice(0, 2).length ? (
                       <div className="mt-2 space-y-1.5">
@@ -1242,7 +1108,7 @@ export default function AffiliateOnlyAccountView({
                   </article>
                 ) : null}
                 {accountSettings.affiliateShowSupport ? (
-                  <article className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+                  <article className={CTV_OVERVIEW_TILE}>
                     <p className="text-sm font-semibold text-[#0F172A]">Hỗ trợ nhanh</p>
                     <div className="mt-2 flex flex-wrap gap-2">
                       {accountSettings.orderLookupUrl ? <Link href={accountSettings.orderLookupUrl} className="rounded-lg bg-white px-2.5 py-1 text-xs text-[#0F172A]">Tra cứu đơn</Link> : null}
@@ -1280,7 +1146,8 @@ export default function AffiliateOnlyAccountView({
             </section>
           ) : null}
 
-          {activeTab === "orders" && accountSettings.showOrders ? (
+          {accountSettings.showOrders ? (
+            <AccountTabKeepAlive tabKey="orders" activeTab={activeTab}>
             <section id="don-hang" className="w-full min-w-0 rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
               <h3 className="text-lg font-semibold text-[#0F172A]">Đơn hàng của tôi</h3>
               <div className="mt-3 overflow-x-auto border-b border-[#E2E8F0] pb-2">
@@ -1437,13 +1304,17 @@ export default function AffiliateOnlyAccountView({
                 </div>
               )}
             </section>
+            </AccountTabKeepAlive>
           ) : null}
 
-          {activeTab === "purchaseHistory" && showPurchaseHistoryEffective ? (
+          {showPurchaseHistoryEffective ? (
+            <AccountTabKeepAlive tabKey="purchaseHistory" activeTab={activeTab}>
             <PurchaseHistoryPanel settings={accountSettings} supportHref={supportHref} hideBuyerCommerceActions />
+            </AccountTabKeepAlive>
           ) : null}
 
-          {activeTab === "tracking" && accountSettings.showOrderTimeline ? (
+          {accountSettings.showOrderTimeline ? (
+            <AccountTabKeepAlive tabKey="tracking" activeTab={activeTab}>
             <section className="w-full min-w-0 rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
               <h3 className="text-base font-semibold text-[#0F172A]">Theo dõi đơn hàng</h3>
               {selectedTrackingOrder ? (
@@ -1493,9 +1364,11 @@ export default function AffiliateOnlyAccountView({
                 <p className="mt-2 text-sm text-[#64748B]">{accountSettings.emptyOrderText || "Bạn chưa có đơn hàng nào."}</p>
               )}
             </section>
+            </AccountTabKeepAlive>
           ) : null}
 
-          {activeTab === "notifications" && accountSettings.showNotifications ? (
+          {accountSettings.showNotifications ? (
+            <AccountTabKeepAlive tabKey="notifications" activeTab={activeTab}>
             <AccountNotificationsSection
               title={accountSettings.notificationTitle || "Thông báo tài khoản"}
               notifications={liveNotifications}
@@ -1503,9 +1376,11 @@ export default function AffiliateOnlyAccountView({
               affiliateProgramEnabled={affiliateProgramEnabled}
               isAffiliateActive={data.affiliate.isActive}
             />
+            </AccountTabKeepAlive>
           ) : null}
 
-          {activeTab === "coupons" && showCouponsEffective ? (
+          {showCouponsEffective ? (
+            <AccountTabKeepAlive tabKey="coupons" activeTab={activeTab}>
             <section id="voucher" className="w-full min-w-0 rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
               <h3 className="text-base font-semibold text-[#0F172A]">{accountSettings.couponTitle || "Kho voucher"}</h3>
               <div className="mt-3 flex flex-wrap gap-2">
@@ -1552,9 +1427,11 @@ export default function AffiliateOnlyAccountView({
                 </div>
               ) : null}
             </section>
+            </AccountTabKeepAlive>
           ) : null}
 
-          {activeTab === "profile" && accountSettings.showProfile ? (
+          {accountSettings.showProfile ? (
+            <AccountTabKeepAlive tabKey="profile" activeTab={activeTab}>
             <section id="thong-tin-ca-nhan" className="w-full min-w-0 rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
               <h3 className="text-base font-semibold text-[#0F172A]">Thông tin cá nhân</h3>
               <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -1608,9 +1485,11 @@ export default function AffiliateOnlyAccountView({
               {profileMessage ? <p className="mt-2 text-sm text-emerald-700">{profileMessage}</p> : null}
               {profileError ? <p className="mt-2 text-sm text-rose-700">{profileError}</p> : null}
             </section>
+            </AccountTabKeepAlive>
           ) : null}
 
-          {activeTab === "addresses" && showAddressesEffective ? (
+          {showAddressesEffective ? (
+            <AccountTabKeepAlive tabKey="addresses" activeTab={activeTab}>
             <section id="so-dia-chi" className="w-full min-w-0 rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
               <h3 className="text-base font-semibold text-[#0F172A]">Sổ địa chỉ</h3>
               <p className="mt-2 text-sm text-[#64748B]">Quản lý địa chỉ nhận hàng để đặt hàng nhanh hơn.</p>
@@ -1807,10 +1686,11 @@ export default function AffiliateOnlyAccountView({
                 </div>
               )}
             </section>
+            </AccountTabKeepAlive>
           ) : null}
 
-          {activeTab === "wishlist" &&
-          (accountSettings.showWishlist || accountSettings.showRecentlyViewed || accountSettings.showRecommendedProducts) ? (
+          {(accountSettings.showWishlist || accountSettings.showRecentlyViewed || accountSettings.showRecommendedProducts) ? (
+            <AccountTabKeepAlive tabKey="wishlist" activeTab={activeTab}>
             <section id="yeu-thich" className="w-full min-w-0 rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5">
               <h3 className="text-base font-semibold text-[#0F172A]">Yêu thích / đã xem</h3>
               <div className="mt-2 space-y-2 text-sm text-[#64748B]">
@@ -1859,9 +1739,10 @@ export default function AffiliateOnlyAccountView({
                 ) : null}
               </div>
             </section>
+            </AccountTabKeepAlive>
           ) : null}
 
-          {activeTab === "policyHub" ? (
+          <AccountTabKeepAlive tabKey="policyHub" activeTab={activeTab}>
             <AccountPolicyHubPanel
               orderLookupHref={accountSettings.orderLookupUrl?.trim() || "/tra-cuu-don-hang"}
               policyCards={policyHubCards}
@@ -1871,429 +1752,47 @@ export default function AffiliateOnlyAccountView({
               legacyReturnHref={accountSettings.returnPolicyUrl ?? undefined}
               zaloHref={supportHref.startsWith("http") ? supportHref : null}
             />
+          </AccountTabKeepAlive>
+
+          {accountSettings.showAffiliate ? (
+            <AccountTabKeepAlive tabKey="affiliate" activeTab={activeTab}>
+            <div className="lg:hidden">
+              <AffiliateAccountDashboardTab
+                accountSettings={accountSettings}
+                data={data}
+                supportHref={supportHref}
+                shoppingHomeHref={shoppingHomeHref}
+                highlightOrderCode={highlightOrderCode}
+                activeSubTab={activeSubTab}
+                onSelectSubTab={selectAffiliateSubTab}
+                showGrowthToolkit
+                uiShell="ctv"
+              />
+            </div>
+            </AccountTabKeepAlive>
           ) : null}
 
-          {activeTab === "affiliate" && accountSettings.showAffiliate ? (
-            <>
-            <section id="affiliate" className="w-full min-w-0 rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5">
-              {data.affiliate.isActive ? (
-                <>
-                  <div className="rounded-xl border border-[#E2E8F0] bg-white p-2">
-                    <div className="-mx-1 overflow-x-auto px-1">
-                      <div className="inline-flex min-w-max flex-nowrap gap-2">
-                        {affiliateSubTabs.map((item) => {
-                          const active = activeSubTab === item.key;
-                          return (
-                            <button
-                              key={item.key}
-                              type="button"
-                              onClick={() => selectAffiliateSubTab(item.key)}
-                              className={`whitespace-nowrap rounded-xl border px-4 py-2.5 text-sm lg:text-[15px] ${
-                                active
-                                  ? "border-[#2563EB] bg-[#EFF6FF] font-bold text-[#0F172A]"
-                                  : "border-[#E2E8F0] bg-white font-semibold text-[#0F172A] hover:bg-[#F8FAFC]"
-                              }`}
-                            >
-                              {item.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                  {activeSubTab === "overview" ? (
-                    <>
-                      <div className="mt-3 flex flex-wrap items-center gap-2">
-                        <h3 className="text-base font-semibold text-[#0F172A]">
-                          {accountSettings.affiliateTitle || "Trung tâm CTV / Affiliate"}
-                        </h3>
-                        <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                          Đang hoạt động
-                        </span>
-                      </div>
-                      <p className="mt-1 text-xs text-[#64748B]">
-                        {accountSettings.affiliateSubtitle ||
-                          "Theo dõi hiệu suất giới thiệu, hoa hồng và điểm thưởng của bạn."}
-                      </p>
-                      {affDash.error ? <p className="mt-1 text-xs text-rose-600">{affDash.error}</p> : null}
-                      {affDash.loading ? <p className="mt-1 text-xs text-[#64748B]">Đang cập nhật số liệu CTV…</p> : null}
-                      <p className="mt-1 text-xs text-[#64748B]">Mã giới thiệu: <span className="font-semibold text-[#0F172A]">{data.affiliate.refCode || "—"}</span></p>
-                      {accountSettings.affiliateBanner.enabled ? (
-                        <article className="mt-3 overflow-hidden rounded-xl border border-[#E2E8F0] bg-[#F8FAFC]">
-                          {accountSettings.affiliateBanner.imageUrl ? (
-                            <Image
-                              src={accountSettings.affiliateBanner.imageUrl}
-                              alt={accountSettings.affiliateBanner.title || "Banner CTV"}
-                              width={1200}
-                              height={360}
-                              className="h-32 w-full object-cover sm:h-36"
-                            />
-                          ) : null}
-                          <div className="p-3">
-                            <p className="text-sm font-semibold text-[#0F172A]">
-                              {accountSettings.affiliateBanner.title || "Ưu đãi dành cho CTV"}
-                            </p>
-                            {accountSettings.affiliateBanner.subtitle ? (
-                              <p className="mt-1 text-xs text-[#64748B]">{accountSettings.affiliateBanner.subtitle}</p>
-                            ) : null}
-                            {accountSettings.affiliateBanner.buttonUrl ? (
-                              <Link
-                                href={accountSettings.affiliateBanner.buttonUrl}
-                                className="mt-2 inline-flex rounded-lg border border-[#E2E8F0] bg-white px-3 py-1.5 text-xs font-medium text-[#0F172A]"
-                              >
-                                {accountSettings.affiliateBanner.buttonText || "Xem chi tiết"}
-                              </Link>
-                            ) : null}
-                          </div>
-                        </article>
-                      ) : null}
-                      <div id="affiliate-promo-tools" className="scroll-mt-28 mt-3 space-y-3">
-                        <p className="break-all rounded-lg bg-[#F8FAFC] px-3 py-2 text-xs text-[#64748B]">
-                          Link giới thiệu: {referralUrl || "—"}
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setAffiliateCopyError("");
-                              navigator.clipboard
-                                ?.writeText(referralUrl)
-                                .then(() => {
-                                  setAffiliateCopied(true);
-                                  window.setTimeout(() => setAffiliateCopied(false), 1600);
-                                })
-                                .catch(() => {
-                                  setAffiliateCopyError("Không thể sao chép, vui lòng copy thủ công.");
-                                });
-                            }}
-                            className="rounded-lg bg-[#2563EB] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#1D4ED8]"
-                          >
-                            Sao chép link
-                          </button>
-                          {referralUrl ? (
-                            <Link
-                              href={referralUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="rounded-lg border border-[#E2E8F0] bg-white px-3 py-1.5 text-xs font-medium text-[#0F172A]"
-                            >
-                              Mở link
-                            </Link>
-                          ) : null}
-                          <Link
-                            href={`${accountSettings.continueShoppingUrl || "/cua-hang"}${data.affiliate.refCode ? `?ref=${encodeURIComponent(data.affiliate.refCode)}` : ""}`}
-                            className="rounded-lg border border-[#E2E8F0] bg-white px-3 py-1.5 text-xs font-medium text-[#0F172A]"
-                          >
-                            Tạo link sản phẩm
-                          </Link>
-                        </div>
-                        {affiliateCopied ? (
-                          <p className="text-xs font-medium text-emerald-700">Đã sao chép</p>
-                        ) : null}
-                        {affiliateCopyError ? (
-                          <p className="text-xs font-medium text-rose-700">{affiliateCopyError}</p>
-                        ) : null}
-                        {referralUrl ? (
-                          <div>
-                            <p className="text-xs font-medium text-[#64748B]">Chia sẻ nhanh</p>
-                            <AffiliateQuickShareButtons shareUrl={referralUrl} className="mt-1.5" />
-                          </div>
-                        ) : null}
-                      </div>
-                      {isAffiliateDataEmpty || totalClicksUi < 8 ? (
-                        <div className="mt-3">
-                          <AffiliateOnboardingChecklist />
-                        </div>
-                      ) : null}
-                      <div className="mt-3">
-                        <AffiliateRevenueInsightsCard />
-                      </div>
-                      <div className="mt-3 grid min-w-0 w-full grid-cols-2 gap-2 sm:grid-cols-[repeat(auto-fit,minmax(10.5rem,1fr))]">
-                        <article className="min-w-0 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
-                          <p className="text-xs text-[#64748B]">Mã giới thiệu</p>
-                          <p className="mt-1 truncate text-sm font-semibold text-[#0F172A]" title={data.affiliate.refCode || undefined}>
-                            {data.affiliate.refCode || "—"}
-                          </p>
-                        </article>
-                        <article className="min-w-0 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
-                          <p className="text-xs text-[#64748B]">Tổng click</p>
-                          <p className="mt-1 text-sm font-semibold tabular-nums text-[#0F172A]">{totalClicksUi}</p>
-                        </article>
-                        <article className="min-w-0 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
-                          <p className="text-xs text-[#64748B]">Đơn phát sinh</p>
-                          <p className="mt-1 text-sm font-semibold tabular-nums text-[#0F172A]">{referredOrdersUi}</p>
-                        </article>
-                        <article className="min-w-0 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
-                          <p className="text-xs text-[#64748B]">Doanh thu ghi nhận</p>
-                          <p className="mt-1 text-sm font-semibold tabular-nums text-[#0F172A]">
-                            {new Intl.NumberFormat("vi-VN").format(referralRevenueUi)}₫
-                          </p>
-                        </article>
-                        <article className="min-w-0 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
-                          <p className="text-xs text-[#64748B]">Hoa hồng chờ duyệt</p>
-                          <p className="mt-1 text-sm font-semibold tabular-nums text-[#0F172A]">
-                            {new Intl.NumberFormat("vi-VN").format(pendingCommission)}₫
-                          </p>
-                        </article>
-                        <article className="min-w-0 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
-                          <p className="text-xs text-[#64748B]">Hoa hồng đã duyệt (chưa chi)</p>
-                          <p className="mt-1 text-sm font-semibold tabular-nums text-[#0F172A]">
-                            {new Intl.NumberFormat("vi-VN").format(approvedCommission)}₫
-                          </p>
-                        </article>
-                        <article className="min-w-0 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
-                          <p className="text-xs text-[#64748B]">Hoa hồng đã thanh toán</p>
-                          <p className="mt-1 text-sm font-semibold tabular-nums text-[#0F172A]">
-                            {new Intl.NumberFormat("vi-VN").format(paidCommission)}₫
-                          </p>
-                        </article>
-                        <article className="min-w-0 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
-                          <p className="text-xs text-[#64748B]">Hoa hồng bị hủy</p>
-                          <p className="mt-1 text-sm font-semibold tabular-nums text-[#0F172A]">
-                            {new Intl.NumberFormat("vi-VN").format(cancelledCommission)}₫
-                          </p>
-                        </article>
-                        <article className="min-w-0 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
-                          <p className="text-xs text-[#64748B]">Điểm thưởng</p>
-                          <p className="mt-1 text-sm font-semibold tabular-nums text-[#0F172A]">{data.stats.rewardPoints}</p>
-                        </article>
-                        <article className="min-w-0 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
-                          <p className="text-xs text-[#64748B]">Tỷ lệ chuyển đổi</p>
-                          <p className="mt-1 text-sm font-semibold tabular-nums text-[#0F172A]">
-                            {conversionRate === null || conversionRate === undefined ? "—" : `${conversionRate}%`}
-                          </p>
-                        </article>
-                        {accountSettings.affiliateShowWithdrawals && affDash.data?.program.withdrawalEnabled ? (
-                          <article className="min-w-0 rounded-xl border border-emerald-200 bg-emerald-50 p-3 sm:col-span-2 xl:col-span-2">
-                            <p className="text-xs text-emerald-800">Số dư có thể rút</p>
-                            <p className="mt-1 text-sm font-semibold tabular-nums text-emerald-950">
-                              {new Intl.NumberFormat("vi-VN").format(withdrawableBalanceUi)}₫
-                            </p>
-                          </article>
-                        ) : null}
-                      </div>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() => selectAffiliateSubTab("links")}
-                          className="rounded-lg border border-[#E2E8F0] bg-white px-3 py-1.5 text-xs font-medium text-[#0F172A]"
-                        >
-                          Tạo link giới thiệu
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => selectAffiliateSubTab("orders")}
-                          className="rounded-lg border border-[#E2E8F0] bg-white px-3 py-1.5 text-xs font-medium text-[#0F172A]"
-                        >
-                          Xem đơn phát sinh
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => selectAffiliateSubTab("earnings")}
-                          className="rounded-lg border border-[#E2E8F0] bg-white px-3 py-1.5 text-xs font-medium text-[#0F172A]"
-                        >
-                          Xem hoa hồng
-                        </button>
-                        {accountSettings.affiliateShowWithdrawals ? (
-                          <button
-                            type="button"
-                            onClick={() => selectAffiliateSubTab("withdrawal")}
-                            className="rounded-lg border border-[#E2E8F0] bg-white px-3 py-1.5 text-xs font-medium text-[#0F172A]"
-                          >
-                            Yêu cầu rút tiền
-                          </button>
-                        ) : null}
-                        <Link href={supportHref} className="rounded-lg border border-[#E2E8F0] bg-white px-3 py-1.5 text-xs font-medium text-[#0F172A]">
-                          Liên hệ hỗ trợ CTV
-                        </Link>
-                        {accountSettings.affiliateGuideUrl ? (
-                          <Link
-                            href={accountSettings.affiliateGuideUrl}
-                            className="rounded-lg border border-[#E2E8F0] bg-white px-3 py-1.5 text-xs font-medium text-[#0F172A]"
-                          >
-                            Hướng dẫn CTV
-                          </Link>
-                        ) : null}
-                        {accountSettings.affiliateTermsUrl ? (
-                          <Link
-                            href={accountSettings.affiliateTermsUrl}
-                            className="rounded-lg border border-[#E2E8F0] bg-white px-3 py-1.5 text-xs font-medium text-[#0F172A]"
-                          >
-                            Điều khoản CTV
-                          </Link>
-                        ) : null}
-                      </div>
-                      <div className="mt-3 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-3 text-xs text-[#64748B]">
-                        <p>
-                          {accountSettings.affiliateDefaultCommissionText ||
-                            "Hoa hồng được đối soát theo đơn hàng đủ điều kiện."}
-                        </p>
-                        <p className="mt-1">
-                          {accountSettings.affiliateSupportText ||
-                            "Liên hệ đội ngũ hỗ trợ CTV nếu bạn cần trợ giúp về link giới thiệu và hoa hồng."}
-                        </p>
-                      </div>
-                      {isAffiliateDataEmpty ? (
-                        <div className="mt-3 rounded-xl border border-dashed border-[#E2E8F0] bg-[#F8FAFC] p-4 text-center">
-                          <p className="text-sm font-semibold text-[#0F172A]">Bạn chưa có đơn giới thiệu nào.</p>
-                          <button
-                            type="button"
-                            onClick={() => selectAffiliateSubTab("links")}
-                            className="mt-2 inline-flex h-9 items-center rounded-lg bg-[#2563EB] px-3 text-xs font-semibold text-white hover:bg-[#1D4ED8]"
-                          >
-                            Tạo link giới thiệu đầu tiên
-                          </button>
-                        </div>
-                      ) : null}
-                    </>
-                  ) : null}
-                  {activeSubTab === "orders" ? (
-                    <AffiliateOrdersPanel
-                      highlightOrderCode={highlightOrderCode}
-                      loading={affDash.loading && !affDash.data}
-                      orders={(affDash.data?.referredOrders ?? []).map((o) => ({
-                        id: o.id,
-                        code: o.code,
-                        createdAt: o.createdAt,
-                        orderStatus: o.orderStatus,
-                        orderStatusVi: o.orderStatusVi,
-                        totalAmount: o.totalAmount,
-                        estimatedCommission: o.estimatedCommission,
-                        commissionStatus: o.commissionStatus,
-                        commissionStatusVi: o.commissionStatusVi,
-                      }))}
-                    />
-                  ) : null}
-                  {activeSubTab === "earnings" ? (
-                    <AffiliateEarningsPanel
-                      loading={affDash.loading && !affDash.data}
-                      commissions={(affDash.data?.commissions ?? []).map((c) => ({
-                        id: c.id,
-                        createdAt: c.createdAt,
-                        amount: c.amount,
-                        orderRevenue: c.orderRevenue,
-                        status: c.status,
-                        statusKey: c.statusKey,
-                        statusDisplayVi: c.statusDisplayVi,
-                        orderCode: c.orderCode,
-                        approvedAt: c.approvedAt,
-                        paidAt: c.paidAt,
-                      }))}
-                      rewards={rewardRows}
-                    />
-                  ) : null}
-                  {activeSubTab === "withdrawal" ? (
-                    <>
-                      <AffiliatePayoutAccountPanel onChanged={(acc) => setPayoutAccount(acc as typeof payoutAccount)} />
-                      <AffiliateWithdrawalPanel
-                        withdrawnEnabled={Boolean(
-                          affDash.data?.program.withdrawalEnabled && accountSettings.affiliateShowWithdrawals,
-                        )}
-                        payoutAccount={payoutAccount}
-                        availableAmount={affDash.data?.summary.withdrawableBalance ?? 0}
-                        withdrawals={(affDash.data?.withdrawals ?? []).map((w) => ({
-                          id: w.id,
-                          createdAt: w.createdAt,
-                          amount: w.amount,
-                          status: w.status,
-                          statusDisplayVi: w.statusDisplayVi,
-                          approvedAt: w.approvedAt,
-                          paidAt: w.paidAt,
-                        }))}
-                        minWithdrawalAmount={accountSettings.affiliateMinWithdrawalAmount ?? 100000}
-                        payoutThreshold={
-                          affDash.data?.program.payoutThreshold ?? accountSettings.affiliateMinWithdrawalAmount ?? 100000
-                        }
-                        busy={affDash.loading && !affDash.data}
-                        onSubmitRequest={async (payload) => {
-                          const res = await fetch("/api/account/affiliate/withdrawal", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            credentials: "same-origin",
-                            body: JSON.stringify(payload),
-                          });
-                          const j = (await res.json()) as { ok?: boolean; message?: string };
-                          if (res.ok && j.ok) {
-                            affDash.refetch();
-                            return { ok: true, message: j.message };
-                          }
-                          return { ok: false, message: j.message ?? "Không gửi được yêu cầu." };
-                        }}
-                      />
-                    </>
-                  ) : null}
-                  {activeSubTab === "links" ? (
-                    <div className="min-w-0 space-y-4">
-                      <AffiliateShortLinksPanel />
-                      <AffiliateLinkBuilder refCode={data.affiliate.refCode} />
-                      {(affDash.data?.productQuickLinks?.length ?? 0) > 0 ? (
-                        <section className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
-                          <p className="text-sm font-semibold text-[#0F172A]">Link theo sản phẩm (gợi ý)</p>
-                          <p className="mt-1 text-xs text-[#64748B]">
-                            Danh mục sản phẩm để bạn tạo nhanh link có ref trong Bộ tạo link — không hiển thị dữ liệu khách mua.
-                          </p>
-                          <div className="mt-3 flex max-h-48 flex-col gap-1.5 overflow-y-auto overscroll-contain">
-                            {affDash.data?.productQuickLinks.map((p) => (
-                              <Link
-                                key={p.id}
-                                href={`/san-pham/${encodeURIComponent(p.slug)}`}
-                                className="truncate rounded-lg border border-[#E2E8F0] bg-white px-3 py-2 text-xs font-medium text-[#2563EB] hover:bg-[#F8FAFC]"
-                                title={p.name}
-                              >
-                                {p.name}
-                              </Link>
-                            ))}
-                          </div>
-                        </section>
-                      ) : affDash.loading ? (
-                        <p className="text-sm text-[#64748B]">Đang tải gợi ý sản phẩm…</p>
-                      ) : null}
-                    </div>
-                  ) : null}
-                  {activeSubTab === "guide" ? (
-                    <AffiliateGuidePanel
-                      title={guideTitle}
-                      intro={guideIntro}
-                      steps={guideSteps}
-                      guideUrl={accountSettings.affiliateGuideUrl}
-                      termsUrl={accountSettings.affiliateTermsUrl}
-                      supportZaloUrl={accountSettings.supportZaloUrl}
-                      systemGuideContent={affDash.data?.program.ctvGuideResolved}
-                      affiliateCanBuy={affDash.data?.program.affiliateCanBuy ?? true}
-                    />
-                  ) : null}
-                </>
-              ) : (
-                <>
-                  <h3 className="text-base font-semibold text-[#0F172A]">Chương trình CTV / Affiliate</h3>
-                  <p className="mt-2 text-sm text-[#64748B]">
-                    Tài khoản của bạn chưa được kích hoạt chức năng CTV. Bạn có thể gửi yêu cầu đăng ký để quản trị
-                    viên xét duyệt.
-                  </p>
-                  <AffiliateCtvAccountApplyGate shoppingHomeHref={shoppingHomeHref} />
-                </>
-              )}
-            </section>
-            </>
-          ) : null}
-
-          {activeTab === "security" && accountSettings.showSecurity ? (
-            <section id="bao-mat" className="w-full min-w-0 rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
-              <h3 className="text-base font-semibold text-[#0F172A]">Bảo mật tài khoản</h3>
-              <p className="mt-2 text-sm text-[#64748B]">Quản lý mật khẩu và phiên đăng nhập của bạn.</p>
-              <div className="mt-3 w-full min-w-0 space-y-4">
+          {accountSettings.showSecurity ? (
+            <AccountTabKeepAlive tabKey="security" activeTab={activeTab}>
+            <CtvAccountTabPanel
+              id="bao-mat"
+              title="Bảo mật tài khoản"
+              description="Quản lý mật khẩu và phiên đăng nhập của bạn."
+            >
+              <div className="w-full min-w-0 space-y-4">
                 <ChangePasswordForm />
                 <button
                   type="button"
                   onClick={() => signOut({ callbackUrl: "/" }).catch(() => {})}
-                  className="inline-flex h-10 items-center justify-center rounded-md border border-[#E2E8F0] bg-white px-4 text-sm font-semibold text-[#0F172A] hover:bg-[#F8FAFC]"
+                  className="inline-flex h-10 items-center justify-center rounded-xl border border-[#E2E8F0] bg-white px-4 text-sm font-semibold text-[#0F172A] shadow-sm transition hover:bg-[#F8FAFC]"
                 >
                   Đăng xuất
                 </button>
               </div>
-            </section>
+            </CtvAccountTabPanel>
+            </AccountTabKeepAlive>
           ) : null}
-      </StorefrontAccountTwoColumnLayout>
+      </AffiliateCtvAccountShell>
     </div>
   );
 }

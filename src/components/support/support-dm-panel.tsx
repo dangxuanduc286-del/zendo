@@ -362,15 +362,22 @@ export function SupportDmPanel({
   const showList = isStaffAdmin && (!isNarrow || mobileTab === "list");
   const showChat = !isStaffAdmin || !isNarrow || mobileTab === "chat";
 
+  /** Desktop (sm+): widget góc phải — khách ~400×560px; admin vừa sidebar. Mobile: full-screen giữ nguyên. */
+  const desktopShellClass = isStaffAdmin
+    ? "sm:inset-auto sm:top-auto sm:left-auto sm:bottom-6 sm:right-6 sm:h-[600px] sm:max-h-[620px] sm:min-h-0 sm:w-[min(480px,calc(100vw-3rem))] sm:max-w-[520px] sm:min-w-0 sm:rounded-xl sm:border sm:border-slate-200/80 sm:pt-0 sm:pb-0 sm:shadow-[0_12px_40px_rgba(15,23,42,0.14)] sm:ring-1 sm:ring-slate-200/50"
+    : "sm:inset-auto sm:top-auto sm:left-auto sm:bottom-6 sm:right-6 sm:h-[560px] sm:max-h-[620px] sm:min-h-[420px] sm:w-[min(400px,calc(100vw-3rem))] sm:max-w-[420px] sm:min-w-[360px] sm:rounded-xl sm:border sm:border-slate-200/80 sm:pt-0 sm:pb-0 sm:shadow-[0_12px_40px_rgba(15,23,42,0.14)] sm:ring-1 sm:ring-slate-200/50";
+
+  const bubbleMaxClass = isStaffAdmin ? "max-w-[min(100%,24rem)]" : "max-w-[min(100%,17.5rem)] sm:max-w-[min(100%,16.5rem)]";
+
   return createPortal(
     <div
       role="dialog"
       aria-modal
       aria-labelledby="support-dm-title"
-      className="support-popup-animate fixed z-[9999] flex flex-col overflow-hidden overscroll-y-contain bg-white shadow-none inset-0 h-[100dvh] max-h-[100dvh] w-full min-w-0 rounded-none border-0 pt-[env(safe-area-inset-top)] pb-0 sm:inset-auto sm:bottom-4 sm:right-4 sm:top-auto sm:left-auto sm:h-[540px] sm:max-h-[82vh] sm:min-h-0 sm:w-[720px] sm:max-w-[92vw] sm:min-w-0 sm:rounded-2xl sm:border sm:border-slate-200/90 sm:pt-0 sm:pb-0 sm:shadow-xl"
+      className={`support-popup-animate fixed z-[9999] flex flex-col overflow-hidden overscroll-y-contain bg-white shadow-none inset-0 h-[100dvh] max-h-[100dvh] w-full min-w-0 rounded-none border-0 pt-[env(safe-area-inset-top)] pb-0 ${desktopShellClass}`}
     >
-      <div className="flex min-h-14 shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-200 bg-white px-3 py-2 sm:h-14 sm:px-4 sm:py-0">
-        <span id="support-dm-title" className="shrink-0 text-sm font-semibold text-slate-900 sm:text-base">
+      <div className="flex min-h-12 shrink-0 flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-slate-200/90 bg-white px-3 py-2 sm:min-h-11 sm:gap-x-2 sm:px-3 sm:py-2">
+        <span id="support-dm-title" className="shrink-0 text-sm font-semibold tracking-tight text-slate-900">
           Hỗ trợ
         </span>
         <div className="flex flex-1 flex-wrap items-center justify-end gap-1.5 sm:gap-2">
@@ -408,7 +415,7 @@ export function SupportDmPanel({
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex h-9 min-w-9 shrink-0 items-center justify-center rounded-full text-xl leading-none text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+            className="inline-flex h-8 min-w-8 shrink-0 items-center justify-center rounded-full text-lg leading-none text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 sm:h-7 sm:min-w-7 sm:text-base"
             aria-label="Đóng chat hỗ trợ"
           >
             ×
@@ -418,7 +425,7 @@ export function SupportDmPanel({
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden sm:flex-row">
         {isStaffAdmin && showList ? (
-          <div className="flex max-h-[40vh] min-h-0 w-full shrink-0 flex-col overflow-y-auto overflow-x-hidden border-slate-200 sm:max-h-none sm:w-[220px] sm:shrink-0 sm:border-r">
+          <div className="flex max-h-[40vh] min-h-0 w-full shrink-0 flex-col overflow-y-auto overflow-x-hidden border-slate-200 sm:max-h-none sm:w-[188px] sm:shrink-0 sm:border-r">
             {loading && conversations.length === 0 ? (
               <p className="p-3 text-xs text-slate-500">Đang tải…</p>
             ) : (
@@ -455,7 +462,7 @@ export function SupportDmPanel({
 
         {(!isStaffAdmin || selectedConvId) && showChat ? (
           <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-            <div ref={scrollRef} className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain px-3 py-2">
+            <div ref={scrollRef} className="min-h-0 flex-1 space-y-1.5 overflow-y-auto overscroll-contain px-2.5 py-2 sm:space-y-2 sm:px-3 sm:py-2">
               {loading && messages.length === 0 ? <p className="text-center text-sm text-slate-500">Đang tải…</p> : null}
               {error ? <p className="text-center text-sm text-rose-600">{error}</p> : null}
               {blocked && isUser ? (
@@ -474,7 +481,7 @@ export function SupportDmPanel({
                   className={`flex w-full ${m.fromAdmin ? "justify-start" : "justify-end"}`}
                 >
                   <div
-                    className={`max-w-[min(100%,24rem)] whitespace-pre-wrap break-words rounded-2xl px-3 py-2 text-sm ${
+                    className={`${bubbleMaxClass} whitespace-pre-wrap break-words rounded-2xl px-2.5 py-1.5 text-sm sm:px-3 sm:py-2 ${
                       m.fromAdmin
                         ? "border border-slate-200 bg-white text-slate-900"
                         : "bg-[#0084ff] text-white"
@@ -485,16 +492,16 @@ export function SupportDmPanel({
                 </div>
               ))}
             </div>
-            <div className="shrink-0 border-t border-slate-200 bg-white px-2 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-3">
-              <div className="flex items-end gap-2 sm:items-center">
+            <div className="shrink-0 border-t border-slate-200/90 bg-white px-2 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-2.5 sm:py-2 sm:pb-2">
+              <div className="flex items-end gap-1.5 sm:items-center sm:gap-2">
                 <textarea
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   disabled={sending || (isUser && blocked) || (isStaffAdmin && !selectedConvId)}
                   placeholder="Nhập tin nhắn…"
                   rows={isNarrow ? 2 : 1}
-                  className={`min-w-0 flex-1 resize-none rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-sky-400 ${
-                    isNarrow ? "min-h-[44px] py-2" : "h-10 py-0 leading-10"
+                  className={`min-w-0 flex-1 resize-none rounded-lg border border-slate-200 px-2.5 text-sm outline-none focus:border-sky-400 sm:rounded-xl sm:px-3 ${
+                    isNarrow ? "min-h-[44px] py-2" : "min-h-[36px] max-h-24 py-2 leading-snug sm:h-9 sm:py-1.5 sm:leading-normal"
                   }`}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
@@ -507,7 +514,7 @@ export function SupportDmPanel({
                   type="button"
                   disabled={sending || (isUser && blocked) || (isStaffAdmin && !selectedConvId)}
                   onClick={() => void (isStaffAdmin ? sendAdmin() : sendUser())}
-                  className="h-11 shrink-0 rounded-xl bg-sky-600 px-4 text-sm font-semibold text-white transition hover:bg-sky-700 disabled:opacity-45 sm:h-10 sm:px-3 sm:text-sm"
+                  className="h-10 shrink-0 rounded-lg bg-sky-600 px-3.5 text-sm font-semibold text-white transition hover:bg-sky-700 disabled:opacity-45 sm:h-9 sm:rounded-xl sm:px-3"
                 >
                   Gửi
                 </button>

@@ -5,7 +5,7 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
-import AffiliateAnalyticsDashboard from "@/components/storefront/affiliate-analytics-dashboard";
+import AffiliateAnalyticsDashboardClient from "@/components/storefront/affiliate-analytics-dashboard-client";
 
 export const metadata: Metadata = {
   title: "Analytics CTV | Zendo.vn",
@@ -34,6 +34,6 @@ export default async function AffiliateAnalyticsPage({
   const sp = (await searchParams) ?? {};
   const initialMenuKey = typeof sp.tab === "string" ? sp.tab : undefined;
 
-  return <AffiliateAnalyticsDashboard affiliateRefCode={profile.refCode} initialMenuKey={initialMenuKey} />;
+  return <AffiliateAnalyticsDashboardClient affiliateRefCode={profile.refCode} initialMenuKey={initialMenuKey} />;
 }
 

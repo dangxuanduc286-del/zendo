@@ -1,5 +1,8 @@
-import type { AffiliateCommissionStatus, OrderStatus, PaymentStatus, Prisma } from "@prisma/client";
-import { notifyAffiliateCommissionApproved } from "@/lib/affiliate/affiliate-referral-notifications";
+import type { AffiliateCommissionStatus, Prisma } from "@prisma/client";
+import {
+  commissionStatusMayAutoCancel,
+  orderDisqualifiesAffiliateCommission,
+} from "@/lib/affiliate/commission-hold";
 
 type DbLike = Omit<
   Prisma.TransactionClient,
@@ -48,25 +51,10 @@ export async function createPendingAffiliateCommissionForOrder(
   }
 }
 
-function isOrderBadForCommission(o: {
-  orderStatus: OrderStatus;
-  paymentStatus: PaymentStatus;
-}): boolean {
-  if (o.orderStatus === "CANCELED") return true;
-  if (o.paymentStatus === "FAILED" || o.paymentStatus === "REFUNDED") return true;
-  if (o.paymentStatus === "PARTIALLY_REFUNDED") return true;
-  if (o.orderStatus === "REFUNDED") return true;
-  return false;
-}
-
-function isOrderEligibleApproved(o: { orderStatus: OrderStatus }): boolean {
-  return o.orderStatus === "DELIVERED" || o.orderStatus === "COMPLETED";
-}
-
 /**
- * Cập nhật hoa hồng theo trạng thái đơn sau khi order thay đổi (admin/customer cancel).
- * - Chỉ nâng PENDING → APPROVED khi đơn giao/hoàn tất (theo Phase 5).
- * - Hủy/hoàn: CANCELLED nếu HH chưa PAID (giữ PAID theo luồng admin).
+ * Cập nhật hoa hồng theo trạng thái đơn sau khi order thay đổi.
+ * - Không tự duyệt: admin duyệt → WAITING_RELEASE (giữ 7 ngày).
+ * - Hủy/hoàn: CANCELLED nếu HH chưa PAID.
  */
 export async function syncAffiliateCommissionLifecycleForOrder(db: DbLike, orderId: string): Promise<void> {
   const order = await db.order.findUnique({
@@ -92,24 +80,19 @@ export async function syncAffiliateCommissionLifecycleForOrder(db: DbLike, order
 
   const status = comm.status as AffiliateCommissionStatus;
 
-  if (isOrderBadForCommission(order)) {
-    if (status === "PAID") return;
-    if (status === "CANCELLED") return;
+  if (orderDisqualifiesAffiliateCommission(order)) {
+    if (!commissionStatusMayAutoCancel(status)) return;
+    const notifyLifecycle =
+      status === "WAITING_RELEASE" || status === "AVAILABLE" || status === "APPROVED";
     await db.affiliateCommission.update({
       where: { id: comm.id },
       data: { status: "CANCELLED" },
     });
-    return;
-  }
-
-  if (status === "PENDING" && isOrderEligibleApproved(order)) {
-    await db.affiliateCommission.update({
-      where: { id: comm.id },
-      data: {
-        status: "APPROVED",
-        approvedAt: new Date(),
-      },
-    });
-    void notifyAffiliateCommissionApproved(orderId);
+    if (notifyLifecycle) {
+      const { publishCommissionCanceledNotification } = await import(
+        "@/lib/affiliate/affiliate-commission-notifications"
+      );
+      void publishCommissionCanceledNotification(db, comm.id, "refund");
+    }
   }
 }

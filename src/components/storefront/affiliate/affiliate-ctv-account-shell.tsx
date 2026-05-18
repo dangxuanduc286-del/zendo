@@ -1,0 +1,21 @@
+"use client";
+
+import { memo, type ReactNode } from "react";
+import { AffiliateCtvAccountTwoColumnLayout } from "./affiliate-ctv-account-two-column-layout";
+
+type AffiliateCtvAccountShellProps = {
+  sidebar: ReactNode;
+  children: ReactNode;
+  contentId?: string;
+};
+
+/** Desktop CTV account: sidebar cố định trái | content phải theo tab. */
+function AffiliateCtvAccountShellInner({ sidebar, children, contentId }: AffiliateCtvAccountShellProps): JSX.Element {
+  return (
+    <AffiliateCtvAccountTwoColumnLayout contentId={contentId} sidebar={sidebar}>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 lg:gap-5">{children}</div>
+    </AffiliateCtvAccountTwoColumnLayout>
+  );
+}
+
+export const AffiliateCtvAccountShell = memo(AffiliateCtvAccountShellInner);

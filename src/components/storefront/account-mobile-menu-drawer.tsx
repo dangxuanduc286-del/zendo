@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, type ReactNode } from "react";
+import { prefetchStorefrontAccountTab } from "@/lib/account-tab-prefetch";
 import { useAccountMobileMenuStore } from "@/stores/accountMobileMenuStore";
 
 export type AccountMobileNavItem =
@@ -113,6 +114,8 @@ export default function AccountMobileMenuDrawer({
                     key={`mobile-nav-${item.tab}-${item.label}`}
                     type="button"
                     aria-current={isActive ? "page" : undefined}
+                    onPointerEnter={() => prefetchStorefrontAccountTab(item.tab)}
+                    onFocus={() => prefetchStorefrontAccountTab(item.tab)}
                     onClick={() => {
                       close();
                       onSelectTab(item.tab);

@@ -284,7 +284,10 @@ export async function getStorefrontCustomerAccountDashboardData(
             db.affiliateClick.count({ where: { affiliateProfileId: row.id } }),
             db.order.count({ where: { affiliateProfileId: row.id } }),
             db.affiliateCommission.aggregate({
-              where: { affiliateProfileId: row.id, status: { in: ["PENDING", "APPROVED", "PAID"] } },
+              where: {
+                affiliateProfileId: row.id,
+                status: { in: ["PENDING", "WAITING_RELEASE", "AVAILABLE", "PAID"] },
+              },
               _sum: { amount: true },
             }),
           ]);

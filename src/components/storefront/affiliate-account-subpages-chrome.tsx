@@ -12,7 +12,7 @@ import { useCustomerNotificationsPoll } from "@/lib/use-customer-notifications-p
 import { useAccountMobileMenuStore } from "@/stores/accountMobileMenuStore";
 import AccountMobileMenuDrawer from "./account-mobile-menu-drawer";
 import { AffiliateCtvAccountSidebar } from "./affiliate-ctv-account-sidebar";
-import { StorefrontAccountTwoColumnLayout } from "./storefront-account-two-column-layout";
+import { AffiliateCtvAccountTwoColumnLayout } from "./affiliate/affiliate-ctv-account-two-column-layout";
 
 /**
  * Sidebar + vùng nội dung cho các route `/tai-khoan/affiliate/*` (analytics, attribution, …).
@@ -66,6 +66,7 @@ export function AffiliateAccountSubpagesChrome({
 
   const sidebar = (
     <AffiliateCtvAccountSidebar
+      layout="desktop"
       entries={ctvNavEntries}
       activeTab=""
       activeAffiliateSubTab=""
@@ -126,9 +127,9 @@ export function AffiliateAccountSubpagesChrome({
         }}
       />
 
-      <StorefrontAccountTwoColumnLayout sidebar={sidebar} contentId="tai-khoan-affiliate-subpage-content">
+      <AffiliateCtvAccountTwoColumnLayout sidebar={sidebar} contentId="tai-khoan-affiliate-subpage-content">
         {children}
-      </StorefrontAccountTwoColumnLayout>
+      </AffiliateCtvAccountTwoColumnLayout>
     </div>
   );
 }

@@ -3,7 +3,17 @@
 import Link from "next/link";
 import { ChevronDown, ChevronRight, LogOut } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { prefetchStorefrontAccountTab } from "../../lib/account-tab-prefetch";
 import type { CtvNavChild, CtvNavEntry } from "./affiliate-ctv-account-menu-config";
+import {
+  CTV_NAV_ICON,
+  CTV_NAV_ICON_ACTIVE,
+  CTV_NAV_ICON_SIGNOUT,
+  CTV_NAV_ROW,
+  CTV_NAV_ROW_ACTIVE,
+  CTV_NAV_ROW_IDLE,
+  CTV_NAV_ROW_SIGNOUT,
+} from "./affiliate/affiliate-ctv-account-ui-tokens";
 
 export type { CtvNavChild, CtvNavEntry, CtvNavBuyerRow } from "./affiliate-ctv-account-menu-config";
 export {
@@ -15,18 +25,36 @@ export {
 } from "./affiliate-ctv-account-menu-config";
 export type { AccountMenuItemDef, EnabledAccountMenuItem } from "./affiliate-ctv-account-menu-config";
 
-const rowBase =
+const rowBaseMobile =
   "flex w-full min-h-[44px] items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-[13px] font-medium leading-snug tracking-tight text-[#1E293B] transition outline-none focus-visible:ring-2 focus-visible:ring-[#3B82F6]/40 sm:text-sm";
-const rowIdle = "border border-transparent hover:border-[#E2E8F0]/90 hover:bg-[#F8FAFC]/90";
-const rowActive = "border border-[#BFDBFE] bg-[#EFF6FF]/95 font-semibold text-[#0F172A] shadow-sm ring-1 ring-[#DBEAFE]/80";
-const subRowBase = `${rowBase} min-h-[42px] pl-2.5 text-[12.5px] sm:text-[13px]`;
-const subIndent = "ml-2 border-l-2 border-[#E2E8F0]/80 pl-2";
+const rowIdleMobile =
+  "border border-transparent transition-[background-color,color,box-shadow] duration-[250ms] ease-out hover:bg-blue-50 hover:text-blue-700";
+const rowActiveMobile =
+  "border-0 bg-gradient-to-br from-[#2563eb] to-[#3b82f6] font-semibold text-white shadow-[0_10px_25px_rgba(37,99,235,0.25)]";
+const subRowBaseMobile = `${rowBaseMobile} min-h-[42px] pl-2.5 text-[12.5px] sm:text-[13px]`;
+const subIndentMobile = "ml-2 border-l-2 border-slate-200/90 pl-2";
+const subIndentDesktop = "ml-1 space-y-1 border-l border-slate-200/80 pl-2";
 
-function IconWrap({ Icon, active }: { Icon: LucideIcon; active?: boolean }): JSX.Element {
+function IconWrap({
+  Icon,
+  active,
+  desktop,
+}: {
+  Icon: LucideIcon;
+  active?: boolean;
+  desktop?: boolean;
+}): JSX.Element {
+  if (desktop) {
+    return (
+      <span className={`${CTV_NAV_ICON} ${active ? CTV_NAV_ICON_ACTIVE : ""}`}>
+        <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
+      </span>
+    );
+  }
   return (
     <span
-      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-        active ? "bg-[#2563EB]/15 text-[#1D4ED8]" : "bg-[#F1F5F9] text-[#64748B]"
+      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] transition-[background-color,color] duration-[250ms] ease-out ${
+        active ? "bg-white/20 text-white ring-1 ring-white/30" : "bg-slate-100 text-slate-500"
       }`}
     >
       <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
@@ -47,7 +75,6 @@ type RenderProps = {
   showCommissionBadge: boolean;
   onSignOut: () => void;
   onNavigate?: () => void;
-  /** Khi có (vd. `/tai-khoan/affiliate/analytics`), highlight mục `link` khớp URL. */
   pathname?: string;
 };
 
@@ -75,9 +102,19 @@ function linkRowActive(href: string, pathname: string | undefined): boolean {
   return false;
 }
 
-export function AffiliateCtvAccountSidebar(props: RenderProps & { dense?: boolean }): JSX.Element {
-  const gap = props.dense ? "gap-1" : "gap-1.5";
+function navRowClass(active: boolean, desktop: boolean, sub = false): string {
+  if (desktop) {
+    return `${CTV_NAV_ROW} ${active ? CTV_NAV_ROW_ACTIVE : CTV_NAV_ROW_IDLE}`;
+  }
+  const base = sub ? subRowBaseMobile : rowBaseMobile;
+  return `${base} ${active ? rowActiveMobile : rowIdleMobile}`;
+}
 
+export function AffiliateCtvAccountSidebar(
+  props: RenderProps & { dense?: boolean; layout?: "mobile" | "desktop" },
+): JSX.Element {
+  const desktop = props.layout === "desktop";
+  const gap = props.dense ? "gap-1" : desktop ? "gap-2" : "gap-1.5";
   const handleTabChild = (c: Extract<CtvNavChild, { kind: "tab" }>): void => {
     props.onSelectTab(c.tab);
     if (c.subTab) props.onSelectAffiliateSubTab(c.subTab);
@@ -90,122 +127,135 @@ export function AffiliateCtvAccountSidebar(props: RenderProps & { dense?: boolea
   };
 
   return (
-    <div className={`flex flex-col ${gap}`}>
-      {props.entries.map((entry) => {
-        if (entry.kind === "link") {
-          const linkActive = linkRowActive(entry.href, props.pathname);
-          return (
-            <Link
-              key={entry.href}
-              href={entry.href}
-              prefetch={false}
-              onClick={() => runAfterNav(props.onNavigate)}
-              className={`${rowBase} ${linkActive ? rowActive : rowIdle}`}
-              aria-current={linkActive ? "page" : undefined}
-            >
-              <IconWrap Icon={entry.Icon} active={linkActive} />
-              <span className="min-w-0 flex-1 truncate">{entry.label}</span>
-            </Link>
-          );
-        }
-
-        if (entry.kind === "expandable") {
-          const open = props.expandedSections[entry.id] ?? false;
-          return (
-            <div key={entry.id} className="rounded-xl border border-[#E2E8F0]/70 bg-[#F8FAFC]/40 p-1">
-              <button
-                type="button"
-                onClick={() => props.onToggleSection(entry.id)}
-                className={`${rowBase} w-full border-0 bg-transparent hover:bg-white/90`}
-                aria-expanded={open}
+    <div className={`flex flex-col ${desktop ? "h-fit w-full" : "min-h-0"}`}>
+      <nav className={`flex flex-col ${gap} ${desktop ? "shrink-0" : ""}`}
+        aria-label="Menu tài khoản CTV"
+      >
+        {props.entries.map((entry) => {
+          if (entry.kind === "link") {
+            const linkActive = linkRowActive(entry.href, props.pathname);
+            return (
+              <Link
+                key={entry.href}
+                href={entry.href}
+                prefetch={false}
+                onClick={() => runAfterNav(props.onNavigate)}
+                className={navRowClass(linkActive, desktop)}
+                aria-current={linkActive ? "page" : undefined}
               >
-                <IconWrap Icon={entry.Icon} />
-                <span className="min-w-0 flex-1 truncate text-left font-semibold text-[#0F172A]">{entry.label}</span>
+                <IconWrap desktop={desktop} Icon={entry.Icon} active={linkActive} />
+                <span className="min-w-0 flex-1 truncate">{entry.label}</span>
+              </Link>
+            );
+          }
+
+          if (entry.kind === "expandable") {
+            const open = props.expandedSections[entry.id] ?? false;
+            return (
+              <div key={entry.id} className={desktop ? "space-y-1" : "rounded-xl border border-[#E2E8F0]/70 bg-[#F8FAFC]/40 p-1"}>
+                <button
+                  type="button"
+                  onClick={() => props.onToggleSection(entry.id)}
+                  className={`${navRowClass(false, desktop)} w-full ${desktop ? "" : "border-0 bg-transparent"}`}
+                  aria-expanded={open}
+                >
+                  <IconWrap desktop={desktop} Icon={entry.Icon} />
+                  <span className="min-w-0 flex-1 truncate text-left">{entry.label}</span>
+                  {open ? (
+                    <ChevronDown className="h-4 w-4 shrink-0 text-slate-500" aria-hidden />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 shrink-0 text-slate-500" aria-hidden />
+                  )}
+                </button>
                 {open ? (
-                  <ChevronDown className="h-4 w-4 shrink-0 text-[#64748B]" aria-hidden />
-                ) : (
-                  <ChevronRight className="h-4 w-4 shrink-0 text-[#64748B]" aria-hidden />
-                )}
-              </button>
-              {open ? (
-                <div className={`mt-1 space-y-0.5 ${subIndent}`}>
-                  {entry.children.map((c, idx) => {
-                    if (c.kind === "link") {
-                      const subLinkActive = linkRowActive(c.href, props.pathname);
+                  <div className={desktop ? subIndentDesktop : `${subIndentMobile} mt-1 space-y-0.5`}>
+                    {entry.children.map((c, idx) => {
+                      if (c.kind === "link") {
+                        const subLinkActive = linkRowActive(c.href, props.pathname);
+                        return (
+                          <Link
+                            key={`${c.href}-${idx}`}
+                            href={c.href}
+                            prefetch={false}
+                            onClick={() => runAfterNav(props.onNavigate)}
+                            className={navRowClass(subLinkActive, desktop, !desktop)}
+                            aria-current={subLinkActive ? "page" : undefined}
+                          >
+                            <IconWrap desktop={desktop} Icon={c.Icon} active={subLinkActive} />
+                            <span className="min-w-0 flex-1 truncate">{c.label}</span>
+                          </Link>
+                        );
+                      }
+                      const active = tabRowActive(c.tab, props.activeTab, c.subTab, props.activeAffiliateSubTab);
                       return (
-                        <Link
-                          key={`${c.href}-${idx}`}
-                          href={c.href}
-                          prefetch={false}
-                          onClick={() => runAfterNav(props.onNavigate)}
-                          className={`${subRowBase} ${subLinkActive ? rowActive : rowIdle}`}
-                          aria-current={subLinkActive ? "page" : undefined}
+                        <button
+                          key={`${c.tab}-${c.label}-${idx}`}
+                          type="button"
+                          onClick={() => handleTabChild(c)}
+                          className={navRowClass(active, desktop, !desktop)}
+                          aria-current={active ? "page" : undefined}
                         >
-                          <IconWrap Icon={c.Icon} active={subLinkActive} />
+                          <IconWrap desktop={desktop} Icon={c.Icon} active={active} />
                           <span className="min-w-0 flex-1 truncate">{c.label}</span>
-                        </Link>
+                        </button>
                       );
-                    }
-                    const active = tabRowActive(c.tab, props.activeTab, c.subTab, props.activeAffiliateSubTab);
-                    return (
-                      <button
-                        key={`${c.tab}-${c.label}-${idx}`}
-                        type="button"
-                        onClick={() => handleTabChild(c)}
-                        className={`${subRowBase} ${active ? rowActive : rowIdle}`}
-                        aria-current={active ? "page" : undefined}
-                      >
-                        <IconWrap Icon={c.Icon} active={active} />
-                        <span className="min-w-0 flex-1 truncate">{c.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : null}
-            </div>
+                    })}
+                  </div>
+                ) : null}
+              </div>
+            );
+          }
+
+          const active = tabRowActive(
+            entry.tab,
+            props.activeTab,
+            entry.subTab,
+            props.activeAffiliateSubTab,
           );
-        }
 
-        const isAffiliateNav = entry.tab === "affiliate";
-        const active = isAffiliateNav
-          ? props.activeTab === "affiliate"
-          : props.activeTab === entry.tab;
-
-        return (
-          <button
-            key={`${entry.tab}-${entry.label}`}
-            type="button"
-            onClick={() => {
-              props.onSelectTab(entry.tab);
-              if (entry.tab === "affiliate") {
-                props.onSelectAffiliateSubTab("overview");
-              }
-              runAfterNav(props.onNavigate);
-            }}
-            aria-current={active ? "page" : undefined}
-            className={`${rowBase} justify-between ${active ? rowActive : rowIdle}`}
-          >
-            <span className="flex min-w-0 items-center gap-2.5">
-              <IconWrap Icon={entry.Icon} active={active} />
-              <span className="min-w-0 truncate">{entry.label}</span>
-            </span>
-            {entry.tab === "notifications" ? (
-              <span className="flex shrink-0 items-center gap-1">
-                {props.showCommissionBadge && props.commissionBadge > 0 ? (
-                  <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-emerald-600 px-[4px] text-[10px] font-semibold tabular-nums leading-none text-white shadow-sm ring-1 ring-black/[0.08]">
-                    HH {props.commissionBadge > 99 ? "99+" : props.commissionBadge}
-                  </span>
-                ) : null}
-                {props.notificationsUnread > 0 ? (
-                  <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#EF4444] px-[5px] text-[11px] font-semibold tabular-nums leading-none text-white shadow-sm ring-1 ring-black/[0.08]">
-                    {props.notificationsUnread > 99 ? "99+" : props.notificationsUnread}
-                  </span>
-                ) : null}
+          return (
+            <button
+              key={`${entry.tab}-${entry.label}`}
+              type="button"
+              onPointerEnter={() => prefetchStorefrontAccountTab(entry.tab)}
+              onFocus={() => prefetchStorefrontAccountTab(entry.tab)}
+              onClick={() => {
+                props.onSelectTab(entry.tab);
+                if (entry.tab === "affiliate") {
+                  props.onSelectAffiliateSubTab(entry.subTab ?? "overview");
+                }
+                runAfterNav(props.onNavigate);
+                if (entry.scrollId) {
+                  window.requestAnimationFrame(() => {
+                    document.getElementById(entry.scrollId!)?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  });
+                }
+              }}
+              aria-current={active ? "page" : undefined}
+              className={`${navRowClass(active, desktop)} justify-between`}
+            >
+              <span className="flex min-w-0 items-center gap-3">
+                <IconWrap desktop={desktop} Icon={entry.Icon} active={active} />
+                <span className="min-w-0 truncate">{entry.label}</span>
               </span>
-            ) : null}
-          </button>
-        );
-      })}
+              {entry.tab === "notifications" ? (
+                <span className="flex shrink-0 items-center gap-1">
+                  {props.showCommissionBadge && props.commissionBadge > 0 ? (
+                    <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-emerald-600 px-1 text-[10px] font-semibold tabular-nums leading-none text-white">
+                      HH {props.commissionBadge > 99 ? "99+" : props.commissionBadge}
+                    </span>
+                  ) : null}
+                  {props.notificationsUnread > 0 ? (
+                    <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold tabular-nums leading-none text-white">
+                      {props.notificationsUnread > 99 ? "99+" : props.notificationsUnread}
+                    </span>
+                  ) : null}
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
+      </nav>
 
       <button
         type="button"
@@ -213,12 +263,22 @@ export function AffiliateCtvAccountSidebar(props: RenderProps & { dense?: boolea
           props.onSignOut();
           runAfterNav(props.onNavigate);
         }}
-        className={`${rowBase} mt-1 border border-rose-100 bg-rose-50/60 text-rose-800 hover:bg-rose-50`}
+        className={
+          desktop
+            ? `${CTV_NAV_ROW_SIGNOUT} mt-3 shrink-0 border-t border-slate-100/90 pt-4`
+            : `${rowBaseMobile} mt-1 shrink-0 text-rose-700 hover:bg-rose-50/90`
+        }
       >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-rose-100 text-rose-600">
+        <span
+          className={
+            desktop
+              ? `${CTV_NAV_ICON} ${CTV_NAV_ICON_SIGNOUT}`
+              : "flex h-8 w-8 items-center justify-center rounded-lg bg-rose-100 text-rose-600"
+          }
+        >
           <LogOut className="h-4 w-4" strokeWidth={1.75} aria-hidden />
         </span>
-        <span className="font-semibold">Đăng xuất</span>
+        <span>Đăng xuất</span>
       </button>
     </div>
   );

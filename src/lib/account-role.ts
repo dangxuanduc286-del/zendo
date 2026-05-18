@@ -30,8 +30,7 @@ export function isCustomerBuyer(user: AccountRoleUser, settings: AccountSettings
   return settings.affiliateCanBuy === true;
 }
 
-const DEFAULT_TAB_IDS = ["affiliate", "overview"] as const;
-export type AffiliateAccountDefaultTabId = (typeof DEFAULT_TAB_IDS)[number];
+export type AffiliateAccountDefaultTabId = "affiliate" | "overview";
 
 export type AccountSettingsDefaultTabSlice = Pick<
   CustomerAccountSettings,
@@ -39,16 +38,11 @@ export type AccountSettingsDefaultTabSlice = Pick<
 >;
 
 /**
- * Tab mặc định khi mở `/tai-khoan` — dashboard vẫn rơi về fallback nếu tab bị ẩn bởi show* khác.
+ * Tab mặc định khi mở `/tai-khoan` — CTV/affiliate luôn ưu tiên «Tổng quan» (dashboard seller).
  */
 export function getDefaultAccountTab(user: AccountRoleUser, settings: AccountSettingsDefaultTabSlice): AffiliateAccountDefaultTabId {
   if (!isAffiliateOnly(user)) return "overview";
-  const raw = (settings.affiliateDefaultTab ?? "affiliate").toString().toLowerCase();
-  const normalized: AffiliateAccountDefaultTabId =
-    DEFAULT_TAB_IDS.find((id) => id === raw) ?? "affiliate";
-  if (normalized === "affiliate" && !settings.showAffiliate) return "overview";
-  if (normalized === "overview" && !settings.showOverview) {
-    return settings.showAffiliate ? "affiliate" : "overview";
-  }
-  return normalized;
+  if (settings.showOverview) return "overview";
+  if (settings.showAffiliate) return "affiliate";
+  return "overview";
 }

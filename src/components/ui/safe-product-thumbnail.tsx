@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Image from "next/image";
+import { clampNextImageQuality } from "@/lib/next-image-quality";
 
 function configuredMediaHosts(): string[] {
   const hosts = new Set<string>(["media.zendo.vn"]);
@@ -35,7 +37,13 @@ export function SafeProductThumbnail(props: {
   const size = props.size ?? 40;
   const cls = props.className ?? `h-10 w-10 shrink-0 rounded-lg object-cover`;
   const s = props.src?.trim();
-  if (!s) {
+  const [broken, setBroken] = useState(false);
+
+  useEffect(() => {
+    setBroken(false);
+  }, [s]);
+
+  if (!s || broken) {
     return <div className={`shrink-0 rounded-lg bg-slate-100 ${cls}`} style={{ width: size, height: size }} aria-hidden />;
   }
   const optimizable = canOptimizeRemoteImage(s);
@@ -47,7 +55,9 @@ export function SafeProductThumbnail(props: {
       height={size}
       className={cls}
       sizes={`${size}px`}
+      quality={clampNextImageQuality(80)}
       unoptimized={!optimizable}
+      onError={() => setBroken(true)}
     />
   );
 }

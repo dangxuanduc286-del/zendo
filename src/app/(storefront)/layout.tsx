@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import type { CSSProperties, ReactNode } from "react";
-import "../globals.css";
 import { getThemeSettings, getWebsiteSettings } from "../../lib/settings";
 import { resolveMediaUrl } from "../../lib/media";
 import AppSessionProvider from "../../components/providers/session-provider";
@@ -89,25 +88,24 @@ export default async function StorefrontLayout({
   } as CSSProperties;
 
   return (
-    <html lang="vi" style={cssVars}>
-      <body
-        className={`min-h-screen text-[var(--z-text-main)] antialiased ${
-          showCampaignBackground ? "bg-transparent" : "bg-[var(--z-bg)]"
-        }`}
-      >
-        {showCampaignBackground ? (
-          <style>{`
+    <div
+      style={cssVars}
+      className={`min-h-screen text-[var(--z-text-main)] ${
+        showCampaignBackground ? "bg-transparent" : "bg-[var(--z-bg)]"
+      }`}
+    >
+      {showCampaignBackground ? (
+        <style>{`
             /* Tránh globals html,body { background: #fff } che nền campaign (portal fixed trên body). */
             body {
               background: transparent;
             }
           `}</style>
-        ) : null}
-        {showCampaignBackground ? <StorefrontCampaignBleedPortal /> : null}
-        <AppSessionProvider session={session}>
-          <StorefrontSupportProvider>{children}</StorefrontSupportProvider>
-        </AppSessionProvider>
-      </body>
-    </html>
+      ) : null}
+      {showCampaignBackground ? <StorefrontCampaignBleedPortal /> : null}
+      <AppSessionProvider session={session}>
+        <StorefrontSupportProvider>{children}</StorefrontSupportProvider>
+      </AppSessionProvider>
+    </div>
   );
 }
