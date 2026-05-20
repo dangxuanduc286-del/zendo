@@ -1,4 +1,4 @@
-import { getPublicMediaBaseUrl, isPublicMediaUrl, normalizeMediaUrl } from "./media-url";
+import { isPublicMediaUrl, normalizeMediaUrl } from "./media-url";
 
 export function resolveMediaUrl(pathOrUrl: string): string {
   if (!pathOrUrl) return "";
@@ -27,10 +27,6 @@ export function sanitizePostThumbnailUrl(raw: string | null | undefined): string
   } catch {
     return "";
   }
-}
-
-export function getMediaBaseUrl(): string {
-  return getPublicMediaBaseUrl();
 }
 
 export function buildPublicMediaUrl(pathOrUrl: string): string {

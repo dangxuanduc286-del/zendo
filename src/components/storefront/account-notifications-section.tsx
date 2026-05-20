@@ -1,7 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import { useRouter } from "next/navigation";
 import type { AffiliateCommissionTabSettings } from "@/lib/affiliate-commission-tab-settings";
 import { formatOrderStatus } from "@/lib/admin-order";
@@ -9,7 +19,10 @@ import {
   normalizeCustomerNotificationCategory,
   type CustomerNotificationTabCategory,
 } from "@/lib/customer-account-notification-category";
-import type { CustomerNotificationsPollBundle } from "@/lib/use-customer-notifications-poll";
+import type {
+  CustomerNotificationPollMutators,
+  CustomerNotificationsPollBundle,
+} from "@/lib/use-customer-notifications-poll";
 import {
   commissionLifecycleNotificationVisual,
   readAffiliateCommissionNotificationType,
@@ -70,6 +83,128 @@ function NotificationRowClickable(props: { onActivate: () => void; className: st
   );
 }
 
+function NotificationOverflowMenu(props: {
+  menuKey: string;
+  openMenuKey: string | null;
+  setOpenMenuKey: (key: string | null) => void;
+  onMarkRead: () => void | Promise<void>;
+  onDelete: () => void | Promise<void>;
+}): JSX.Element {
+  const open = props.openMenuKey === props.menuKey;
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const fn = (e: MouseEvent) => {
+      if (!wrapRef.current?.contains(e.target as Node)) props.setOpenMenuKey(null);
+    };
+    document.addEventListener("mousedown", fn);
+    return () => document.removeEventListener("mousedown", fn);
+  }, [open, props]);
+
+  return (
+    <div className="relative shrink-0" ref={wrapRef}>
+      <button
+        type="button"
+        className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-lg leading-none text-slate-600 hover:bg-slate-100 active:bg-slate-200"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Thao tác thông báo"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          props.setOpenMenuKey(open ? null : props.menuKey);
+        }}
+      >
+        ⋮
+      </button>
+      {open ? (
+        <div
+          role="menu"
+          className="absolute right-0 z-[50] mt-1 min-w-[190px] rounded-xl border border-[#E2E8F0] bg-white py-1 shadow-lg"
+        >
+          <button
+            role="menuitem"
+            type="button"
+            className="flex min-h-[44px] w-full items-center px-4 text-left text-sm text-[#0F172A] hover:bg-[#F8FAFC]"
+            onClick={(e) => {
+              e.stopPropagation();
+              props.setOpenMenuKey(null);
+              void props.onMarkRead();
+            }}
+          >
+            Đánh dấu đã đọc
+          </button>
+          <button
+            role="menuitem"
+            type="button"
+            className="flex min-h-[44px] w-full items-center px-4 text-left text-sm font-medium text-rose-700 hover:bg-rose-50"
+            onClick={(e) => {
+              e.stopPropagation();
+              props.setOpenMenuKey(null);
+              void props.onDelete();
+            }}
+          >
+            Xóa thông báo
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function NotificationRowChrome(props: {
+  rowKey: string;
+  ids: string[];
+  selectedIds: Set<string>;
+  onToggleMany: (ids: string[], selected: boolean) => void;
+  openMenuKey: string | null;
+  setOpenMenuKey: (key: string | null) => void;
+  onMarkRead: () => void | Promise<void>;
+  onDelete: () => void | Promise<void>;
+  children: ReactNode;
+}): JSX.Element {
+  const { ids, selectedIds } = props;
+  const allOn = ids.length > 0 && ids.every((id) => selectedIds.has(id));
+  const someOn = ids.some((id) => selectedIds.has(id));
+  const indeterminate = someOn && !allOn;
+  const cbRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (cbRef.current) cbRef.current.indeterminate = indeterminate;
+  }, [indeterminate]);
+
+  const menuKey = `row-${props.rowKey}`;
+
+  return (
+    <div className="flex items-stretch gap-2 sm:gap-3">
+      <label className="mt-1 flex shrink-0 cursor-pointer items-start justify-center pt-1">
+        <span className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg hover:bg-slate-100 active:bg-slate-200">
+          <input
+            ref={cbRef}
+            type="checkbox"
+            className="h-5 w-5 rounded border-slate-300"
+            checked={allOn}
+            onChange={() => props.onToggleMany(ids, !allOn)}
+            onClick={(e) => e.stopPropagation()}
+            aria-label="Chọn thông báo"
+          />
+        </span>
+      </label>
+      <div className="min-w-0 flex-1">{props.children}</div>
+      <div className="shrink-0 pt-0.5">
+        <NotificationOverflowMenu
+          menuKey={menuKey}
+          openMenuKey={props.openMenuKey}
+          setOpenMenuKey={props.setOpenMenuKey}
+          onMarkRead={props.onMarkRead}
+          onDelete={props.onDelete}
+        />
+      </div>
+    </div>
+  );
+}
+
 function fmtVnd(n: number): string {
   return `${new Intl.NumberFormat("vi-VN").format(Math.round(n))}đ`;
 }
@@ -102,10 +237,10 @@ function isSystemCustomerUiVariant(item: AccountNotificationListItem): boolean {
   return metaType(item) === "SYSTEM_CUSTOMER";
 }
 
-function formatRelativeVi(iso: string): string {
+function formatRelativeViFromNow(iso: string, nowMs: number): string {
   const t = new Date(iso).getTime();
   if (!Number.isFinite(t)) return "";
-  let diffSec = Math.round((Date.now() - t) / 1000);
+  let diffSec = Math.round((nowMs - t) / 1000);
   if (diffSec < 0) diffSec = 0;
   if (diffSec < 45) return "vừa xong";
   if (diffSec < 3600) return `${Math.floor(diffSec / 60)} phút trước`;
@@ -114,13 +249,21 @@ function formatRelativeVi(iso: string): string {
   return new Date(iso).toLocaleString("vi-VN");
 }
 
-function RelativeTimeVi({ iso }: { iso: string }): JSX.Element {
-  const [label, setLabel] = useState(() => formatRelativeVi(iso));
+const NotificationRelativeTimeContext = createContext<number>(Date.now());
+
+/** Một interval 60s cho toàn bộ thời gian tương đối trong panel (thay N timer / hàng). */
+function NotificationRelativeTimeProvider({ children }: { children: ReactNode }): JSX.Element {
+  const [nowMs, setNowMs] = useState(() => Date.now());
   useEffect(() => {
-    setLabel(formatRelativeVi(iso));
-    const id = window.setInterval(() => setLabel(formatRelativeVi(iso)), 60_000);
+    const id = window.setInterval(() => setNowMs(Date.now()), 60_000);
     return () => window.clearInterval(id);
-  }, [iso]);
+  }, []);
+  return <NotificationRelativeTimeContext.Provider value={nowMs}>{children}</NotificationRelativeTimeContext.Provider>;
+}
+
+function RelativeTimeVi({ iso }: { iso: string }): JSX.Element {
+  const nowMs = useContext(NotificationRelativeTimeContext);
+  const label = useMemo(() => formatRelativeViFromNow(iso, nowMs), [iso, nowMs]);
   return <span className="tabular-nums">{label}</span>;
 }
 
@@ -323,12 +466,14 @@ function groupCommissionTabItems(
 export function AccountNotificationsSection({
   title,
   notifications,
+  notificationMutators,
   commissionTab,
   affiliateProgramEnabled,
   isAffiliateActive,
 }: {
   title: string;
   notifications: CustomerNotificationsPollBundle;
+  notificationMutators: CustomerNotificationPollMutators;
   commissionTab: AffiliateCommissionTabSettings;
   /** `website.affiliateEnabled` */
   affiliateProgramEnabled: boolean;
@@ -345,23 +490,130 @@ export function AccountNotificationsSection({
   const [incomeLoading, setIncomeLoading] = useState(false);
   const [listTake, setListTake] = useState(45);
   const [actionSheet, setActionSheet] = useState<AccountNotificationListItem | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [openMenuKey, setOpenMenuKey] = useState<string | null>(null);
   const prevCommissionUnreadRef = useRef(notifications.groups.commission);
 
+  const setManySelected = useCallback((ids: string[], selected: boolean) => {
+    setSelectedIds((prev) => {
+      const n = new Set(prev);
+      for (const id of ids) {
+        if (selected) n.add(id);
+        else n.delete(id);
+      }
+      return n;
+    });
+  }, []);
+
+  const markReadIdsOnly = useCallback(
+    async (ids: string[]) => {
+      if (!ids.length) return;
+      try {
+        const res = await fetch("/api/account/notifications/mark-read", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({ ids }),
+        });
+        const j = (await res.json()) as { ok?: boolean };
+        if (res.ok && j.ok) notificationMutators.markReadIds(ids);
+      } catch {
+        /* noop */
+      }
+    },
+    [notificationMutators],
+  );
+
   const markReadQuiet = async (ids: string[]) => {
-    if (!ids.length) return;
+    await markReadIdsOnly(ids);
+  };
+
+  const confirmAndDeleteIds = useCallback(
+    async (ids: string[], confirmMessage: string) => {
+      if (!ids.length) return;
+      if (!window.confirm(confirmMessage)) return;
+      try {
+        const res = await fetch("/api/account/notifications/bulk", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({ ids }),
+        });
+        const j = (await res.json()) as { ok?: boolean };
+        if (!res.ok || !j.ok) return;
+        notificationMutators.removeIds(ids);
+        setManySelected(ids, false);
+      } catch {
+        /* noop */
+      }
+    },
+    [notificationMutators, setManySelected],
+  );
+
+  const confirmDeleteAll = useCallback(async () => {
+    if (!notifications.items.length) return;
+    if (!window.confirm("Bạn có chắc muốn xóa toàn bộ thông báo?")) return;
     try {
-      const res = await fetch("/api/account/notifications/mark-read", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const res = await fetch("/api/account/notifications/all", {
+        method: "DELETE",
         credentials: "same-origin",
-        body: JSON.stringify({ ids }),
+        headers: { Accept: "application/json" },
       });
       const j = (await res.json()) as { ok?: boolean };
-      if (res.ok && j.ok) router.refresh();
+      if (!res.ok || !j.ok) return;
+      notificationMutators.replaceBundle({
+        unread: 0,
+        groups: { order: 0, promotion: 0, system: 0, commission: 0 },
+        items: [],
+      });
+      setSelectedIds(new Set());
     } catch {
       /* noop */
     }
-  };
+  }, [notificationMutators, notifications.items.length]);
+
+  const confirmDeleteRead = useCallback(async () => {
+    const readIds = notifications.items.filter((i) => i.read).map((i) => i.id);
+    if (!readIds.length) return;
+    if (!window.confirm("Bạn có chắc muốn xóa các thông báo đã đọc?")) return;
+    try {
+      const res = await fetch("/api/account/notifications/read", {
+        method: "DELETE",
+        credentials: "same-origin",
+        headers: { Accept: "application/json" },
+      });
+      const j = (await res.json()) as { ok?: boolean };
+      if (!res.ok || !j.ok) return;
+      setSelectedIds(new Set());
+      await notificationMutators.reload();
+    } catch {
+      /* noop */
+    }
+  }, [notificationMutators, notifications.items]);
+
+  const deleteOneById = useCallback(
+    async (id: string) => {
+      if (!window.confirm("Bạn có chắc muốn xóa thông báo này?")) return;
+      try {
+        const res = await fetch(`/api/account/notifications/${encodeURIComponent(id)}`, {
+          method: "DELETE",
+          credentials: "same-origin",
+          headers: { Accept: "application/json" },
+        });
+        const j = (await res.json()) as { ok?: boolean };
+        if (!res.ok || !j.ok) return;
+        notificationMutators.removeIds([id]);
+        setSelectedIds((prev) => {
+          const n = new Set(prev);
+          n.delete(id);
+          return n;
+        });
+      } catch {
+        /* noop */
+      }
+    },
+    [notificationMutators],
+  );
 
   const loadIncome = useCallback(async () => {
     if (!showCommissionHub || !commissionTab.showIncomeSummary) return;
@@ -497,6 +749,22 @@ export function AccountNotificationsSection({
     router.push(href);
   };
 
+  const hasAnyReadInFeed = useMemo(() => notifications.items.some((i) => i.read), [notifications.items]);
+
+  const rowShell = (rowKey: string, ids: string[], markIds: string[]) => ({
+    rowKey,
+    ids,
+    selectedIds,
+    onToggleMany: setManySelected,
+    openMenuKey,
+    setOpenMenuKey,
+    onMarkRead: () => void markReadIdsOnly(markIds),
+    onDelete: () =>
+      void (ids.length === 1
+        ? deleteOneById(ids[0]!)
+        : confirmAndDeleteIds(ids, "Bạn có chắc muốn xóa nhóm thông báo này?")),
+  });
+
   const referralMeta = (item: AccountNotificationListItem) =>
     (item.metadata && typeof item.metadata === "object" ? item.metadata : null) as Record<string, unknown> | null;
 
@@ -504,19 +772,41 @@ export function AccountNotificationsSection({
     "snap-center shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition whitespace-nowrap";
 
   return (
+    <NotificationRelativeTimeProvider>
     <section id="thong-bao" className="w-full min-w-0 rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
         <h3 className="text-base font-semibold text-[#0F172A]">{title}</h3>
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          {notifications.unread > 0 ? (
-            <span className="rounded-full bg-[#EF4444] px-2 py-0.5 font-semibold text-white shadow-sm">
-              {notifications.unread > 99 ? "99+ mới" : `${notifications.unread} mới`}
-            </span>
-          ) : null}
-          {showCommissionHub && unreadInPayloadByCategory.commission > 0 ? (
-            <span className="rounded-full bg-emerald-600 px-2 py-0.5 font-semibold text-white shadow-sm">
-              Hoa hồng {unreadInPayloadByCategory.commission > 99 ? "99+" : unreadInPayloadByCategory.commission}
-            </span>
+        <div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:items-end">
+          <div className="flex flex-wrap items-center justify-end gap-2 text-xs">
+            {notifications.unread > 0 ? (
+              <span className="rounded-full bg-[#EF4444] px-2 py-0.5 font-semibold text-white shadow-sm">
+                {notifications.unread > 99 ? "99+ mới" : `${notifications.unread} mới`}
+              </span>
+            ) : null}
+            {showCommissionHub && unreadInPayloadByCategory.commission > 0 ? (
+              <span className="rounded-full bg-emerald-600 px-2 py-0.5 font-semibold text-white shadow-sm">
+                Hoa hồng {unreadInPayloadByCategory.commission > 99 ? "99+" : unreadInPayloadByCategory.commission}
+              </span>
+            ) : null}
+          </div>
+          {notifications.items.length > 0 ? (
+            <div className="flex w-full flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                className="min-h-[44px] shrink-0 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-xs font-semibold text-[#0F172A] hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
+                disabled={!hasAnyReadInFeed}
+                onClick={() => void confirmDeleteRead()}
+              >
+                Xóa đã đọc
+              </button>
+              <button
+                type="button"
+                className="min-h-[44px] shrink-0 rounded-xl border border-rose-200 bg-white px-3 text-xs font-semibold text-rose-700 hover:bg-rose-50"
+                onClick={() => void confirmDeleteAll()}
+              >
+                Xóa tất cả
+              </button>
+            </div>
           ) : null}
         </div>
       </div>
@@ -590,6 +880,29 @@ export function AccountNotificationsSection({
             : ""}
         </button>
       </div>
+
+      {selectedIds.size > 0 ? (
+        <div
+          className="mt-3 flex flex-col gap-3 rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] p-3 sm:flex-row sm:items-center sm:justify-between"
+          role="status"
+        >
+          <p className="text-sm font-medium text-[#0F172A]">
+            Đã chọn: {selectedIds.size} thông báo
+          </p>
+          <button
+            type="button"
+            className="min-h-[44px] w-full rounded-xl bg-rose-600 px-4 text-sm font-semibold text-white shadow-sm hover:bg-rose-700 sm:w-auto"
+            onClick={() =>
+              void confirmAndDeleteIds(
+                [...selectedIds],
+                "Bạn có chắc muốn xóa các thông báo đã chọn?",
+              )
+            }
+          >
+            Xóa đã chọn
+          </button>
+        </div>
+      ) : null}
 
       {showCommissionHub && filter === "commission" && commissionTab.showIncomeSummary ? (
         <div className="sticky top-0 z-10 mt-3 space-y-2 rounded-xl border border-emerald-100 bg-emerald-50/95 p-3 shadow-sm backdrop-blur sm:static sm:bg-emerald-50">
@@ -672,33 +985,56 @@ export function AccountNotificationsSection({
       ) : null}
 
       {!visibleNotificationRows.length ? (
-        <p className="mt-4 text-sm text-[#64748B]">
-          {filteredBase.length > 0 && filter === "commission"
-            ? "Không có thông báo trong khoảng thời gian đã chọn."
-            : "Chưa có thông báo trong mục này."}
-        </p>
+        notifications.items.length === 0 ? (
+          <div className="mt-6 flex flex-col items-center rounded-2xl border border-dashed border-[#CBD5E1] bg-[#F8FAFC] px-6 py-10 text-center">
+            <span className="text-4xl" aria-hidden>
+              🔔
+            </span>
+            <p className="mt-3 text-base font-semibold text-[#0F172A]">Không có thông báo nào</p>
+            <p className="mt-1 max-w-sm text-sm text-[#64748B]">Bạn đã xem và xử lý tất cả thông báo.</p>
+            <button
+              type="button"
+              className="mt-5 min-h-[44px] rounded-xl bg-[#2563EB] px-5 text-sm font-semibold text-white shadow-sm hover:bg-[#1D4ED8]"
+              onClick={() => void notificationMutators.reload()}
+            >
+              Tải lại
+            </button>
+          </div>
+        ) : (
+          <p className="mt-4 text-sm text-[#64748B]">
+            {filteredBase.length > 0 && filter === "commission"
+              ? "Không có thông báo trong khoảng thời gian đã chọn."
+              : "Chưa có thông báo trong mục này."}
+          </p>
+        )
       ) : (
         <ul className="mt-4 space-y-2" aria-label="Danh sách thông báo">
           {visibleNotificationRows.map((entry, idx) => {
               if (entry.kind === "bundle") {
+                const bundleIds = entry.items.map((i) => i.id);
                 return (
-                  <li key={`bundle-${idx}`}>
-                    <div className="w-full rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-3 text-left">
-                      <p className="text-sm font-semibold text-[#0F172A]">
-                        {entry.orderCount} đơn hàng mới qua link affiliate của bạn.
-                      </p>
-                      <p className="mt-1 text-xs text-[#64748B]">
-                        Tổng hoa hồng (ước tính): <span className="font-semibold text-emerald-700">{fmtVnd(entry.totalCommission)}</span>
-                        {" · "}
-                        Mới nhất: {new Date(entry.latestAt).toLocaleString("vi-VN")}
-                      </p>
-                      <button
-                        type="button"
-                        className="mt-2 text-xs font-semibold text-[#2563EB] hover:underline"
-                        onClick={() => void markReadQuiet(entry.items.map((i) => i.id))}
-                      >
-                        Đánh dấu đã đọc nhóm
-                      </button>
+                  <li key={`bundle-${idx}`} className="overflow-hidden rounded-xl border border-[#BFDBFE] bg-[#EFF6FF] shadow-sm">
+                    <div className="p-2 sm:p-3">
+                      <NotificationRowChrome {...rowShell(`bundle-${idx}`, bundleIds, bundleIds)}>
+                        <div className="w-full text-left">
+                          <p className="text-sm font-semibold text-[#0F172A]">
+                            {entry.orderCount} đơn hàng mới qua link affiliate của bạn.
+                          </p>
+                          <p className="mt-1 text-xs text-[#64748B]">
+                            Tổng hoa hồng (ước tính):{" "}
+                            <span className="font-semibold text-emerald-700">{fmtVnd(entry.totalCommission)}</span>
+                            {" · "}
+                            Mới nhất: {new Date(entry.latestAt).toLocaleString("vi-VN")}
+                          </p>
+                          <button
+                            type="button"
+                            className="mt-2 min-h-[44px] text-left text-xs font-semibold text-[#2563EB] hover:underline"
+                            onClick={() => void markReadQuiet(bundleIds)}
+                          >
+                            Đánh dấu đã đọc nhóm
+                          </button>
+                        </div>
+                      </NotificationRowChrome>
                     </div>
                   </li>
                 );
@@ -736,13 +1072,16 @@ export function AccountNotificationsSection({
                     : "/tai-khoan?tab=tracking";
                 const viewHref = "/tai-khoan?tab=orders";
                 return (
-                  <li key={item.id}>
-                    <div
-                      className={`w-full rounded-xl border px-3 py-3 text-left ${
-                        item.read ? "border-[#E2E8F0] bg-white" : "border-[#BFDBFE] bg-[#EFF6FF]"
-                      }`}
-                    >
-                      <div className="flex gap-3">
+                  <li
+                    key={item.id}
+                    className={`overflow-hidden rounded-xl border text-left ${
+                      item.read ? "border-[#E2E8F0] bg-white" : "border-[#BFDBFE] bg-[#EFF6FF]"
+                    }`}
+                  >
+                    <div className="p-1 sm:p-2">
+                      <NotificationRowChrome {...rowShell(item.id, [item.id], [item.id])}>
+                        <div className="px-2 py-2 sm:px-3 sm:py-3">
+                          <div className="flex gap-3">
                         {preview ? (
                           <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -804,6 +1143,8 @@ export function AccountNotificationsSection({
                           </div>
                         </div>
                       </div>
+                        </div>
+                      </NotificationRowChrome>
                     </div>
                   </li>
                 );
@@ -815,13 +1156,18 @@ export function AccountNotificationsSection({
                     ? item.actionHref
                     : "/tai-khoan?tab=orders";
                 return (
-                  <li key={item.id}>
-                    <NotificationRowClickable
-                      onActivate={() => onOpenItem(item, href)}
-                      className={`w-full rounded-xl border px-3 py-3 text-left transition hover:bg-[#F8FAFC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] focus-visible:ring-offset-2 ${
-                        item.read ? "border-[#E2E8F0] bg-white" : "border-[#BFDBFE] bg-[#EFF6FF]"
-                      } cursor-pointer`}
-                    >
+                  <li
+                    key={item.id}
+                    className={`overflow-hidden rounded-xl border ${
+                      item.read ? "border-[#E2E8F0] bg-white" : "border-[#BFDBFE] bg-[#EFF6FF]"
+                    }`}
+                  >
+                    <div className="p-1 sm:p-2">
+                      <NotificationRowChrome {...rowShell(item.id, [item.id], [item.id])}>
+                        <NotificationRowClickable
+                          onActivate={() => onOpenItem(item, href)}
+                          className="w-full cursor-pointer rounded-none border-0 px-2 py-2 text-left transition hover:bg-[#F8FAFC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] focus-visible:ring-offset-2 sm:px-3 sm:py-3"
+                        >
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="text-sm font-semibold text-[#0F172A]">{item.title}</span>
                         <span className="text-[11px] text-[#64748B]">
@@ -832,6 +1178,8 @@ export function AccountNotificationsSection({
                       <p className="mt-1 whitespace-pre-wrap text-sm text-[#334155]">{item.body}</p>
                       <p className="mt-2 text-xs font-semibold text-[#2563EB]">Xem chi tiết →</p>
                     </NotificationRowClickable>
+                      </NotificationRowChrome>
+                    </div>
                   </li>
                 );
               }
@@ -849,12 +1197,15 @@ export function AccountNotificationsSection({
                       : "/") || "/";
 
                 return (
-                  <li key={item.id}>
-                    <div
-                      className={`w-full rounded-xl border px-3 py-3 text-left ${
-                        item.read ? "border-[#E2E8F0] bg-white" : "border-fuchsia-200 bg-fuchsia-50/60"
-                      }`}
-                    >
+                  <li
+                    key={item.id}
+                    className={`overflow-hidden rounded-xl border ${
+                      item.read ? "border-[#E2E8F0] bg-white" : "border-fuchsia-200 bg-fuchsia-50/60"
+                    }`}
+                  >
+                    <div className="p-1 sm:p-2">
+                      <NotificationRowChrome {...rowShell(item.id, [item.id], [item.id])}>
+                        <div className="px-2 py-2 text-left sm:px-3 sm:py-3">
                       {banner ? (
                         <div className="mb-2 overflow-hidden rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -890,6 +1241,8 @@ export function AccountNotificationsSection({
                           Mua ngay
                         </button>
                       </div>
+                        </div>
+                      </NotificationRowChrome>
                     </div>
                   </li>
                 );
@@ -918,12 +1271,15 @@ export function AccountNotificationsSection({
                   };
 
                   return (
-                    <li key={item.id}>
-                      <article
-                        className={`relative w-full rounded-xl border px-3 py-3 text-left shadow-sm ring-1 ${tone.ring} ${tone.bg} ${
-                          item.read ? "border-[#E2E8F0] bg-white" : "border-[#E2E8F0]"
-                        }`}
-                      >
+                    <li
+                      key={item.id}
+                      className={`overflow-hidden rounded-xl border text-left shadow-sm ring-1 ${tone.ring} ${tone.bg} ${
+                        item.read ? "border-[#E2E8F0] bg-white" : "border-[#E2E8F0]"
+                      }`}
+                    >
+                      <div className="p-1 sm:p-2">
+                        <NotificationRowChrome {...rowShell(item.id, [item.id], [item.id])}>
+                          <article className="relative w-full border-0 bg-transparent px-2 py-2 text-left sm:px-3 sm:py-3">
                         <div className="absolute right-2 top-2">
                           <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${tone.badgeClass}`}>
                             {tone.labelVi}
@@ -965,7 +1321,6 @@ export function AccountNotificationsSection({
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   meHandler();
-                                  router.refresh();
                                 }}
                               >
                                 Đây là tôi
@@ -1005,19 +1360,26 @@ export function AccountNotificationsSection({
                             </div>
                           </div>
                         </div>
-                      </article>
+                          </article>
+                        </NotificationRowChrome>
+                      </div>
                     </li>
                   );
                 }
 
                 return (
-                  <li key={item.id}>
-                    <NotificationRowClickable
-                      onActivate={() => onOpenItem(item, deep ?? undefined)}
-                      className={`w-full rounded-xl border px-3 py-3 text-left transition hover:bg-[#F8FAFC]/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] focus-visible:ring-offset-2 ring-1 ${tone.ring} ${tone.bg} ${
-                        item.read ? "border-[#E2E8F0] bg-white" : "border-[#E2E8F0]"
-                      } cursor-pointer`}
-                    >
+                  <li
+                    key={item.id}
+                    className={`overflow-hidden rounded-xl border text-left shadow-sm ring-1 ${tone.ring} ${tone.bg} ${
+                      item.read ? "border-[#E2E8F0] bg-white" : "border-[#E2E8F0]"
+                    }`}
+                  >
+                    <div className="p-1 sm:p-2">
+                      <NotificationRowChrome {...rowShell(item.id, [item.id], [item.id])}>
+                        <NotificationRowClickable
+                          onActivate={() => onOpenItem(item, deep ?? undefined)}
+                          className="w-full cursor-pointer rounded-none border-0 px-2 py-2 text-left transition hover:bg-[#F8FAFC]/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] focus-visible:ring-offset-2 sm:px-3 sm:py-3"
+                        >
                       <div className="flex gap-2">
                         <span className="text-lg" aria-hidden>
                           {tone.icon}
@@ -1046,6 +1408,8 @@ export function AccountNotificationsSection({
                         </div>
                       </div>
                     </NotificationRowClickable>
+                      </NotificationRowChrome>
+                    </div>
                   </li>
                 );
               }
@@ -1075,54 +1439,59 @@ export function AccountNotificationsSection({
                       : Number(m?.commissionAmount ?? 0);
 
                   return (
-                    <li key={item.id}>
-                      <NotificationRowClickable
-                        onActivate={() => onOpenItem(item, href)}
-                        className={`relative w-full rounded-xl border px-3 py-3 text-left transition hover:opacity-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] focus-visible:ring-offset-2 ${
-                          item.read
-                            ? "border-[#E2E8F0] bg-white"
-                            : `${vis.unreadBorder} ${vis.unreadBg}`
-                        } cursor-pointer`}
-                      >
-                        {!item.read ? (
-                          <span
-                            className="absolute right-3 top-3 h-2 w-2 rounded-full bg-[#2563EB]"
-                            aria-hidden
-                          />
-                        ) : null}
-                        <div className="flex gap-3 pr-4">
-                          <span className="text-2xl leading-none" aria-hidden>
-                            {vis.icon}
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <span className="text-sm font-semibold text-[#0F172A]">{item.title}</span>
-                              <span className="text-[11px] text-[#64748B]">
-                                <RelativeTimeVi iso={item.createdAt} />
-                              </span>
-                            </div>
-                            <p className={`mt-0.5 text-[11px] font-semibold ${vis.accentText}`}>{vis.label}</p>
-                            {orderCode || Number.isFinite(amount) ? (
-                              <dl className="mt-1 grid grid-cols-1 gap-0.5 text-[11px] text-[#64748B] sm:grid-cols-2">
-                                {orderCode ? (
-                                  <div className="flex justify-between gap-2 sm:block">
-                                    <dt>Mã đơn</dt>
-                                    <dd className="font-semibold text-[#0F172A]">#{orderCode}</dd>
-                                  </div>
-                                ) : null}
-                                {Number.isFinite(amount) && amount > 0 ? (
-                                  <div className="flex justify-between gap-2 sm:block">
-                                    <dt>Hoa hồng</dt>
-                                    <dd className="font-semibold tabular-nums text-emerald-700">{fmtVnd(amount)}</dd>
-                                  </div>
-                                ) : null}
-                              </dl>
+                    <li
+                      key={item.id}
+                      className={`overflow-hidden rounded-xl border ${
+                        item.read ? "border-[#E2E8F0] bg-white" : `${vis.unreadBorder} ${vis.unreadBg}`
+                      }`}
+                    >
+                      <div className="p-1 sm:p-2">
+                        <NotificationRowChrome {...rowShell(item.id, [item.id], [item.id])}>
+                          <NotificationRowClickable
+                            onActivate={() => onOpenItem(item, href)}
+                            className="relative w-full cursor-pointer rounded-none border-0 px-2 py-2 text-left transition hover:opacity-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] focus-visible:ring-offset-2 sm:px-3 sm:py-3"
+                          >
+                            {!item.read ? (
+                              <span
+                                className="absolute right-3 top-3 h-2 w-2 rounded-full bg-[#2563EB]"
+                                aria-hidden
+                              />
                             ) : null}
-                            <p className="mt-1 whitespace-pre-wrap text-sm text-[#334155]">{item.body}</p>
-                            <p className="mt-2 text-xs font-semibold text-[#2563EB]">Xem hoa hồng & đối soát →</p>
-                          </div>
-                        </div>
-                      </NotificationRowClickable>
+                            <div className="flex gap-3 pr-4">
+                              <span className="text-2xl leading-none" aria-hidden>
+                                {vis.icon}
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <span className="text-sm font-semibold text-[#0F172A]">{item.title}</span>
+                                  <span className="text-[11px] text-[#64748B]">
+                                    <RelativeTimeVi iso={item.createdAt} />
+                                  </span>
+                                </div>
+                                <p className={`mt-0.5 text-[11px] font-semibold ${vis.accentText}`}>{vis.label}</p>
+                                {orderCode || Number.isFinite(amount) ? (
+                                  <dl className="mt-1 grid grid-cols-1 gap-0.5 text-[11px] text-[#64748B] sm:grid-cols-2">
+                                    {orderCode ? (
+                                      <div className="flex justify-between gap-2 sm:block">
+                                        <dt>Mã đơn</dt>
+                                        <dd className="font-semibold text-[#0F172A]">#{orderCode}</dd>
+                                      </div>
+                                    ) : null}
+                                    {Number.isFinite(amount) && amount > 0 ? (
+                                      <div className="flex justify-between gap-2 sm:block">
+                                        <dt>Hoa hồng</dt>
+                                        <dd className="font-semibold tabular-nums text-emerald-700">{fmtVnd(amount)}</dd>
+                                      </div>
+                                    ) : null}
+                                  </dl>
+                                ) : null}
+                                <p className="mt-1 whitespace-pre-wrap text-sm text-[#334155]">{item.body}</p>
+                                <p className="mt-2 text-xs font-semibold text-[#2563EB]">Xem hoa hồng & đối soát →</p>
+                              </div>
+                            </div>
+                          </NotificationRowClickable>
+                        </NotificationRowChrome>
+                      </div>
                     </li>
                   );
                 }
@@ -1134,13 +1503,18 @@ export function AccountNotificationsSection({
                 const sevRaw = meta && typeof meta.severity === "string" ? meta.severity : "info";
                 const tone = systemSeverityTone(sevRaw);
                 return (
-                  <li key={item.id}>
-                    <NotificationRowClickable
-                      onActivate={() => onOpenItem(item, deep ?? undefined)}
-                      className={`w-full rounded-xl border px-3 py-3 text-left transition hover:bg-[#F8FAFC]/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] focus-visible:ring-offset-2 ring-1 ${tone.ring} ${tone.bg} ${
-                        item.read ? "border-[#E2E8F0] bg-white" : "border-[#E2E8F0]"
-                      } cursor-pointer`}
-                    >
+                  <li
+                    key={item.id}
+                    className={`overflow-hidden rounded-xl border text-left shadow-sm ring-1 ${tone.ring} ${tone.bg} ${
+                      item.read ? "border-[#E2E8F0] bg-white" : "border-[#E2E8F0]"
+                    }`}
+                  >
+                    <div className="p-1 sm:p-2">
+                      <NotificationRowChrome {...rowShell(item.id, [item.id], [item.id])}>
+                        <NotificationRowClickable
+                          onActivate={() => onOpenItem(item, deep ?? undefined)}
+                          className="w-full cursor-pointer rounded-none border-0 px-2 py-2 text-left transition hover:bg-[#F8FAFC]/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] focus-visible:ring-offset-2 sm:px-3 sm:py-3"
+                        >
                       <div className="flex gap-2">
                         <span className="text-lg" aria-hidden>
                           {tone.icon}
@@ -1165,24 +1539,31 @@ export function AccountNotificationsSection({
                         </div>
                       </div>
                     </NotificationRowClickable>
+                      </NotificationRowChrome>
+                    </div>
                   </li>
                 );
               }
 
               return (
-                <li key={item.id}>
-                  <NotificationRowClickable
-                    onActivate={() => {
-                      if (window.matchMedia("(max-width: 767px)").matches && (isRef || isPayout)) {
-                        setActionSheet(item);
-                        return;
-                      }
-                      onOpenItem(item);
-                    }}
-                    className={`w-full rounded-xl border px-3 py-3 text-left transition hover:bg-[#F8FAFC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] focus-visible:ring-offset-2 ${
-                      item.read ? "border-[#E2E8F0] bg-white" : "border-[#BFDBFE] bg-[#EFF6FF]"
-                    } cursor-pointer`}
-                  >
+                <li
+                  key={item.id}
+                  className={`overflow-hidden rounded-xl border ${
+                    item.read ? "border-[#E2E8F0] bg-white" : "border-[#BFDBFE] bg-[#EFF6FF]"
+                  }`}
+                >
+                  <div className="p-1 sm:p-2">
+                    <NotificationRowChrome {...rowShell(item.id, [item.id], [item.id])}>
+                      <NotificationRowClickable
+                        onActivate={() => {
+                          if (window.matchMedia("(max-width: 767px)").matches && (isRef || isPayout)) {
+                            setActionSheet(item);
+                            return;
+                          }
+                          onOpenItem(item);
+                        }}
+                        className="w-full cursor-pointer rounded-none border-0 px-2 py-2 text-left transition hover:bg-[#F8FAFC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] focus-visible:ring-offset-2 sm:px-3 sm:py-3"
+                      >
                     <div className="flex gap-3">
                       {img ? (
                         <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]">
@@ -1293,6 +1674,8 @@ export function AccountNotificationsSection({
                       </div>
                     </div>
                   </NotificationRowClickable>
+                    </NotificationRowChrome>
+                  </div>
                 </li>
               );
           })}
@@ -1368,7 +1751,29 @@ export function AccountNotificationsSection({
               >
                 Rút tiền
               </button>
-              <button type="button" className="h-10 text-sm text-[#64748B]" onClick={() => setActionSheet(null)}>
+              <button
+                type="button"
+                className="min-h-[48px] rounded-xl border border-[#E2E8F0] text-sm font-semibold text-[#0F172A]"
+                onClick={() => {
+                  const id = actionSheet.id;
+                  setActionSheet(null);
+                  void markReadIdsOnly([id]);
+                }}
+              >
+                Đánh dấu đã đọc
+              </button>
+              <button
+                type="button"
+                className="min-h-[48px] rounded-xl border border-rose-200 text-sm font-semibold text-rose-700"
+                onClick={() => {
+                  const id = actionSheet.id;
+                  setActionSheet(null);
+                  void deleteOneById(id);
+                }}
+              >
+                Xóa thông báo
+              </button>
+              <button type="button" className="min-h-[44px] text-sm text-[#64748B]" onClick={() => setActionSheet(null)}>
                 Đóng
               </button>
             </div>
@@ -1376,5 +1781,6 @@ export function AccountNotificationsSection({
         </div>
       ) : null}
     </section>
+    </NotificationRelativeTimeProvider>
   );
 }

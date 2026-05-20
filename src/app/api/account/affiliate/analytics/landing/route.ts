@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { AFFILIATE_ANALYTICS_CACHE_TTL_MS, withAffiliateAnalyticsCache } from "@/lib/affiliate-analytics-route-cache";
 import { parseAffiliateTrafficFilters } from "@/lib/affiliate-traffic-filters";
 import { getAffiliateLandingAnalytics } from "@/lib/affiliate-traffic-analytics";
 import {
@@ -40,18 +41,33 @@ export async function GET(request: Request): Promise<NextResponse> {
   const skip = (page - 1) * take;
 
   try {
-    const rows = await getAffiliateLandingAnalytics({
-      db,
+    const body = await withAffiliateAnalyticsCache({
       affiliateProfileId: auth.affiliateProfileId,
-      range,
-      filters,
-      take,
-      skip,
+      segment: "landing",
+      parts: {
+        range,
+        page,
+        take,
+        source: filters.source,
+        device: filters.device,
+        pathname: filters.pathnameContains ?? "",
+        productId: filters.productId ?? "",
+      },
+      ttlMs: AFFILIATE_ANALYTICS_CACHE_TTL_MS.topList,
+      obsLabel: "landing",
+      compute: async () => {
+        const rows = await getAffiliateLandingAnalytics({
+          db,
+          affiliateProfileId: auth.affiliateProfileId,
+          range,
+          filters,
+          take,
+          skip,
+        });
+        return { ok: true as const, range, page, take, filters, rows };
+      },
     });
-    return NextResponse.json(
-      { ok: true, range, page, take, filters, rows },
-      { status: 200, headers: { "Cache-Control": "private, no-store, max-age=0" } },
-    );
+    return NextResponse.json(body, { status: 200, headers: { "Cache-Control": "private, no-store, max-age=0" } });
   } catch {
     return NextResponse.json({ ok: false, message: "Không tải được landing analytics." }, { status: 500 });
   }

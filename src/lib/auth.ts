@@ -84,6 +84,42 @@ declare module "next-auth/jwt" {
     uid?: string;
     /** Đồng bộ với Session.user.affiliateActive cho role USER. */
     affiliateActive?: boolean;
+    affiliateActiveCheckedAt?: number;
+  }
+}
+
+const AFFILIATE_ACTIVE_CACHE_TTL_MS = 10_000;
+const affiliateActiveCache = new Map<string, { value: boolean; at: number }>();
+
+function setAffiliateActiveCache(uid: string, value: boolean): void {
+  affiliateActiveCache.set(uid, { value, at: Date.now() });
+  if (affiliateActiveCache.size > 2000) {
+    const now = Date.now();
+    for (const [key, entry] of affiliateActiveCache) {
+      if (now - entry.at > AFFILIATE_ACTIVE_CACHE_TTL_MS) {
+        affiliateActiveCache.delete(key);
+      }
+    }
+  }
+}
+
+async function resolveAffiliateActive(args: { uid: string; fallback: boolean | undefined }): Promise<boolean> {
+  const now = Date.now();
+  const hit = affiliateActiveCache.get(args.uid);
+  if (hit && now - hit.at < AFFILIATE_ACTIVE_CACHE_TTL_MS) {
+    return hit.value;
+  }
+  try {
+    const dbModule = await import("./db");
+    const aff = await dbModule.db.affiliateProfile.findFirst({
+      where: { customerId: args.uid, status: "ACTIVE" },
+      select: { id: true },
+    });
+    const next = Boolean(aff);
+    setAffiliateActiveCache(args.uid, next);
+    return next;
+  } catch {
+    return Boolean(args.fallback);
   }
 }
 
@@ -361,23 +397,30 @@ export const authOptions: NextAuthOptions = {
         token.role = user.role;
         token.uid = user.id;
         if (user.role === "USER") {
-          token.affiliateActive = Boolean(user.affiliateActive);
+          const active = Boolean(user.affiliateActive);
+          token.affiliateActive = active;
+          token.affiliateActiveCheckedAt = Date.now();
+          setAffiliateActiveCache(user.id, active);
         } else {
           token.affiliateActive = false;
+          token.affiliateActiveCheckedAt = Date.now();
+          if (typeof user.id === "string" && user.id) {
+            affiliateActiveCache.delete(user.id);
+          }
         }
       }
       const uid = typeof token.uid === "string" ? token.uid : undefined;
       const role = token.role as SessionRole | undefined;
       if (uid && role === "USER") {
-        try {
-          const dbModule = await import("./db");
-          const aff = await dbModule.db.affiliateProfile.findFirst({
-            where: { customerId: uid, status: "ACTIVE" },
-            select: { id: true },
+        const checkedAt =
+          typeof token.affiliateActiveCheckedAt === "number" ? token.affiliateActiveCheckedAt : 0;
+        const stillFresh = Date.now() - checkedAt < AFFILIATE_ACTIVE_CACHE_TTL_MS;
+        if (!stillFresh) {
+          token.affiliateActive = await resolveAffiliateActive({
+            uid,
+            fallback: typeof token.affiliateActive === "boolean" ? token.affiliateActive : false,
           });
-          token.affiliateActive = Boolean(aff);
-        } catch {
-          /* Giữ token.affiliateActive hiện có nếu DB tạm không đọc được. */
+          token.affiliateActiveCheckedAt = Date.now();
         }
       }
       return token;

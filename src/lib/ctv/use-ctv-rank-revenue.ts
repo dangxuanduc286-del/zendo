@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import type { StorefrontAffiliateDashboardData } from "@/lib/storefront-affiliate-dashboard";
-import { computeCtvRankRevenueFromOrders } from "@/lib/ctv/ctv-rank";
+import { CTV_REVENUE_WINDOW_DAYS, computeCtvRankRevenueFromOrders } from "@/lib/ctv/ctv-membership-tier-logic";
 
 type AffDashSlice = {
   data: StorefrontAffiliateDashboardData | null;
@@ -23,7 +23,9 @@ export function useCtvRankRevenue(affDash: AffDashSlice): { totalRevenue: number
         orderStatus: o.orderStatus,
         paymentStatus: o.paymentStatus,
         totalAmount: o.totalAmount,
+        createdAt: o.createdAt,
       })),
+      CTV_REVENUE_WINDOW_DAYS,
     );
     return { totalRevenue, loading };
   }, [affDash.data, affDash.loading]);

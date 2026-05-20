@@ -3,8 +3,6 @@ export interface CouponResult {
   amount: number;
 }
 
-export const GUEST_COUPON_CODES = ["WELCOME10", "SAVE50K", "FREESHIP30K"] as const;
-
 export function computeGuestCoupon(code: string, subtotal: number): CouponResult | null {
   const normalized = code.trim().toUpperCase();
   if (!normalized || subtotal <= 0) return null;

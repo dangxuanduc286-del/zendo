@@ -164,7 +164,7 @@ export default function AffiliateCreatorChartsSection(props: Props): JSX.Element
             Chia sẻ link ref
           </Link>
           <Link
-            href="/tai-khoan/affiliate/analytics?tab=campaign"
+            href="/tai-khoan/affiliate/campaign"
             prefetch={false}
             className={clsx(AFFILIATE_ANALYTICS_TOOLBAR_BTN_SECONDARY, "gap-1.5 px-3 py-1.5 text-xs")}
           >

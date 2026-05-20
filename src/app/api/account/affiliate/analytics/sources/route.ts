@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { AFFILIATE_ANALYTICS_CACHE_TTL_MS, withAffiliateAnalyticsCache } from "@/lib/affiliate-analytics-route-cache";
 import { parseAffiliateTrafficFilters } from "@/lib/affiliate-traffic-filters";
 import { getAffiliateTrafficSources } from "@/lib/affiliate-traffic-analytics";
 import {
@@ -31,16 +32,29 @@ export async function GET(request: Request): Promise<NextResponse> {
   const filters = parseAffiliateTrafficFilters(searchParams);
 
   try {
-    const rows = await getAffiliateTrafficSources({
-      db,
+    const body = await withAffiliateAnalyticsCache({
       affiliateProfileId: auth.affiliateProfileId,
-      range,
-      filters,
+      segment: "sources",
+      parts: {
+        range,
+        source: filters.source,
+        device: filters.device,
+        pathname: filters.pathnameContains ?? "",
+        productId: filters.productId ?? "",
+      },
+      ttlMs: AFFILIATE_ANALYTICS_CACHE_TTL_MS.topList,
+      obsLabel: "sources",
+      compute: async () => {
+        const rows = await getAffiliateTrafficSources({
+          db,
+          affiliateProfileId: auth.affiliateProfileId,
+          range,
+          filters,
+        });
+        return { ok: true as const, range, filters, rows };
+      },
     });
-    return NextResponse.json(
-      { ok: true, range, filters, rows },
-      { status: 200, headers: { "Cache-Control": "private, no-store, max-age=0" } },
-    );
+    return NextResponse.json(body, { status: 200, headers: { "Cache-Control": "private, no-store, max-age=0" } });
   } catch {
     return NextResponse.json({ ok: false, message: "Không tải được phân tích nguồn." }, { status: 500 });
   }

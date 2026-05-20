@@ -73,73 +73,80 @@ export async function getAffiliateAnalyticsOverview(args: {
 
   const since = rangeStart(args.range);
 
-  const [
-    clicks,
-    sessions,
-    paidOrders,
-    cancelledOrders,
-    revenueAgg,
-    commAgg,
-    pendingAgg,
-    approvedAgg,
-    uniqueVisitorsRaw,
-    returningVisitorsRaw,
-    orders,
-  ] = await Promise.all([
+  const [clicks, sessions, orderAgg, commAgg, visitorAgg] = await Promise.all([
     args.db.affiliateTrafficEvent.count({
       where: { affiliateProfileId: args.affiliateProfileId, eventType: "AFFILIATE_CLICK", createdAt: { gte: since } },
     }),
     args.db.affiliateRealtimeSession.count({
       where: { affiliateProfileId: args.affiliateProfileId, firstSeenAt: { gte: since } },
     }),
-    args.db.order.count({
-      where: { affiliateProfileId: args.affiliateProfileId, paymentStatus: "PAID", paidAt: { gte: since } },
-    }),
-    args.db.order.count({
-      where: { affiliateProfileId: args.affiliateProfileId, orderStatus: "CANCELED", canceledAt: { gte: since } },
-    }),
-    args.db.order.aggregate({
-      where: { affiliateProfileId: args.affiliateProfileId, paymentStatus: "PAID", paidAt: { gte: since } },
-      _sum: { totalAmount: true },
-    }),
-    args.db.affiliateCommission.aggregate({
-      where: { affiliateProfileId: args.affiliateProfileId, createdAt: { gte: since } },
-      _sum: { amount: true },
-    }),
-    args.db.affiliateCommission.aggregate({
-      where: { affiliateProfileId: args.affiliateProfileId, status: "PENDING" },
-      _sum: { amount: true },
-    }),
-    args.db.affiliateCommission.aggregate({
-      where: { affiliateProfileId: args.affiliateProfileId, status: "AVAILABLE" },
-      _sum: { amount: true },
-    }),
-    // uniqueVisitors: distinct visitorKey (fallback sessionId) trong range
-    args.db.affiliateRealtimeSession.groupBy({
-      by: ["visitorKey"],
-      where: { affiliateProfileId: args.affiliateProfileId, firstSeenAt: { gte: since }, visitorKey: { not: null } },
-      _count: { _all: true },
-    }),
-    // returningVisitors: visitorKey xuất hiện >=2 session (range) — raw để tránh having type nặng
-    args.db.$queryRaw<{ visitorKey: string }[]>`
-      SELECT "visitorKey"
-      FROM "AffiliateRealtimeSession"
+    args.db.$queryRaw<{
+      paidOrders: bigint;
+      cancelledOrders: bigint;
+      orders: bigint;
+      totalRevenue: string | null;
+    }[]>`
+      SELECT
+        COUNT(*) FILTER (
+          WHERE "paymentStatus" = 'PAID'
+            AND "paidAt" >= ${since}
+        )::bigint AS "paidOrders",
+        COUNT(*) FILTER (
+          WHERE "orderStatus" = 'CANCELED'
+            AND "canceledAt" >= ${since}
+        )::bigint AS "cancelledOrders",
+        COUNT(*) FILTER (
+          WHERE "createdAt" >= ${since}
+        )::bigint AS "orders",
+        SUM("totalAmount") FILTER (
+          WHERE "paymentStatus" = 'PAID'
+            AND "paidAt" >= ${since}
+        )::text AS "totalRevenue"
+      FROM "Order"
       WHERE "affiliateProfileId" = ${args.affiliateProfileId}
-        AND "firstSeenAt" >= ${since}
-        AND "visitorKey" IS NOT NULL
-      GROUP BY "visitorKey"
-      HAVING COUNT(*) >= 2
     `,
-    args.db.order.count({ where: { affiliateProfileId: args.affiliateProfileId, createdAt: { gte: since } } }),
+    args.db.$queryRaw<{
+      totalCommission: string | null;
+      pendingCommission: string | null;
+      approvedCommission: string | null;
+    }[]>`
+      SELECT
+        SUM("amount") FILTER (WHERE "createdAt" >= ${since})::text AS "totalCommission",
+        SUM("amount") FILTER (WHERE "status" = 'PENDING')::text AS "pendingCommission",
+        SUM("amount") FILTER (WHERE "status" = 'AVAILABLE')::text AS "approvedCommission"
+      FROM "AffiliateCommission"
+      WHERE "affiliateProfileId" = ${args.affiliateProfileId}
+    `,
+    args.db.$queryRaw<{ uniqueVisitors: bigint; returningVisitors: bigint }[]>`
+      SELECT
+        COUNT(*)::bigint AS "uniqueVisitors",
+        COALESCE(SUM(CASE WHEN x.cnt >= 2 THEN 1 ELSE 0 END), 0)::bigint AS "returningVisitors"
+      FROM (
+        SELECT "visitorKey", COUNT(*)::int AS cnt
+        FROM "AffiliateRealtimeSession"
+        WHERE "affiliateProfileId" = ${args.affiliateProfileId}
+          AND "firstSeenAt" >= ${since}
+          AND "visitorKey" IS NOT NULL
+        GROUP BY "visitorKey"
+      ) x
+    `,
   ]);
 
-  const totalRevenue = Number(revenueAgg._sum.totalAmount ?? 0);
-  const totalCommission = Number(commAgg._sum.amount ?? 0);
-  const pendingCommission = Number(pendingAgg._sum.amount ?? 0);
-  const approvedCommission = Number(approvedAgg._sum.amount ?? 0);
+  const orderRow = orderAgg[0];
+  const commRow = commAgg[0];
+  const visitorRow = visitorAgg[0];
 
-  const uniqueVisitors = uniqueVisitorsRaw.length || sessions;
-  const returningVisitors = returningVisitorsRaw.length;
+  const paidOrders = Number(orderRow?.paidOrders ?? 0);
+  const cancelledOrders = Number(orderRow?.cancelledOrders ?? 0);
+  const orders = Number(orderRow?.orders ?? 0);
+  const totalRevenue = Number(orderRow?.totalRevenue ?? 0);
+  const totalCommission = Number(commRow?.totalCommission ?? 0);
+  const pendingCommission = Number(commRow?.pendingCommission ?? 0);
+  const approvedCommission = Number(commRow?.approvedCommission ?? 0);
+
+  const uniqueVisitorsCount = Number(visitorRow?.uniqueVisitors ?? 0);
+  const uniqueVisitors = uniqueVisitorsCount || sessions;
+  const returningVisitors = Number(visitorRow?.returningVisitors ?? 0);
 
   const conversionRate = clicks > 0 ? paidOrders / clicks : 0;
   const epc = clicks > 0 ? totalCommission / clicks : 0;
@@ -292,46 +299,34 @@ export async function getAffiliateTopLandingPages(args: {
   const since = rangeStart(args.range);
   const take = Math.min(50, Math.max(1, Math.floor(args.take)));
 
-  const [visits, paid] = await Promise.all([
-    args.db.$queryRaw<{ pathname: string; visits: bigint }[]>`
-      SELECT "pathname", COUNT(*)::bigint AS visits
-      FROM "AffiliateTrafficEvent"
-      WHERE "affiliateProfileId" = ${args.affiliateProfileId}
-        AND "createdAt" >= ${since}
-        AND "eventType" = 'AFFILIATE_CLICK'
-        AND "pathname" IS NOT NULL
-      GROUP BY "pathname"
-      ORDER BY visits DESC
-      LIMIT ${take}
-    `,
-    args.db.$queryRaw<{ pathname: string; paidOrders: bigint; revenue: string | null }[]>`
-      SELECT "pathname", COUNT(*)::bigint AS "paidOrders", SUM(COALESCE("revenue", 0))::text AS revenue
-      FROM "AffiliateTrafficEvent"
-      WHERE "affiliateProfileId" = ${args.affiliateProfileId}
-        AND "createdAt" >= ${since}
-        AND "eventType" = 'ORDER_PAID'
-        AND "pathname" IS NOT NULL
-      GROUP BY "pathname"
-      ORDER BY "paidOrders" DESC
-      LIMIT ${take}
-    `,
-  ]);
-
-  const paidMap = new Map<string, { paidOrders: number; revenue: number }>(
-    paid.map((r) => [String(r.pathname), { paidOrders: Number(r.paidOrders), revenue: Number(r.revenue ?? 0) }]),
-  );
+  const rows = await args.db.$queryRaw<{ pathname: string; visits: bigint; paidOrders: bigint; revenue: string | null }[]>`
+    SELECT
+      "pathname",
+      SUM(CASE WHEN "eventType" = 'AFFILIATE_CLICK' THEN 1 ELSE 0 END)::bigint AS visits,
+      SUM(CASE WHEN "eventType" = 'ORDER_PAID' THEN 1 ELSE 0 END)::bigint AS "paidOrders",
+      SUM(CASE WHEN "eventType" = 'ORDER_PAID' THEN COALESCE("revenue", 0) ELSE 0 END)::text AS revenue
+    FROM "AffiliateTrafficEvent"
+    WHERE "affiliateProfileId" = ${args.affiliateProfileId}
+      AND "createdAt" >= ${since}
+      AND "pathname" IS NOT NULL
+      AND "eventType" IN ('AFFILIATE_CLICK', 'ORDER_PAID')
+    GROUP BY "pathname"
+    ORDER BY visits DESC
+    LIMIT ${take}
+  `;
 
   // proxies: bounce/avg session require pageview stream; approximate with clicks-only data.
-  return visits.map((r) => {
+  return rows.map((r) => {
     const pathname = String(r.pathname);
     const visitCount = Number(r.visits);
-    const p = paidMap.get(pathname) ?? { paidOrders: 0, revenue: 0 };
-    const conv = visitCount > 0 ? p.paidOrders / visitCount : 0;
+    const paidOrders = Number(r.paidOrders);
+    const revenue = Number(r.revenue ?? 0);
+    const conv = visitCount > 0 ? paidOrders / visitCount : 0;
     return {
       pathname,
       visits: visitCount,
-      paidOrders: p.paidOrders,
-      revenue: p.revenue,
+      paidOrders,
+      revenue,
       conversionRate: conv,
       bounceProxy: 0,
       avgSessionProxySec: 0,

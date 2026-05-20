@@ -1,7 +1,7 @@
 import { NEXT_IMAGE_QUALITIES } from "../../next-image-config.mjs";
 
 /** Đồng bộ với `images.qualities` trong next.config.mjs */
-export const NEXT_IMAGE_ALLOWED_QUALITIES = NEXT_IMAGE_QUALITIES as readonly number[];
+const NEXT_IMAGE_ALLOWED_QUALITIES = NEXT_IMAGE_QUALITIES as readonly number[];
 
 const ALLOWED_SET = new Set<number>(NEXT_IMAGE_ALLOWED_QUALITIES);
 

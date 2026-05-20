@@ -10,7 +10,7 @@ import {
 export { CTV_TAB_ACTIVE, CTV_TAB_IDLE_HOVER, CTV_TAB_RADIUS };
 
 export const CTV_LAYOUT_GRID =
-  "flex w-full min-w-0 flex-col gap-4 overflow-x-hidden lg:grid lg:grid-cols-[minmax(17rem,280px)_minmax(0,1fr)] lg:items-start lg:gap-5 xl:grid-cols-[280px_minmax(0,1fr)]";
+  "flex w-full min-w-0 flex-col gap-4 overflow-x-hidden lg:grid lg:grid-cols-[240px_minmax(0,1fr)] lg:items-start lg:gap-6 xl:grid-cols-[248px_minmax(0,1fr)]";
 
 export const CTV_SIDEBAR_ASIDE =
   "hidden min-h-0 w-full md:flex lg:h-fit lg:flex-col lg:self-start lg:py-1 lg:sticky lg:top-4";

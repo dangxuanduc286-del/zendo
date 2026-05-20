@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../../../../lib/auth";
 import { db } from "../../../../../lib/db";
+import {
+  AffiliateWithdrawalInsufficientBalanceError,
+  createAffiliateWithdrawalRequestInTransaction,
+} from "../../../../../lib/affiliate/affiliate-withdrawal-ledger";
 import { getStorefrontAffiliateDashboardForCustomer } from "../../../../../lib/storefront-affiliate-dashboard";
 
 /**
@@ -74,16 +78,6 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 
-  if (roundVnd > snapshot.summary.withdrawableBalance) {
-    return NextResponse.json(
-      {
-        ok: false,
-        message: "Số tiền vượt quá số dư có thể rút hiện tại.",
-      },
-      { status: 400 },
-    );
-  }
-
   const note = typeof body.note === "string" ? body.note.trim().slice(0, 2000) : "";
   const paymentPayload = JSON.stringify({
     bank: payoutAccount.bankName,
@@ -93,15 +87,11 @@ export async function POST(request: Request): Promise<NextResponse> {
   }).slice(0, 8000);
 
   try {
-    const created = await db.affiliateWithdrawalRequest.create({
-      data: {
-        affiliateProfileId: snapshot.profileId,
-        amount: roundVnd,
-        availableAmount: snapshot.summary.withdrawableBalance,
-        paymentMethod: "BANK",
-        paymentInfo: paymentPayload,
-      },
-      select: { id: true, createdAt: true },
+    const created = await createAffiliateWithdrawalRequestInTransaction({
+      affiliateProfileId: snapshot.profileId,
+      amountVnd: roundVnd,
+      paymentMethod: "BANK",
+      paymentInfo: paymentPayload,
     });
     return NextResponse.json({
       ok: true,
@@ -110,6 +100,15 @@ export async function POST(request: Request): Promise<NextResponse> {
       createdAt: created.createdAt.toISOString(),
     });
   } catch (e) {
+    if (e instanceof AffiliateWithdrawalInsufficientBalanceError) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "Số tiền vượt quá số dư có thể rút hiện tại.",
+        },
+        { status: 400 },
+      );
+    }
     console.error("[affiliate/withdrawal]", e);
     return NextResponse.json({ ok: false, message: "Không gửi được yêu cầu." }, { status: 500 });
   }

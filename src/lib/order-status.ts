@@ -141,29 +141,6 @@ export function orderStatusesForPhase2ApiFilter(
 
 export type AccountOrdersDateRangePreset = "all" | "7d" | "30d" | "3m";
 
-export function parsePhase2ApiStatusFilter(raw: string | undefined | null): AccountOrderPhase2ApiStatusFilter {
-  const key = String(raw ?? "")
-    .trim()
-    .toLowerCase();
-  const allowed = new Set<AccountOrderPhase2ApiStatusFilter>([
-    "all",
-    "processing",
-    "shipping",
-    "completed",
-    "canceled",
-    "refunded",
-  ]);
-  return allowed.has(key as AccountOrderPhase2ApiStatusFilter) ? (key as AccountOrderPhase2ApiStatusFilter) : "all";
-}
-
-export function parseDateRangePreset(raw: string | undefined | null): AccountOrdersDateRangePreset {
-  const key = String(raw ?? "")
-    .trim()
-    .toLowerCase();
-  const allowed = new Set<AccountOrdersDateRangePreset>(["all", "7d", "30d", "3m"]);
-  return allowed.has(key as AccountOrdersDateRangePreset) ? (key as AccountOrdersDateRangePreset) : "all";
-}
-
 /** Khoảng thời gian đặt hàng (`createdAt`) theo preset; `all` ⇒ không áp điều kiện. */
 export function createdAtBoundsForDateRangePreset(
   preset: AccountOrdersDateRangePreset,
@@ -268,6 +245,3 @@ export function canReorder(orderStatus: OrderStatus | string): boolean {
   return s === "DELIVERED" || s === "COMPLETED";
 }
 
-export function canReviewOrder(orderStatus: OrderStatus | string): boolean {
-  return canReorder(orderStatus);
-}

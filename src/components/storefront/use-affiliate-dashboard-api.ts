@@ -4,6 +4,34 @@ import { useCallback, useEffect, useState } from "react";
 import type { StorefrontAffiliateDashboardData } from "../../lib/storefront-affiliate-dashboard";
 
 type ApiPayload = { ok?: boolean; message?: string; data?: StorefrontAffiliateDashboardData };
+const DASHBOARD_CACHE_TTL_MS = 15_000;
+
+let sharedDashboardCache: { at: number; data: StorefrontAffiliateDashboardData } | null = null;
+let sharedDashboardInFlight: Promise<StorefrontAffiliateDashboardData> | null = null;
+
+async function fetchAffiliateDashboardShared(force = false): Promise<StorefrontAffiliateDashboardData> {
+  const now = Date.now();
+  if (!force && sharedDashboardCache && now - sharedDashboardCache.at < DASHBOARD_CACHE_TTL_MS) {
+    return sharedDashboardCache.data;
+  }
+  if (sharedDashboardInFlight) return sharedDashboardInFlight;
+
+  sharedDashboardInFlight = (async () => {
+    const res = await fetch("/api/account/affiliate/dashboard", { credentials: "same-origin" });
+    const json = (await res.json()) as ApiPayload;
+    if (!res.ok || !json.ok || !json.data) {
+      throw new Error(json.message || "Không tải được dữ liệu CTV.");
+    }
+    sharedDashboardCache = { at: Date.now(), data: json.data };
+    return json.data;
+  })();
+
+  try {
+    return await sharedDashboardInFlight;
+  } finally {
+    sharedDashboardInFlight = null;
+  }
+}
 
 export function useAffiliateDashboardApi(enabled: boolean): {
   loading: boolean;
@@ -30,13 +58,9 @@ export function useAffiliateDashboardApi(enabled: boolean): {
     setError(null);
     void (async () => {
       try {
-        const res = await fetch("/api/account/affiliate/dashboard", { credentials: "same-origin" });
-        const json = (await res.json()) as ApiPayload;
-        if (!res.ok || !json.ok || !json.data) {
-          throw new Error(json.message || "Không tải được dữ liệu CTV.");
-        }
+        const json = await fetchAffiliateDashboardShared(tick > 0);
         if (cancelled) return;
-        setData(json.data);
+        setData(json);
         setError(null);
       } catch (e) {
         if (cancelled) return;

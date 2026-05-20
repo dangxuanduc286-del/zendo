@@ -188,6 +188,3 @@ export function buildArticleJsonLd(input: {
   };
 }
 
-export function toJsonLdScript(jsonLd: Record<string, unknown>): string {
-  return JSON.stringify(jsonLd);
-}

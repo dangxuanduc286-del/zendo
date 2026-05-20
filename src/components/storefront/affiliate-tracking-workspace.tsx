@@ -403,7 +403,7 @@ export default function AffiliateTrackingWorkspace(): JSX.Element {
         <CreatorSectionShell title="Tracking links" hint="Short link /go + campaign">
           <p className="mt-4 text-sm text-slate-600">
             Quản lý slug, campaign và hiệu suất từng link trong tab{" "}
-            <Link className="font-semibold text-blue-700 underline" href="/tai-khoan/affiliate/analytics?tab=campaign">
+            <Link className="font-semibold text-blue-700 underline" href="/tai-khoan/affiliate/campaign">
               Campaign
             </Link>{" "}
             và API short-links.

@@ -3,7 +3,7 @@ export interface LocationOption {
   value: string;
 }
 
-export function normalizeLocationName(name: string): string {
+function normalizeLocationName(name: string): string {
   if (!name) return "";
   return name
     .replace(/^(tinh|thanh pho|tp\.?)\s+/i, "")

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { AFFILIATE_ANALYTICS_CACHE_TTL_MS, withAffiliateAnalyticsCache } from "@/lib/affiliate-analytics-route-cache";
 import { getAffiliateConversionFunnel } from "@/lib/affiliate-analytics";
 import { assertAffiliateCampaignOwned, getAffiliateCampaignConversionFunnel } from "@/lib/affiliate-campaign-analytics";
 import {
@@ -34,30 +35,47 @@ export async function GET(request: Request): Promise<NextResponse> {
 
   try {
     if (campaignId) {
-      const owned = await assertAffiliateCampaignOwned({
-        db,
+      const body = await withAffiliateAnalyticsCache({
         affiliateProfileId: auth.affiliateProfileId,
-        campaignId,
+        segment: "funnel",
+        parts: { range, scope: "campaign", campaignId },
+        ttlMs: AFFILIATE_ANALYTICS_CACHE_TTL_MS.topList,
+        obsLabel: "funnel-campaign",
+        compute: async () => {
+          const owned = await assertAffiliateCampaignOwned({
+            db,
+            affiliateProfileId: auth.affiliateProfileId,
+            campaignId,
+          });
+          if (!owned) {
+            return { ok: false as const, status: 404 as const, message: "Không tìm thấy." };
+          }
+          const rows = await getAffiliateCampaignConversionFunnel({
+            db,
+            affiliateProfileId: auth.affiliateProfileId,
+            campaignId,
+            range,
+          });
+          return { ok: true as const, range, scope: "campaign" as const, campaignId, steps: rows };
+        },
       });
-      if (!owned) {
-        return NextResponse.json({ ok: false, message: "Không tìm thấy." }, { status: 404 });
+      if (!body.ok && body.status === 404) {
+        return NextResponse.json({ ok: false, message: body.message }, { status: 404 });
       }
-      const rows = await getAffiliateCampaignConversionFunnel({
-        db,
-        affiliateProfileId: auth.affiliateProfileId,
-        campaignId,
-        range,
-      });
-      return NextResponse.json(
-        { ok: true, range, scope: "campaign" as const, campaignId, steps: rows },
-        { status: 200, headers: { "Cache-Control": "private, no-store, max-age=0" } },
-      );
+      return NextResponse.json(body, { status: 200, headers: { "Cache-Control": "private, no-store, max-age=0" } });
     }
-    const rows = await getAffiliateConversionFunnel({ db, affiliateProfileId: auth.affiliateProfileId, range });
-    return NextResponse.json(
-      { ok: true, range, scope: "profile" as const, steps: rows },
-      { status: 200, headers: { "Cache-Control": "private, no-store, max-age=0" } },
-    );
+    const body = await withAffiliateAnalyticsCache({
+      affiliateProfileId: auth.affiliateProfileId,
+      segment: "funnel",
+      parts: { range, scope: "profile" },
+      ttlMs: AFFILIATE_ANALYTICS_CACHE_TTL_MS.topList,
+      obsLabel: "funnel-profile",
+      compute: async () => {
+        const rows = await getAffiliateConversionFunnel({ db, affiliateProfileId: auth.affiliateProfileId, range });
+        return { ok: true as const, range, scope: "profile" as const, steps: rows };
+      },
+    });
+    return NextResponse.json(body, { status: 200, headers: { "Cache-Control": "private, no-store, max-age=0" } });
   } catch {
     return NextResponse.json({ ok: false, message: "Không tải được funnel analytics." }, { status: 500 });
   }

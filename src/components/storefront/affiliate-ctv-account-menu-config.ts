@@ -8,7 +8,6 @@ import {
   HandCoins,
   LayoutDashboard,
   Megaphone,
-  Share2,
   Shield,
   ShoppingBag,
   Target,
@@ -84,17 +83,6 @@ export const ACCOUNT_MENU_ITEMS: readonly AccountMenuItemDef[] = [
     tab: "overview",
   },
   {
-    key: "share",
-    kind: "tab",
-    group: "ctv",
-    mobile: true,
-    desktop: true,
-    label: "Chia sẻ",
-    icon: Share2,
-    tab: "affiliate",
-    subTab: "links",
-  },
-  {
     key: "promo",
     kind: "link",
     group: "ctv",
@@ -102,7 +90,7 @@ export const ACCOUNT_MENU_ITEMS: readonly AccountMenuItemDef[] = [
     desktop: true,
     label: "Quảng bá",
     icon: Megaphone,
-    href: "/tai-khoan/affiliate/analytics?tab=campaign",
+    href: "/tai-khoan/affiliate/campaign",
   },
   {
     key: "analytics",
@@ -195,7 +183,6 @@ function defToEntry(
     switch (def.key) {
       case "overview":
         return flags.showOverview;
-      case "share":
       case "promo":
         return flags.showAffiliate && a;
       case "analytics":

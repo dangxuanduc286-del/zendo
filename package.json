@@ -2,7 +2,7 @@
   "scripts": {
     "dev": "next dev",
     "postinstall": "prisma generate",
-    "build": "prisma generate && next build",
+    "build": "prisma generate && node scripts/next-build.mjs",
     "clean": "node scripts/clean-next.cjs",
     "build:ci": "npm run clean && npm run build",
     "start": "next start",
@@ -28,6 +28,7 @@
     "@hookform/resolvers": "^5.2.2",
     "@prisma/adapter-pg": "^7.7.0",
     "@prisma/client": "^7.7.0",
+    "@tiptap/core": "^2.27.2",
     "@tiptap/extension-color": "^2.27.2",
     "@tiptap/extension-image": "^2.27.2",
     "@tiptap/extension-link": "^2.27.2",

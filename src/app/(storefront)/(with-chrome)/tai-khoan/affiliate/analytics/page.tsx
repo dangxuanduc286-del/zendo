@@ -32,6 +32,9 @@ export default async function AffiliateAnalyticsPage({
   }
 
   const sp = (await searchParams) ?? {};
+  if (sp.tab === "campaign") {
+    redirect("/tai-khoan/affiliate/campaign");
+  }
   const initialMenuKey = typeof sp.tab === "string" ? sp.tab : undefined;
 
   return <AffiliateAnalyticsDashboardClient affiliateRefCode={profile.refCode} initialMenuKey={initialMenuKey} />;

@@ -10,7 +10,7 @@ import {
   CTV_V2_PROFILE_ACTIONS_GRID,
 } from "./ctv-ui-tokens";
 
-const ACTION_ICON_CLASS = "h-[18px] w-[18px] sm:h-5 sm:w-5";
+const ACTION_ICON_CLASS = "h-6 w-6";
 
 export type CtvProfileQuickAction = {
   id: string;

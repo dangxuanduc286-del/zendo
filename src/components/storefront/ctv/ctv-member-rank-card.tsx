@@ -1,113 +1,154 @@
 "use client";
 
+import { Gift, Lock, LockOpen } from "lucide-react";
 import { memo, useMemo } from "react";
-import { getCtvRank, formatCtvRankMoney } from "@/lib/ctv/ctv-rank";
-import { CTV_V2_CARD_COMPACT, CTV_V2_MOTION, CTV_V2_SECTION_TITLE } from "./ctv-ui-tokens";
+import {
+  CTV_RANK_REVENUE_CAPTION,
+  formatCtvRankMoney,
+  getCtvRankFromTiers,
+  getCtvRankCardRewardFocus,
+  formatCtvRevenueRewardAmount,
+  type CtvRankResult,
+} from "@/lib/ctv/ctv-membership-tier-logic";
+import type { CtvMembershipTierRecord } from "@/lib/ctv/ctv-membership-tier-types";
+import {
+  CTV_HUB_CARD_PAD,
+  CTV_HUB_CARD_TITLE,
+  CTV_HUB_INNER_CARD,
+  CTV_HUB_PROGRESS_PCT,
+  CTV_HUB_PROGRESS_TRACK,
+  CTV_HUB_RANK_BADGE,
+  CTV_HUB_RANK_BODY,
+  CTV_HUB_RANK_CAPTION,
+  CTV_HUB_RANK_CARD_SURFACE,
+  CTV_HUB_RANK_CONTENT,
+  CTV_HUB_RANK_FOOTER,
+  CTV_HUB_RANK_FOOTER_HINT,
+  CTV_HUB_RANK_FOOTER_ROW,
+  CTV_HUB_RANK_ICON_WRAP,
+  CTV_HUB_RANK_META,
+  CTV_HUB_RANK_NAME,
+  CTV_HUB_RANK_REVENUE,
+  CTV_HUB_RANK_REWARD_AMOUNT,
+  CTV_HUB_RANK_REWARD_AMOUNT_ACHIEVED,
+  CTV_HUB_RANK_REWARD_AMOUNT_PENDING,
+  CTV_HUB_RANK_REWARD_BODY,
+  CTV_HUB_RANK_REWARD_COPY,
+  CTV_HUB_RANK_REWARD_DIVIDER,
+  CTV_HUB_RANK_REWARD_GIFT_GLYPH,
+  CTV_HUB_RANK_REWARD_GIFT_ICON,
+  CTV_HUB_RANK_REWARD_LABEL,
+  CTV_HUB_RANK_REWARD_LINE,
+  CTV_HUB_RANK_REWARD_MAIN,
+  CTV_HUB_RANK_REWARD_SECTION,
+  CTV_HUB_RANK_REWARD_STATUS,
+  CTV_HUB_RANK_REWARD_SUFFIX,
+} from "./ctv-ui-tokens";
 
 type CtvMemberRankCardProps = {
   totalRevenue: number;
+  tiers: readonly CtvMembershipTierRecord[];
+  grantedTierIds?: readonly string[];
   loading?: boolean;
+  tiersLoading?: boolean;
 };
 
-function CtvMemberRankCardInner({ totalRevenue, loading = false }: CtvMemberRankCardProps): JSX.Element {
-  const rank = useMemo(() => getCtvRank(totalRevenue), [totalRevenue]);
+function buildTierMetaLine(rank: CtvRankResult): string {
+  if (rank.isMaxRank) {
+    return `Hạng ${rank.badge} • Đã đạt cấp cao nhất`;
+  }
+  if (rank.nextThreshold == null) {
+    return rank.level === "none" ? "Hạng chưa kích hoạt" : `Hạng ${rank.badge}`;
+  }
+  const tierLabel = rank.level === "none" ? "chưa kích hoạt" : rank.badge;
+  return `Hạng ${tierLabel} • Mốc tiếp: ${formatCtvRankMoney(rank.nextThreshold)}`;
+}
+
+function CtvMemberRankCardInner({
+  totalRevenue,
+  tiers,
+  grantedTierIds = [],
+  loading = false,
+  tiersLoading = false,
+}: CtvMemberRankCardProps): JSX.Element {
+  const grantedSet = useMemo(() => new Set(grantedTierIds), [grantedTierIds]);
+  const rank = useMemo(() => getCtvRankFromTiers(totalRevenue, tiers), [totalRevenue, tiers]);
+  const rewardFocus = useMemo(
+    () => getCtvRankCardRewardFocus(totalRevenue, tiers, grantedSet),
+    [totalRevenue, tiers, grantedSet],
+  );
   const Icon = rank.icon;
+  const tierMetaLine = useMemo(() => buildTierMetaLine(rank), [rank]);
+  const currentRevenueFormatted = formatCtvRankMoney(totalRevenue);
+  const busy = loading || tiersLoading || tiers.length === 0;
+
+  const progressFill = rank.isMaxRank
+    ? "from-emerald-500 via-green-500 to-emerald-600"
+    : rank.color.progress;
+  const progressWidth = busy ? 30 : rank.progress;
 
   return (
     <article
       className={[
-        CTV_V2_CARD_COMPACT,
-        "group relative overflow-hidden",
-        "rounded-2xl",
-        "bg-gradient-to-br",
+        CTV_HUB_INNER_CARD,
+        CTV_HUB_CARD_PAD,
+        CTV_HUB_RANK_CARD_SURFACE,
         rank.color.gradient,
-        "ring-1 ring-black/[0.04]",
-        "transition-[transform,box-shadow] duration-200 ease-out",
-        "hover:-translate-y-0.5 hover:shadow-[0_12px_32px_rgba(15,23,42,0.08)]",
-        rank.color.glow,
-        CTV_V2_MOTION,
       ].join(" ")}
       aria-labelledby="ctv-member-rank-heading"
     >
       <div
-        className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full bg-white/40 blur-2xl"
+        className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-white/25 blur-2xl"
         aria-hidden
       />
 
-      <div className="relative flex flex-wrap items-start justify-between gap-2">
-        <h3 id="ctv-member-rank-heading" className={CTV_V2_SECTION_TITLE}>
+      <header className="relative flex min-w-0 items-center justify-between gap-3">
+        <h2 id="ctv-member-rank-heading" className={CTV_HUB_CARD_TITLE}>
           Cấp bậc thành viên CTV
-        </h3>
-        <span
-          className={[
-            "inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide ring-1",
-            rank.color.badge,
-            rank.level !== "none" ? "shadow-sm" : "",
-          ].join(" ")}
-        >
-          {rank.badge}
-        </span>
-      </div>
+        </h2>
+        <span className={[CTV_HUB_RANK_BADGE, rank.color.badge].join(" ")}>{rank.badge}</span>
+      </header>
 
-      <div className="relative mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-        <div
-          className={[
-            "flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br shadow-inner ring-1 ring-white/60 sm:h-16 sm:w-16",
-            rank.color.iconBg,
-          ].join(" ")}
-          aria-hidden
-        >
-          <Icon className={`h-7 w-7 sm:h-8 sm:w-8 ${rank.color.iconText}`} strokeWidth={1.6} />
+      <div className={CTV_HUB_RANK_BODY}>
+        <div className={[CTV_HUB_RANK_ICON_WRAP, rank.color.iconBg].join(" ")} aria-hidden>
+          <Icon className={`h-8 w-8 sm:h-9 sm:w-9 ${rank.color.iconText}`} strokeWidth={1.6} />
         </div>
 
-        <div className="min-w-0 flex-1">
-          <p className="text-lg font-bold leading-tight tracking-tight text-[#0f172a]">{rank.name}</p>
-          <p className="mt-0.5 text-xs font-medium text-slate-500">
-            Hạng {rank.level === "none" ? "chưa kích hoạt" : rank.badge}
-            {rank.nextThreshold != null && !rank.isMaxRank ? (
-              <>
-                {" "}
-                · Mốc tiếp: <span className="font-semibold text-slate-700">{formatCtvRankMoney(rank.nextThreshold)}</span>
-              </>
-            ) : null}
+        <div className={CTV_HUB_RANK_CONTENT}>
+          <p className={`${CTV_HUB_RANK_NAME} truncate`} title={rank.name}>
+            {rank.name}
           </p>
-          {loading ? (
-            <div className="mt-2 h-7 w-36 animate-pulse rounded-lg bg-slate-200/80" aria-hidden />
+          <p className={CTV_HUB_RANK_META} title={tierMetaLine}>
+            {tierMetaLine}
+          </p>
+          {busy ? (
+            <div className="h-7 w-36 max-w-full animate-pulse rounded-md bg-slate-200/80" aria-hidden />
           ) : (
-            <p className="mt-1.5 text-xl font-black tabular-nums tracking-tight text-[#0f172a]">
-              {formatCtvRankMoney(totalRevenue)}
+            <p className={CTV_HUB_RANK_REVENUE} title={currentRevenueFormatted}>
+              {currentRevenueFormatted}
             </p>
           )}
-          <p className="mt-0.5 text-[12px] font-medium text-slate-500">Tổng doanh thu đơn thành công (đã thanh toán)</p>
-          {!loading ? (
-            <p className="mt-1 text-[13px] font-medium text-slate-600">{rank.progressHint}</p>
-          ) : (
-            <div className="mt-2 h-4 w-full max-w-sm animate-pulse rounded bg-slate-200/70" aria-hidden />
-          )}
+          <p className={CTV_HUB_RANK_CAPTION} title={CTV_RANK_REVENUE_CAPTION}>
+            {CTV_RANK_REVENUE_CAPTION}
+          </p>
         </div>
-
-        {!rank.isMaxRank && rank.level !== "none" ? (
-          <div
-            className={[
-              "hidden shrink-0 rounded-xl px-3 py-2 text-center sm:block",
-              "bg-white/70 ring-1 ring-white/80 backdrop-blur-sm",
-              "shadow-[0_4px_16px_rgba(37,99,235,0.12)]",
-            ].join(" ")}
-          >
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Tiến độ</p>
-            <p className="text-lg font-bold tabular-nums text-blue-700">{rank.progress}%</p>
-          </div>
-        ) : null}
       </div>
 
-      <div className="relative mt-3">
-        <div className="mb-1.5 flex items-center justify-between gap-2 text-[12px]">
-          <span className="font-medium text-slate-500 truncate">{rank.progressHint}</span>
-          <span className="shrink-0 font-semibold tabular-nums text-slate-700 sm:hidden">{rank.progress}%</span>
-          <span className="hidden shrink-0 font-semibold tabular-nums text-slate-700 sm:inline">{rank.progress}%</span>
+      <footer className={CTV_HUB_RANK_FOOTER}>
+        <div className={CTV_HUB_RANK_FOOTER_ROW}>
+          {busy ? (
+            <div className="h-5 min-w-0 flex-1 animate-pulse rounded bg-slate-200/70" aria-hidden />
+          ) : (
+            <p className={CTV_HUB_RANK_FOOTER_HINT} title={rank.progressHint}>
+              {rank.progressHint}
+            </p>
+          )}
+          <span className={CTV_HUB_PROGRESS_PCT} aria-hidden={busy}>
+            {busy ? "—" : `${rank.progress}%`}
+          </span>
         </div>
         <div
-          className="h-2 overflow-hidden rounded-full bg-slate-200/80"
+          className={CTV_HUB_PROGRESS_TRACK}
           role="progressbar"
           aria-valuenow={rank.progress}
           aria-valuemin={0}
@@ -115,15 +156,80 @@ function CtvMemberRankCardInner({ totalRevenue, loading = false }: CtvMemberRank
           aria-label={rank.progressHint}
         >
           <div
-            className={[
-              "h-full rounded-full bg-gradient-to-r transition-[width] duration-500 ease-out",
-              rank.color.progress,
-              "group-hover:shadow-[0_0_12px_rgba(59,130,246,0.35)]",
-            ].join(" ")}
-            style={{ width: loading ? "30%" : `${rank.progress}%` }}
+            className={["h-full rounded-full bg-gradient-to-r transition-[width] duration-300", progressFill].join(
+              " ",
+            )}
+            style={{ width: `${progressWidth}%` }}
           />
         </div>
-      </div>
+
+        <div className={CTV_HUB_RANK_REWARD_SECTION}>
+          <div className={CTV_HUB_RANK_REWARD_DIVIDER} role="separator" aria-hidden />
+
+          <div className={CTV_HUB_RANK_REWARD_BODY}>
+            <div className={CTV_HUB_RANK_REWARD_MAIN}>
+              <span className={CTV_HUB_RANK_REWARD_GIFT_ICON} aria-hidden>
+                <Gift className={CTV_HUB_RANK_REWARD_GIFT_GLYPH} strokeWidth={2.25} />
+              </span>
+
+              {busy ? (
+                <div className="flex min-w-[9rem] flex-col items-center gap-1.5" aria-hidden>
+                  <div className="h-6 w-full max-w-[12rem] animate-pulse rounded-md bg-slate-200/70" />
+                  <div className="h-4 w-28 animate-pulse rounded bg-slate-200/60" />
+                </div>
+              ) : (
+                <div className={CTV_HUB_RANK_REWARD_COPY}>
+                  <p className={CTV_HUB_RANK_REWARD_LINE}>
+                    <span className={CTV_HUB_RANK_REWARD_LABEL}>Thưởng:</span>
+                    <span
+                      className={[
+                        CTV_HUB_RANK_REWARD_AMOUNT,
+                        rewardFocus.achieved
+                          ? CTV_HUB_RANK_REWARD_AMOUNT_ACHIEVED
+                          : CTV_HUB_RANK_REWARD_AMOUNT_PENDING,
+                        !rewardFocus.achieved ? rewardFocus.amountTextClass : "",
+                      ].join(" ")}
+                    >
+                      {formatCtvRevenueRewardAmount(rewardFocus.tier)}
+                    </span>
+                  </p>
+                  <p className={CTV_HUB_RANK_REWARD_SUFFIX}>khi đạt yêu cầu</p>
+                </div>
+              )}
+            </div>
+
+            {busy ? (
+              <div className="h-7 w-24 shrink-0 animate-pulse rounded-full bg-slate-200/70" aria-hidden />
+            ) : rewardFocus.granted ? (
+              <span
+                className={[CTV_HUB_RANK_REWARD_STATUS, "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/80"].join(
+                  " ",
+                )}
+                title="Đã nhận thưởng doanh thu hạng này"
+              >
+                <LockOpen className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                Đã nhận thưởng
+              </span>
+            ) : rewardFocus.achieved ? (
+              <span
+                className={[CTV_HUB_RANK_REWARD_STATUS, "bg-amber-50 text-amber-800 ring-1 ring-amber-200/80"].join(" ")}
+                title="Đã đạt mốc, thưởng sẽ được cộng khi tải trung tâm CTV"
+              >
+                <LockOpen className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                Chờ nhận thưởng
+              </span>
+            ) : (
+              <span
+                className={[CTV_HUB_RANK_REWARD_STATUS, "bg-slate-100 text-slate-500 ring-1 ring-slate-200/80"].join(" ")}
+                title="Chưa đạt mốc doanh thu thưởng"
+              >
+                <Lock className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                Chưa đạt
+              </span>
+            )}
+          </div>
+        </div>
+      </footer>
     </article>
   );
 }

@@ -28,12 +28,14 @@ type SupportUnreadRuntime = {
   timer: ReturnType<typeof setInterval> | null;
   inFlight: boolean;
   resumeTimer: ReturnType<typeof setTimeout> | null;
+  sharedFetchPromise: Promise<{ total: number; conversationId: string | null } | null> | null;
 };
 
 const supportUnreadRuntime: SupportUnreadRuntime = {
   timer: null,
   inFlight: false,
   resumeTimer: null,
+  sharedFetchPromise: null,
 };
 
 /** Khi đang fetch, mọi bump Pusher/BC xếp thêm 1 lần refetch — tránh mất cập nhật. */
@@ -56,6 +58,7 @@ let pusherResyncTimer: ReturnType<typeof setTimeout> | null = null;
 
 let visibilityChangeCleanup: (() => void) | null = null;
 let pusherConnectedHandler: (() => void) | null = null;
+let lastKnownConversationId: string | null = null;
 
 function isPollingPausedByMenu(): boolean {
   if (typeof window === "undefined") return false;
@@ -79,26 +82,13 @@ async function fetchSupportUnread(reason: string): Promise<void> {
 
   supportUnreadRuntime.inFlight = true;
   try {
-    const res = await fetchWithAuth("/api/account/support-dm/unread-count");
-    let j: { ok?: boolean; total?: number; conversationId?: string | null };
-    try {
-      j = (await res.json()) as { ok?: boolean; total?: number; conversationId?: string | null };
-    } catch {
-      return;
-    }
-    if (!res.ok && (typeof j.total !== "number" || !Number.isFinite(j.total))) {
-      return;
-    }
-    const n =
-      typeof j.total === "number" && Number.isFinite(j.total) && j.total >= 0 ? Math.floor(j.total) : 0;
-    emitSupportUnread(n);
+    const payload = await fetchSupportUnreadPayload();
+    if (!payload) return;
+    emitSupportUnread(payload.total);
+    lastKnownConversationId = payload.conversationId;
     void reason;
     if (hasPusherClientConfig() && storefrontUnreadPusher) {
-      void resubscribeStorefrontDmChannel(storefrontUnreadPusher, j.conversationId ?? null, "after-unread-fetch");
-    }
-  } catch (e) {
-    if (e instanceof FetchUnauthorizedError) {
-      emitSupportUnread(0);
+      void resubscribeStorefrontDmChannel(storefrontUnreadPusher, payload.conversationId, "after-unread-fetch");
     }
   } finally {
     supportUnreadRuntime.inFlight = false;
@@ -109,6 +99,38 @@ async function fetchSupportUnread(reason: string): Promise<void> {
       });
     }
   }
+}
+
+async function fetchSupportUnreadPayload(): Promise<{ total: number; conversationId: string | null } | null> {
+  if (supportUnreadRuntime.sharedFetchPromise) {
+    return supportUnreadRuntime.sharedFetchPromise;
+  }
+  supportUnreadRuntime.sharedFetchPromise = (async () => {
+    try {
+      const res = await fetchWithAuth("/api/account/support-dm/unread-count");
+      let j: { ok?: boolean; total?: number; conversationId?: string | null };
+      try {
+        j = (await res.json()) as { ok?: boolean; total?: number; conversationId?: string | null };
+      } catch {
+        return null;
+      }
+      if (!res.ok && (typeof j.total !== "number" || !Number.isFinite(j.total))) {
+        return null;
+      }
+      const total =
+        typeof j.total === "number" && Number.isFinite(j.total) && j.total >= 0 ? Math.floor(j.total) : 0;
+      const conversationId = typeof j.conversationId === "string" ? j.conversationId : null;
+      return { total, conversationId };
+    } catch (e) {
+      if (e instanceof FetchUnauthorizedError) {
+        emitSupportUnread(0);
+      }
+      return null;
+    } finally {
+      supportUnreadRuntime.sharedFetchPromise = null;
+    }
+  })();
+  return supportUnreadRuntime.sharedFetchPromise;
 }
 
 function scheduleSupportUnreadFromPusher(): void {
@@ -175,13 +197,9 @@ function startStorefrontUnreadPusher(): void {
   if (!hasPusherClientConfig()) return;
   if (storefrontUnreadPusher) {
     void (async () => {
-      const res = await fetchWithAuth("/api/account/support-dm/unread-count");
-      try {
-        const j = (await res.json()) as { conversationId?: string | null };
-        void resubscribeStorefrontDmChannel(storefrontUnreadPusher!, j.conversationId ?? null, "pusher-restart");
-      } catch {
-        void resubscribeStorefrontDmChannel(storefrontUnreadPusher!, null, "pusher-restart");
-      }
+      const payload = await fetchSupportUnreadPayload();
+      const cid = payload?.conversationId ?? lastKnownConversationId ?? null;
+      void resubscribeStorefrontDmChannel(storefrontUnreadPusher!, cid, "pusher-restart");
     })();
     return;
   }
@@ -192,25 +210,17 @@ function startStorefrontUnreadPusher(): void {
   pusherConnectedHandler = (): void => {
     if (!storefrontUnreadPusher) return;
     void (async () => {
-      const res = await fetchWithAuth("/api/account/support-dm/unread-count");
-      try {
-        const j = (await res.json()) as { conversationId?: string | null };
-        void resubscribeStorefrontDmChannel(storefrontUnreadPusher, j.conversationId ?? null, "pusher-connected");
-      } catch {
-        void resubscribeStorefrontDmChannel(storefrontUnreadPusher, null, "pusher-connected");
-      }
+      const payload = await fetchSupportUnreadPayload();
+      const cid = payload?.conversationId ?? lastKnownConversationId ?? null;
+      void resubscribeStorefrontDmChannel(storefrontUnreadPusher, cid, "pusher-connected");
     })();
   };
   storefrontUnreadPusher.connection.bind("connected", pusherConnectedHandler);
 
   void (async () => {
-    const res = await fetchWithAuth("/api/account/support-dm/unread-count");
-    try {
-      const j = (await res.json()) as { conversationId?: string | null };
-      void resubscribeStorefrontDmChannel(storefrontUnreadPusher, j.conversationId ?? null, "pusher-start");
-    } catch {
-      void resubscribeStorefrontDmChannel(storefrontUnreadPusher, null, "pusher-start");
-    }
+    const payload = await fetchSupportUnreadPayload();
+    const cid = payload?.conversationId ?? lastKnownConversationId ?? null;
+    void resubscribeStorefrontDmChannel(storefrontUnreadPusher, cid, "pusher-start");
   })();
 }
 
@@ -325,6 +335,8 @@ function startStorefrontUnreadGlobalSync(): void {
 
 function stopStorefrontUnreadGlobalSync(): void {
   pendingSupportUnreadFetch = false;
+  lastKnownConversationId = null;
+  supportUnreadRuntime.sharedFetchPromise = null;
   stopSupportUnreadPolling();
   releaseSupportUnreadBroadcast();
   stopStorefrontUnreadPusher();
@@ -338,9 +350,20 @@ function stopStorefrontUnreadGlobalSync(): void {
 export function useStorefrontSupportUnreadSync(enabled: boolean): void {
   const { status, data: session } = useSession();
   const bootedRef = useRef(false);
+  const sessionUserId = session?.user?.id ?? null;
+  const prevSessionUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const ok = enabled && status === "authenticated" && session?.user?.role === "USER";
+    const prev = prevSessionUserIdRef.current;
+    if (prev !== sessionUserId) {
+      lastKnownConversationId = null;
+      supportUnreadRuntime.sharedFetchPromise = null;
+      prevSessionUserIdRef.current = sessionUserId;
+    }
+  }, [sessionUserId]);
+
+  useEffect(() => {
+    const ok = enabled && status === "authenticated" && session?.user?.role === "USER" && Boolean(sessionUserId);
     if (!ok) {
       if (bootedRef.current) {
         storefrontUnreadSyncRefCount = Math.max(0, storefrontUnreadSyncRefCount - 1);
@@ -372,7 +395,7 @@ export function useStorefrontSupportUnreadSync(enabled: boolean): void {
         useSupportInboxStore.getState().setStorefrontSupportUnreadTotal(0);
       }
     };
-  }, [enabled, status, session?.user?.role]);
+  }, [enabled, status, session?.user?.role, sessionUserId]);
 }
 
 /**

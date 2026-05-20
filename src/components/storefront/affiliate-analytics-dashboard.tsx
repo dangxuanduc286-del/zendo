@@ -44,15 +44,11 @@ import {
   AFFILIATE_ANALYTICS_TOOLBAR_BTN_PRIMARY,
   AFFILIATE_ANALYTICS_TOOLBAR_BTN_SECONDARY,
 } from "@/lib/affiliate-analytics-ui-tokens";
+import { scheduleIdleWork } from "@/lib/next-dev-stability";
 import { useAffiliateTrackingSse } from "@/hooks/use-affiliate-tracking-sse";
 import { mergeAffiliateStreamTicksIntoActivity } from "@/lib/affiliate-tracking-stream-client-merge";
 import type { AffiliateTrackingStreamTickV1 } from "@/lib/affiliate-tracking-stream-types";
 import type { RtPoint } from "./affiliate-creator-charts/creator-realtime-sparkline-inner";
-
-const AffiliateCampaignGrowthHub = dynamic(() => import("./affiliate-campaign-growth-hub"), {
-  loading: () => <div className="min-h-[12rem] animate-pulse rounded-2xl bg-[#F1F5F9]" />,
-  ssr: false,
-});
 
 const AffiliateCreatorChartsSection = dynamic(() => import("./affiliate-creator-charts/affiliate-creator-charts-section"), {
   loading: () => <div className="min-h-[8rem] animate-pulse rounded-2xl bg-[#F1F5F9]/90" />,
@@ -125,7 +121,6 @@ const menu = [
   { key: "overview", label: "Tổng quan Affiliate" },
   { key: "traffic", label: "Thống kê truy cập" },
   { key: "insights", label: "Phân tích traffic" },
-  { key: "campaign", label: "Campaign / Khuyến mãi" },
   { key: "top", label: "Top sản phẩm" },
   { key: "pixel", label: "Pixel / Tracking" },
 ] as const;
@@ -143,7 +138,7 @@ export default function AffiliateAnalyticsDashboard({
   initialMenuKey,
 }: {
   affiliateRefCode: string;
-  /** Mở tab ban đầu, ví dụ `?tab=campaign` */
+  /** Mở tab ban đầu, ví dụ `?tab=traffic` */
   initialMenuKey?: string;
 }): JSX.Element {
   const [active, setActive] = useState<MenuKey>(() => normalizeInitialMenuKey(initialMenuKey));
@@ -170,7 +165,54 @@ export default function AffiliateAnalyticsDashboard({
     return () => window.clearTimeout(t);
   }, [active, range]);
 
-  const overview = useAffiliateAnalyticsOverview({ range, enabled: true });
+  /** Stagger heavy hooks after overviewHeavyReady to avoid one burst of parallel fetches (P1-3). */
+  const [overviewHeavyPhase, setOverviewHeavyPhase] = useState(0);
+  useEffect(() => {
+    if (!overviewHeavyReady) {
+      setOverviewHeavyPhase(0);
+      return;
+    }
+    setOverviewHeavyPhase(1);
+    const t2 = window.setTimeout(() => setOverviewHeavyPhase(2), 100);
+    const t3 = window.setTimeout(() => setOverviewHeavyPhase(3), 200);
+    return () => {
+      window.clearTimeout(t2);
+      window.clearTimeout(t3);
+    };
+  }, [overviewHeavyReady]);
+
+  /**
+   * P3 UX: lùi campaigns → devices → landing sau idle để không tranh burst đầu với overview/timeline/sources.
+   * Dữ liệu và UI cuối cùng không đổi; chỉ thứ tự mạng.
+   */
+  const [overviewCampaignsIdleReady, setOverviewCampaignsIdleReady] = useState(false);
+  const [overviewDevicesIdleReady, setOverviewDevicesIdleReady] = useState(false);
+  const [overviewLandingIdleReady, setOverviewLandingIdleReady] = useState(false);
+  useEffect(() => {
+    if (active !== "overview") {
+      setOverviewCampaignsIdleReady(false);
+      setOverviewDevicesIdleReady(false);
+      setOverviewLandingIdleReady(false);
+      return;
+    }
+    setOverviewCampaignsIdleReady(false);
+    setOverviewDevicesIdleReady(false);
+    setOverviewLandingIdleReady(false);
+    let devicesTimer: number | null = null;
+    let landingTimer: number | null = null;
+    const cancelIdle = scheduleIdleWork(() => {
+      setOverviewCampaignsIdleReady(true);
+      devicesTimer = window.setTimeout(() => setOverviewDevicesIdleReady(true), 140);
+      landingTimer = window.setTimeout(() => setOverviewLandingIdleReady(true), 300);
+    }, 520);
+    return () => {
+      cancelIdle();
+      if (devicesTimer != null) window.clearTimeout(devicesTimer);
+      if (landingTimer != null) window.clearTimeout(landingTimer);
+    };
+  }, [active, range]);
+
+  const overview = useAffiliateAnalyticsOverview({ range, enabled: active === "overview" });
   const useRealtimeFallback =
     active === "overview" && Boolean(overview.data) && !overview.data.realtimeActivity;
 
@@ -257,30 +299,39 @@ export default function AffiliateAnalyticsDashboard({
   })();
 
   const chartTrafficEnabled =
-    active === "traffic" || (active === "overview" && overviewHeavyReady);
+    active === "traffic" || (active === "overview" && overviewHeavyReady && overviewHeavyPhase >= 1);
   const chart = useAffiliateChart({ range, type: "traffic", enabled: chartTrafficEnabled });
   const topProducts = useAffiliateTopProducts({
     range,
-    enabled: active === "top" || (active === "overview" && overviewHeavyReady),
+    enabled: active === "top" || (active === "overview" && overviewHeavyReady && overviewHeavyPhase >= 3),
     sort: productSort,
     filterQs: active === "top" ? filterQs : "",
   });
-  const topPages = useAffiliateTopPages({ range, enabled: active === "traffic" || (active === "overview" && overviewHeavyReady) });
-  const funnel = useAffiliateFunnel({ range, enabled: active === "traffic" || (active === "overview" && overviewHeavyReady) });
+  const topPages = useAffiliateTopPages({
+    range,
+    enabled: active === "traffic" || (active === "overview" && overviewHeavyReady && overviewHeavyPhase >= 2),
+  });
+  const funnel = useAffiliateFunnel({
+    range,
+    enabled: active === "traffic" || (active === "overview" && overviewHeavyReady && overviewHeavyPhase >= 2),
+  });
 
   const creatorTimeline = useAffiliateConversionTimeline({ range, enabled: active === "overview", filterQs: "", live: false });
   const creatorSources = useAffiliateTrafficSources({ range, enabled: active === "overview", filterQs: "", live: false });
-  const creatorCampaigns = useAffiliateCampaignList({ range, enabled: active === "overview" });
+  const creatorCampaigns = useAffiliateCampaignList({
+    range,
+    enabled: active === "overview" && overviewCampaignsIdleReady,
+  });
   const creatorLanding = useAffiliateLandingAnalytics({
     range,
-    enabled: active === "overview",
+    enabled: active === "overview" && overviewLandingIdleReady,
     filterQs: "",
     page: 1,
     live: false,
   });
   const creatorDevices = useAffiliateDeviceAnalytics({
     range,
-    enabled: active === "overview",
+    enabled: active === "overview" && overviewDevicesIdleReady,
     filterQs: "",
     live: false,
   });
@@ -932,14 +983,6 @@ export default function AffiliateAnalyticsDashboard({
                 <div className="flex w-full min-w-0 flex-1 flex-col lg:min-h-[min(58dvh,36rem)]">
                   <AffiliateTrackingWorkspace />
                 </div>
-              ) : null}
-
-              {active === "campaign" ? (
-                <CreatorSectionShell className="flex flex-1 flex-col lg:min-h-[min(52dvh,28rem)]" title="Campaign & tăng trưởng CTV" hint="Landing EPC, mẫu share, kho ảnh, growth insights">
-                  <div className="mt-4 w-full min-w-0">
-                    <AffiliateCampaignGrowthHub range={range} />
-                  </div>
-                </CreatorSectionShell>
               ) : null}
               </div>
         </section>

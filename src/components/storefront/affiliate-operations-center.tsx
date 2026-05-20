@@ -20,6 +20,7 @@ import CreatorRealtimeSparklineLazy from "@/components/storefront/affiliate-crea
 import type { RtPoint } from "@/components/storefront/affiliate-creator-charts/creator-realtime-sparkline-inner";
 import type { AffiliateTrackingStreamTickV1 } from "@/lib/affiliate-tracking-stream-types";
 import type { OpsAlertV1, OpsRollingCounts } from "@/lib/affiliate-ops-anomaly-types";
+import { scheduleIdleWork } from "@/lib/next-dev-stability";
 
 const ACK_KEY = "affiliate_ops_alert_ack_v1";
 const SNOOZE_KEY = "affiliate_ops_alert_snooze_v1";
@@ -187,6 +188,7 @@ export default function AffiliateOperationsCenter(props: {
 
   const pollSnapshot = useCallback(async () => {
     if (!props.enabled) return;
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
     try {
       const res = await fetch("/api/account/affiliate/operations/snapshot", { credentials: "same-origin", cache: "no-store" });
       const j = (await res.json()) as OpsSnapshot & { ok?: boolean; message?: string };
@@ -200,9 +202,18 @@ export default function AffiliateOperationsCenter(props: {
 
   useEffect(() => {
     if (!props.enabled) return;
-    void pollSnapshot();
-    const id = window.setInterval(() => void pollSnapshot(), 45_000);
-    return () => window.clearInterval(id);
+    let intervalId: NodeJS.Timeout | number | null = null;
+    let cancelled = false;
+    const cancelIdle = scheduleIdleWork(() => {
+      if (cancelled) return;
+      void pollSnapshot();
+      intervalId = window.setInterval(() => void pollSnapshot(), 45_000);
+    }, 720);
+    return () => {
+      cancelled = true;
+      cancelIdle();
+      if (intervalId != null) window.clearInterval(intervalId);
+    };
   }, [props.enabled, pollSnapshot]);
 
   useEffect(() => {

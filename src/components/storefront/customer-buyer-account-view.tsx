@@ -429,7 +429,7 @@ export default function CustomerBuyerAccountView({
   const [addressMessage, setAddressMessage] = useState("");
   const [addressError, setAddressError] = useState("");
   const supportUnreadTotal = useStorefrontSupportUnreadTotal(accountSettings.showSupport);
-  const liveNotifications = useCustomerNotificationsPoll(
+  const [liveNotifications, notificationMutators] = useCustomerNotificationsPoll(
     data.notifications,
     accountSettings.showNotifications,
     activeTab === "notifications",
@@ -1751,6 +1751,7 @@ export default function CustomerBuyerAccountView({
             <AccountNotificationsSection
               title={accountSettings.notificationTitle || "Thông báo tài khoản"}
               notifications={liveNotifications}
+              notificationMutators={notificationMutators}
               commissionTab={affiliateCommissionTab}
               affiliateProgramEnabled={affiliateProgramEnabled}
               isAffiliateActive={data.affiliate.isActive}

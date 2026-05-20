@@ -44,41 +44,34 @@ export async function getAffiliateRealtimeMetrics(args: {
   const now = Date.now();
   const activeWindow = new Date(now - 5 * 60_000);
 
-  const [activeSessions, clicksLast5m, conversionsLast5m, revenueAgg] = await Promise.all([
-    args.db.affiliateRealtimeSession.count({
-      where: { affiliateProfileId: args.affiliateProfileId, lastSeenAt: { gte: activeWindow } },
-    }),
-    args.db.affiliateTrafficEvent.count({
-      where: {
-        affiliateProfileId: args.affiliateProfileId,
-        createdAt: { gte: activeWindow },
-        eventType: "AFFILIATE_CLICK",
-      },
-    }),
-    args.db.affiliateTrafficEvent.count({
-      where: {
-        affiliateProfileId: args.affiliateProfileId,
-        createdAt: { gte: activeWindow },
-        eventType: "ORDER_PAID",
-      },
-    }),
-    args.db.affiliateTrafficEvent.aggregate({
-      where: {
-        affiliateProfileId: args.affiliateProfileId,
-        createdAt: { gte: activeWindow },
-        eventType: "ORDER_PAID",
-      },
-      _sum: { revenue: true },
-    }),
+  const [sessionRows, metricRows] = await Promise.all([
+    args.db.$queryRaw<{ activeSessions: bigint }[]>`
+      SELECT COUNT(*)::bigint AS "activeSessions"
+      FROM "AffiliateRealtimeSession"
+      WHERE "affiliateProfileId" = ${args.affiliateProfileId}
+        AND "lastSeenAt" >= ${activeWindow}
+    `,
+    args.db.$queryRaw<{ clicksLast5m: bigint; conversionsLast5m: bigint; revenueLast5m: string | null }[]>`
+      SELECT
+        COUNT(*) FILTER (WHERE "eventType" = 'AFFILIATE_CLICK')::bigint AS "clicksLast5m",
+        COUNT(*) FILTER (WHERE "eventType" = 'ORDER_PAID')::bigint AS "conversionsLast5m",
+        SUM(CASE WHEN "eventType" = 'ORDER_PAID' THEN COALESCE("revenue", 0) ELSE 0 END)::text AS "revenueLast5m"
+      FROM "AffiliateTrafficEvent"
+      WHERE "affiliateProfileId" = ${args.affiliateProfileId}
+        AND "createdAt" >= ${activeWindow}
+        AND "eventType" IN ('AFFILIATE_CLICK', 'ORDER_PAID')
+    `,
   ]);
+  const activeSessions = Number(sessionRows[0]?.activeSessions ?? 0);
+  const metric = metricRows[0];
 
   const out: AffiliateRealtimeMetrics = {
     // visitorKey chưa bắt buộc ở phase 1, nên onlineVisitors tạm dùng sessions
     onlineVisitors: activeSessions,
     activeSessions,
-    clicksLast5m,
-    conversionsLast5m,
-    revenueLast5m: Number(revenueAgg._sum.revenue ?? 0),
+    clicksLast5m: Number(metric?.clicksLast5m ?? 0),
+    conversionsLast5m: Number(metric?.conversionsLast5m ?? 0),
+    revenueLast5m: Number(metric?.revenueLast5m ?? 0),
   };
 
   setCached(key, out);

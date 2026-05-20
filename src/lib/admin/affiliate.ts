@@ -1571,10 +1571,10 @@ export async function updateAffiliateWithdrawalStatus(
     if (row.status !== "APPROVED") {
       throw new Error("Chỉ có thể đánh dấu đã thanh toán sau khi yêu cầu đã được duyệt.");
     }
-    await db.affiliateWithdrawalRequest.update({
-      where: { id: withdrawalId },
-      data: { status: "PAID", paidAt: now },
-    });
+    const { markAffiliateWithdrawalPaidInTransaction } = await import(
+      "@/lib/affiliate/affiliate-withdrawal-ledger"
+    );
+    await markAffiliateWithdrawalPaidInTransaction(withdrawalId);
     return;
   }
 

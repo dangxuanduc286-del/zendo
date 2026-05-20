@@ -20,7 +20,7 @@ function AffiliateToolsSectionInner({
   referralUrl,
   onCopyLink,
   onNavigateShare,
-  promoteHref = "/tai-khoan/affiliate/analytics?tab=campaign",
+  promoteHref = "/tai-khoan/affiliate/campaign",
   copyCopied = false,
   copyError = "",
   showUrlStrip = true,

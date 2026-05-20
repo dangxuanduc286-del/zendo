@@ -40,7 +40,7 @@ export function AffiliateAccountSubpagesChrome({
     [accountSettings, data],
   );
 
-  const liveNotifications = useCustomerNotificationsPoll(
+  const [liveNotifications] = useCustomerNotificationsPoll(
     data.notifications,
     accountSettings.showNotifications,
     false,

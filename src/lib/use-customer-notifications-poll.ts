@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { customerNotificationsPollMs } from "@/lib/next-dev-stability";
 
 export type CustomerNotificationsPollBundle = {
@@ -18,6 +18,13 @@ export type CustomerNotificationsPollBundle = {
   }>;
 };
 
+export type CustomerNotificationPollMutators = {
+  removeIds: (ids: string[]) => void;
+  markReadIds: (ids: string[]) => void;
+  replaceBundle: (bundle: CustomerNotificationsPollBundle) => void;
+  reload: () => Promise<void>;
+};
+
 type UnreadSummary = { unread: number; groups: CustomerNotificationsPollBundle["groups"] };
 
 function sameSummary(a: UnreadSummary, b: UnreadSummary): boolean {
@@ -30,12 +37,26 @@ function sameSummary(a: UnreadSummary, b: UnreadSummary): boolean {
   );
 }
 
+function recomputeFromItems(items: CustomerNotificationsPollBundle["items"]): Pick<CustomerNotificationsPollBundle, "unread" | "groups"> {
+  const groups = { order: 0, promotion: 0, system: 0, commission: 0 };
+  let unread = 0;
+  for (const item of items) {
+    if (item.read) continue;
+    unread++;
+    if (item.category === "order") groups.order++;
+    else if (item.category === "promotion") groups.promotion++;
+    else if (item.category === "system") groups.system++;
+    else groups.commission++;
+  }
+  return { unread, groups };
+}
+
 export function useCustomerNotificationsPoll(
   initial: CustomerNotificationsPollBundle,
   enabled: boolean,
   notificationsTabActive = false,
   affiliateCommissionRealtime = false,
-): CustomerNotificationsPollBundle {
+): [CustomerNotificationsPollBundle, CustomerNotificationPollMutators] {
   const [state, setState] = useState(initial);
   const lastSummaryRef = useRef<UnreadSummary>({
     unread: initial.unread,
@@ -48,6 +69,65 @@ export function useCustomerNotificationsPoll(
     setState(initial);
     lastSummaryRef.current = { unread: initial.unread, groups: initial.groups };
   }, [initial]);
+
+  const removeIds = useCallback((ids: string[]) => {
+    const idSet = new Set(ids);
+    setState((prev) => {
+      const items = prev.items.filter((i) => !idSet.has(i.id));
+      return { items, ...recomputeFromItems(items) };
+    });
+  }, []);
+
+  const markReadIds = useCallback((ids: string[]) => {
+    const idSet = new Set(ids);
+    setState((prev) => {
+      const items = prev.items.map((i) => (idSet.has(i.id) ? { ...i, read: true } : i));
+      return { items, ...recomputeFromItems(items) };
+    });
+  }, []);
+
+  const replaceBundle = useCallback((bundle: CustomerNotificationsPollBundle) => {
+    setState(bundle);
+    lastSummaryRef.current = { unread: bundle.unread, groups: bundle.groups };
+  }, []);
+
+  const reload = useCallback(async () => {
+    try {
+      const res = await fetch("/api/account/notifications?take=60", {
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: { Accept: "application/json" },
+      });
+      if (!res.ok) return;
+      const data = (await res.json()) as CustomerNotificationsPollBundle | { message?: string };
+      if (!data || typeof data !== "object" || !("items" in data) || !Array.isArray(data.items)) return;
+      const bundle = data as CustomerNotificationsPollBundle;
+      setState(bundle);
+      lastSummaryRef.current = { unread: bundle.unread, groups: bundle.groups };
+    } catch {
+      /* noop */
+    }
+  }, []);
+
+  const noopMutators = useMemo<CustomerNotificationPollMutators>(
+    () => ({
+      removeIds: () => {},
+      markReadIds: () => {},
+      replaceBundle: () => {},
+      reload: async () => {},
+    }),
+    [],
+  );
+
+  const mutators = useMemo<CustomerNotificationPollMutators>(
+    () => ({
+      removeIds,
+      markReadIds,
+      replaceBundle,
+      reload,
+    }),
+    [removeIds, markReadIds, replaceBundle, reload],
+  );
 
   useEffect(() => {
     if (!enabled) return;
@@ -76,10 +156,11 @@ export function useCustomerNotificationsPoll(
         const data = (await res.json()) as CustomerNotificationsPollBundle | { message?: string };
         if (!data || typeof data !== "object" || !("items" in data) || !Array.isArray(data.items)) return;
         if (disposed) return;
-        setState(data as CustomerNotificationsPollBundle);
+        const bundle = data as CustomerNotificationsPollBundle;
+        setState(bundle);
         lastSummaryRef.current = {
-          unread: (data as CustomerNotificationsPollBundle).unread,
-          groups: (data as CustomerNotificationsPollBundle).groups,
+          unread: bundle.unread,
+          groups: bundle.groups,
         };
       } catch {
         /* giữ state — không crash notification center */
@@ -122,22 +203,21 @@ export function useCustomerNotificationsPoll(
         abortRef.current = ac;
         const signal = ac.signal;
 
-        // Tab Thông báo đang mở: luôn tải full list để không lệch items vs UI (commission realtime chỉ áp khi tab khác → tiết kiệm)
         if (notificationsTabActiveRef.current) {
           await fetchFull(signal);
           return;
         }
 
-        if (affiliateCommissionRealtime) {
-          const summary = await fetchUnreadSummary(signal);
-          if (disposed || signal.aborted) return;
-          if (summary && !sameSummary(summary, lastSummaryRef.current)) {
+        const summary = await fetchUnreadSummary(signal);
+        if (disposed || signal.aborted) return;
+        if (summary && !sameSummary(summary, lastSummaryRef.current)) {
+          lastSummaryRef.current = summary;
+          if (affiliateCommissionRealtime) {
             await fetchFull(signal);
+          } else {
+            setState((prev) => ({ ...prev, unread: summary.unread, groups: summary.groups }));
           }
-          return;
         }
-
-        await fetchFull(signal);
       } finally {
         tickInFlight = false;
       }
@@ -167,5 +247,6 @@ export function useCustomerNotificationsPoll(
     };
   }, [enabled, affiliateCommissionRealtime]);
 
-  return enabled ? state : initial;
+  const bundle = enabled ? state : initial;
+  return [bundle, enabled ? mutators : noopMutators];
 }

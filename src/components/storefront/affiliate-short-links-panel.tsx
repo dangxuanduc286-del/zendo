@@ -56,7 +56,8 @@ export default memo(function AffiliateShortLinksPanel(): JSX.Element {
       if (!b?.ok) throw new Error(b?.message || "Không tải thống kê.");
       setRows(a.rows ?? []);
       setOrigin(String(a.origin ?? ""));
-      setStats(b.rows ?? []);    } catch (e) {
+      setStats(b.rows ?? []);
+    } catch (e) {
       setErr(e instanceof Error ? e.message : "Lỗi tải.");
     } finally {
       setLoading(false);
@@ -87,7 +88,8 @@ export default memo(function AffiliateShortLinksPanel(): JSX.Element {
         }),
       });
       const j = (await res.json()) as { ok?: boolean; message?: string; link?: { shortUrl?: string | null } };
-      if (!res.ok || !j.ok) throw new Error(j.message || "Không tạo được.");      setSlug("");
+      if (!res.ok || !j.ok) throw new Error(j.message || "Không tạo được.");
+      setSlug("");
       setCampaignName("");
       await load();
       if (j.link?.shortUrl) setPickUrl(j.link.shortUrl);

@@ -69,3 +69,31 @@ export function adminOrdersUnreadPollMs(): number {
 export function adminSystemOperationsRefreshMs(): number {
   return isNextDevelopment() ? 90_000 : 45_000;
 }
+
+/**
+ * Chạy work sau khi main thread rảnh (requestIdleCallback), hoặc trước `timeoutMs` nếu luôn bận.
+ * Dùng P3 UX: lùi fetch phụ để giảm tranh chấp với first paint (không đổi API / payload).
+ */
+export function scheduleIdleWork(callback: () => void, timeoutMs: number): () => void {
+  if (typeof window === "undefined") {
+    return () => {
+      /* noop — chỉ client */
+    };
+  }
+  const w = window as Window & {
+    requestIdleCallback?: (cb: IdleRequestCallback, opts?: IdleRequestOptions) => number;
+    cancelIdleCallback?: (id: number) => void;
+  };
+  const run = (): void => {
+    callback();
+  };
+  if (typeof w.requestIdleCallback === "function") {
+    const handle = w.requestIdleCallback(run, { timeout: timeoutMs });
+    return () => {
+      w.cancelIdleCallback?.(handle);
+    };
+  }
+  const delay = Math.min(420, Math.max(0, Math.floor(timeoutMs / 2)));
+  const handle = window.setTimeout(run, delay);
+  return () => window.clearTimeout(handle);
+}

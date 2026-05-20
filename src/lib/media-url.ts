@@ -64,7 +64,7 @@ export function normalizeMediaUrl(value: string): string {
   return `${base}/${cleanPath}`;
 }
 
-export function isKnownDeadMediaUrl(value: string): boolean {
+function isKnownDeadMediaUrl(value: string): boolean {
   const normalized = normalizeMediaUrl(value);
   if (!normalized) return false;
   try {
@@ -108,7 +108,3 @@ export async function normalizeBannerMediaUrl(value: string): Promise<string> {
   return reachable ? normalized : "";
 }
 
-export function toNullableMediaUrl(value: string): string | null {
-  const normalized = normalizeMediaUrl(value);
-  return normalized || null;
-}

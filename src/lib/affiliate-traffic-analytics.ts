@@ -158,7 +158,8 @@ export async function getAffiliateTopLinks(args: {
       conversionRate: clicks > 0 ? orders / clicks : 0,
     };
   });
-  cacheSet(key, out);  return out;
+  cacheSet(key, out);
+  return out;
 }
 
 export type SourceAggRow = {
@@ -220,7 +221,8 @@ export async function getAffiliateTrafficSources(args: {
       conversionRate: clicks > 0 ? orders / clicks : 0,
     };
   });
-  cacheSet(key, out);  return out;
+  cacheSet(key, out);
+  return out;
 }
 
 export type DeviceAggRow = {
@@ -275,7 +277,8 @@ export async function getAffiliateDeviceBreakdown(args: {
       conversionRate: clicks > 0 ? orders / clicks : 0,
     };
   });
-  cacheSet(key, out);  return out;
+  cacheSet(key, out);
+  return out;
 }
 
 export type LandingAggRow = {
@@ -342,7 +345,8 @@ export async function getAffiliateLandingAnalytics(args: {
       conversionRate: clicks > 0 ? orders / clicks : 0,
     };
   });
-  cacheSet(key, out);  return out;
+  cacheSet(key, out);
+  return out;
 }
 
 export type TimelineBucket = {
@@ -398,7 +402,8 @@ export async function getAffiliateConversionTimeline(args: {
       conversionRate: clicks > 0 ? orders / clicks : 0,
     };
   });
-  cacheSet(key, out);  return out;
+  cacheSet(key, out);
+  return out;
 }
 
 export type TopProductEnhancedRow = {
@@ -475,14 +480,32 @@ export async function getAffiliateTopProductsEnhanced(args: {
     ),
     merged AS (
       SELECT
-        COALESCE(pv.pid, po.pid) AS "productId",
-        COALESCE(pv.clicks, 0::bigint) AS clicks,
-        COALESCE(pv.visitors, 0::bigint) AS visitors,
-        COALESCE(po.paid_orders, 0::bigint) AS paid_orders,
-        COALESCE(po.revenue, '0')::text AS revenue,
-        COALESCE(po.commission, '0')::text AS commission
-      FROM pv
-      FULL OUTER JOIN po ON pv.pid = po.pid
+        x.pid AS "productId",
+        SUM(x.clicks)::bigint AS clicks,
+        SUM(x.visitors)::bigint AS visitors,
+        SUM(x.paid_orders)::bigint AS paid_orders,
+        SUM(x.revenue_num)::text AS revenue,
+        SUM(x.commission_num)::text AS commission
+      FROM (
+        SELECT
+          pv.pid,
+          pv.clicks,
+          pv.visitors,
+          0::bigint AS paid_orders,
+          0::numeric AS revenue_num,
+          0::numeric AS commission_num
+        FROM pv
+        UNION ALL
+        SELECT
+          po.pid,
+          0::bigint AS clicks,
+          0::bigint AS visitors,
+          po.paid_orders,
+          COALESCE(po.revenue, '0')::numeric AS revenue_num,
+          COALESCE(po.commission, '0')::numeric AS commission_num
+        FROM po
+      ) x
+      GROUP BY x.pid
     )
     SELECT * FROM merged
     WHERE "productId" IS NOT NULL
@@ -521,5 +544,6 @@ export async function getAffiliateTopProductsEnhanced(args: {
       commission: Number(r.commission ?? 0),
       conversionRate: clicks > 0 ? paidOrders / clicks : 0,
     };
-  });  return out;
+  });
+  return out;
 }

@@ -1,19 +1,19 @@
 "use client";
 
-import { memo, useEffect, useState, type ReactNode } from "react";
+import { memo, type ReactNode } from "react";
 
 export type AccountTabKeepAliveProps = {
   tabKey: string;
   activeTab: string;
-  /** When false, panel never mounts until enabled becomes true while active. */
+  /** When false, panel never renders. */
   enabled?: boolean;
   children: ReactNode;
   className?: string;
 };
 
 /**
- * Mount tab content on first visit, then hide with CSS instead of unmounting.
- * Preserves scroll, form state, and avoids re-fetch / dynamic import on revisit.
+ * Renders tab panel only while active. Inactive tabs unmount (no hidden/inert keep-alive)
+ * so dynamic client-only trees (e.g. CTV dashboards) do not leave stale DOM for React reconciliation.
  */
 function AccountTabKeepAliveInner({
   tabKey,
@@ -23,24 +23,11 @@ function AccountTabKeepAliveInner({
   className = "",
 }: AccountTabKeepAliveProps): ReactNode {
   const isActive = activeTab === tabKey;
-  const [mounted, setMounted] = useState(() => enabled && isActive);
 
-  useEffect(() => {
-    if (!enabled) return;
-    if (isActive) setMounted(true);
-  }, [enabled, isActive]);
-
-  if (!enabled || !mounted) return null;
+  if (!enabled || !isActive) return null;
 
   return (
-    <div
-      className={[className, !isActive ? "hidden" : ""].filter(Boolean).join(" ")}
-      hidden={!isActive}
-      aria-hidden={!isActive}
-      inert={!isActive ? true : undefined}
-      data-account-tab={tabKey}
-      data-account-tab-active={isActive ? "1" : "0"}
-    >
+    <div className={className} data-account-tab={tabKey} data-account-tab-active="1">
       {children}
     </div>
   );

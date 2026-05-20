@@ -3,32 +3,32 @@ import {
   commissionStatusMayAutoCancel,
   orderDisqualifiesAffiliateCommission,
 } from "@/lib/affiliate/commission-hold";
+import { resolveCtvCommissionRateForAffiliate } from "@/lib/ctv/ctv-commission-rate";
 
 type DbLike = Omit<
   Prisma.TransactionClient,
   "$connect" | "$disconnect" | "$on" | "$transaction" | "$extends" | "$use"
 >;
 
-/** Tạo AffiliateCommission PENDING khi có ref hợp lệ và chương trình AFF bật. */
+/** Tạo AffiliateCommission PENDING — % hoa hồng từ CtvMembershipTier (SSOT). */
 export async function createPendingAffiliateCommissionForOrder(
   tx: DbLike,
   opts: {
     orderId: string;
     affiliateProfileId: string;
     totalAmount: number | bigint | { toString(): string };
-    defaultCommissionPct: number;
+    /** @deprecated Không dùng — giữ để tương thích chữ ký API checkout. */
+    defaultCommissionPct?: number;
   },
 ): Promise<void> {
-  const profile = await tx.affiliateProfile.findUnique({
-    where: { id: opts.affiliateProfileId },
-    select: { commissionRate: true },
+  const rate = await resolveCtvCommissionRateForAffiliate(opts.affiliateProfileId, {
+    excludeOrderId: opts.orderId,
+    dbClient: tx,
   });
-  const globalPct =
-    typeof opts.defaultCommissionPct === "number" && Number.isFinite(opts.defaultCommissionPct)
-      ? opts.defaultCommissionPct
-      : 5;
-  const pct = profile?.commissionRate != null ? Number(profile.commissionRate) : globalPct;
-  const pctSafe = Number.isFinite(pct) && pct >= 0 && pct <= 100 ? pct : globalPct;
+  const pctSafe =
+    Number.isFinite(rate.commissionPercent) && rate.commissionPercent >= 0 && rate.commissionPercent <= 100
+      ? rate.commissionPercent
+      : 0;
 
   const revenue = Math.max(0, Math.floor(Number(opts.totalAmount)));
   const amount = Math.max(0, Math.floor((revenue * pctSafe) / 100));

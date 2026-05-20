@@ -413,6 +413,10 @@ model AffiliateProfile {
   refCode                     String                                @unique
   status                      AffiliateStatus                       @default(ACTIVE)
   commissionRate              Decimal?                              @db.Decimal(5, 2)
+  /// Cấp CTV hiện tại (SSOT xét hạng theo doanh thu 30 ngày).
+  currentCtvTierId            String?
+  /// Số dư thưởng doanh thu đã cộng ví (denormalized, đồng bộ với grant paid).
+  revenueRewardWalletBalance  Decimal                               @default(0) @db.Decimal(14, 0)
   createdAt                   DateTime                              @default(now())
   updatedAt                   DateTime                              @updatedAt
   clicks                      AffiliateClick[]
@@ -442,8 +446,13 @@ model AffiliateProfile {
   fraudScoreTier              AffiliateFraudTier                   @default(LOW)
   fraudDispatchHoldUntil      DateTime?
   fraudCommissionSoftHold     Boolean                            @default(false)
+  ctvRevenueRewardGrants      CtvRevenueRewardGrant[]
+  ctvRevenueRewardTransactions CtvRevenueRewardTransaction[]
+  currentCtvTier              CtvMembershipTier?                    @relation("AffiliateCurrentCtvTier", fields: [currentCtvTierId], references: [id], onDelete: SetNull)
+  ctvTierHistory              CtvTierHistory[]
 
   @@index([customerId])
+  @@index([currentCtvTierId])
   @@index([adminId])
   @@index([status])
 }
@@ -1640,4 +1649,101 @@ enum RewardPointStatus {
   AVAILABLE
   USED
   CANCELLED
+}
+
+/// Cấp bậc CTV — nguồn SSOT: mốc doanh thu, thưởng doanh thu, % hoa hồng (admin).
+model CtvMembershipTier {
+  id                String                  @id @default(cuid())
+  code              String                  @unique @db.VarChar(32)
+  name              String
+  revenueFrom       Decimal                 @db.Decimal(14, 0)
+  revenueTo         Decimal                 @db.Decimal(14, 0)
+  rewardThreshold   Decimal                 @db.Decimal(14, 0)
+  rewardAmount      Decimal                 @db.Decimal(14, 0)
+  commissionPercent Decimal                 @db.Decimal(5, 2)
+  sortOrder         Int                     @default(0)
+  badgeColor        String                  @db.Text
+  icon              String                  @default("medal") @db.VarChar(32)
+  isActive          Boolean                 @default(true)
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  rewardGrants      CtvRevenueRewardGrant[]
+  tierHistoryFrom   CtvTierHistory[]        @relation("CtvTierHistoryFrom")
+  tierHistoryTo     CtvTierHistory[]        @relation("CtvTierHistoryTo")
+  currentAffiliates AffiliateProfile[]      @relation("AffiliateCurrentCtvTier")
+
+  @@index([isActive, sortOrder])
+}
+
+/// Lịch sử thay đổi cấp bậc CTV (lên / xuống hạng).
+model CtvTierHistory {
+  id                 String            @id @default(cuid())
+  affiliateProfileId String
+  fromTierId         String?
+  toTierId           String
+  revenue            Decimal           @db.Decimal(14, 0)
+  createdAt          DateTime          @default(now())
+  affiliateProfile   AffiliateProfile  @relation(fields: [affiliateProfileId], references: [id], onDelete: Cascade)
+  fromTier           CtvMembershipTier? @relation("CtvTierHistoryFrom", fields: [fromTierId], references: [id], onDelete: SetNull)
+  toTier             CtvMembershipTier @relation("CtvTierHistoryTo", fields: [toTierId], references: [id], onDelete: Restrict)
+
+  @@index([affiliateProfileId])
+  @@index([toTierId])
+  @@index([createdAt])
+  @@index([affiliateProfileId, createdAt])
+}
+
+/// Ghi nhận thưởng doanh thu đã trao khi đạt mốc (một lần / tier / CTV).
+model CtvRevenueRewardGrant {
+  id                    String                      @id @default(cuid())
+  affiliateProfileId    String
+  tierId                String
+  rewardAmount          Decimal                     @db.Decimal(14, 0)
+  /// Doanh thu 30 ngày tại thời điểm trao thưởng.
+  qualifiedRevenue30d   Decimal?                    @db.Decimal(14, 0)
+  grantedAt             DateTime                    @default(now())
+  paidAt                DateTime?
+  /// FK tới `CtvRevenueRewardTransaction.id` (cộng ví).
+  transactionId         String?                     @unique
+  affiliateProfile      AffiliateProfile            @relation(fields: [affiliateProfileId], references: [id], onDelete: Cascade)
+  tier                  CtvMembershipTier           @relation(fields: [tierId], references: [id], onDelete: Restrict)
+  ledgerEntry           CtvRevenueRewardTransaction? @relation("CtvRevenueRewardGrantLedger")
+  auditLog              CtvRevenueRewardAuditLog?
+
+  @@unique([affiliateProfileId, tierId])
+  @@index([affiliateProfileId])
+  @@index([tierId])
+  @@index([affiliateProfileId, paidAt])
+}
+
+/// Audit bất biến — đối soát thưởng doanh thu (một grant → một bản ghi).
+model CtvRevenueRewardAuditLog {
+  id                  String           @id @default(cuid())
+  affiliateProfileId  String
+  tierId              String
+  grantId             String           @unique
+  transactionId       String           @unique
+  rewardAmount        Decimal          @db.Decimal(14, 0)
+  qualifiedRevenue30d Decimal          @db.Decimal(14, 0)
+  createdAt           DateTime         @default(now())
+  grant               CtvRevenueRewardGrant @relation(fields: [grantId], references: [id], onDelete: Cascade)
+
+  @@index([affiliateProfileId])
+  @@index([tierId])
+  @@index([createdAt])
+  @@index([affiliateProfileId, tierId])
+}
+
+/// Giao dịch cộng ví thưởng doanh thu CTV (một grant → một transaction).
+model CtvRevenueRewardTransaction {
+  id                 String              @id @default(cuid())
+  affiliateProfileId String
+  grantId            String              @unique
+  amount             Decimal             @db.Decimal(14, 0)
+  createdAt          DateTime            @default(now())
+  grant              CtvRevenueRewardGrant @relation("CtvRevenueRewardGrantLedger", fields: [grantId], references: [id], onDelete: Cascade)
+  affiliateProfile   AffiliateProfile    @relation(fields: [affiliateProfileId], references: [id], onDelete: Cascade)
+
+  @@index([affiliateProfileId])
+  @@index([createdAt])
 }

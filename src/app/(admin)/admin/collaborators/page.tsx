@@ -34,6 +34,18 @@ import AffiliateCommissionActions from "../../../../components/admin/affiliate-c
 import AffiliateReconciliationPayForm from "../../../../components/admin/affiliate-reconciliation-pay-form";
 import AffiliateAdminGuide from "../../../../components/admin/affiliate-admin-guide";
 import AffiliateCtvSettingsForm from "../../../../components/admin/affiliate-ctv-settings-form";
+import { CtvMembershipTiersAdmin } from "../../../../components/admin/ctv-membership-tiers-admin";
+import { CtvRevenueRewardHistoryAdmin } from "../../../../components/admin/ctv-revenue-reward-history-admin";
+import {
+  CtvNotificationsAdminPanel,
+  CtvRewardTransactionsAdminPanel,
+  CtvTierHistoryAdminPanel,
+} from "../../../../components/admin/ctv-admin-history-panels";
+import { getCtvTierHistoryList } from "../../../../lib/admin/ctv-tier-history-admin";
+import { getCtvNotificationList } from "../../../../lib/admin/ctv-notifications-admin";
+import { getCtvRewardTransactionList } from "../../../../lib/admin/ctv-reward-transactions-admin";
+import { getCtvRevenueRewardAuditList } from "../../../../lib/admin/ctv-revenue-reward-audit";
+import { fetchCtvMembershipTiersFromDb } from "../../../../lib/ctv/ctv-membership-tier-repository";
 import AffiliateCopyLinkButton from "../../../../components/admin/affiliate-copy-link-button";
 import { adminTabActive, adminTabBase, adminTabInactive } from "../../../../lib/admin-ui";
 
@@ -41,6 +53,10 @@ const CTV_TABS = [
   { id: "danh-sach", label: "Danh sách CTV" },
   { id: "yeu-cau-ctv", label: "Yêu cầu CTV" },
   { id: "hoa-hong", label: "Hoa hồng" },
+  { id: "thuong-doanh-thu", label: "Lịch sử thưởng DT" },
+  { id: "giao-dich-thuong", label: "GD thưởng ví" },
+  { id: "lich-su-cap", label: "Lịch sử cấp" },
+  { id: "thong-bao-ctv", label: "TB CTV" },
   { id: "diem-thuong", label: "Điểm thưởng CTV" },
   { id: "click-theo-doi", label: "Click / Theo dõi giới thiệu" },
   { id: "don-phat-sinh", label: "Đơn phát sinh" },
@@ -89,6 +105,21 @@ type CollaboratorsPageProps = {
     app_status?: string;
     app_score_tier?: string;
     app_error?: string;
+    rr_q?: string;
+    rr_tier?: string;
+    rr_from?: string;
+    rr_to?: string;
+    th_q?: string;
+    th_tier?: string;
+    th_from?: string;
+    th_to?: string;
+    tx_q?: string;
+    tx_from?: string;
+    tx_to?: string;
+    nt_q?: string;
+    nt_type?: string;
+    nt_from?: string;
+    nt_to?: string;
   }>;
 };
 
@@ -220,6 +251,23 @@ export default async function AdminCollaboratorsPage({
   const ctvSettingsSaved = (resolvedSearch.ctvSettingsSaved ?? "").trim();
   const ctvSettingsRedirectTo = "/admin/collaborators?tab=cai-dat";
 
+  const rrQuery = (resolvedSearch.rr_q ?? "").trim();
+  const rrTier = (resolvedSearch.rr_tier ?? "").trim();
+  const rrFrom = (resolvedSearch.rr_from ?? "").trim();
+  const rrTo = (resolvedSearch.rr_to ?? "").trim();
+
+  const thQuery = (resolvedSearch.th_q ?? "").trim();
+  const thTier = (resolvedSearch.th_tier ?? "").trim();
+  const thFrom = (resolvedSearch.th_from ?? "").trim();
+  const thTo = (resolvedSearch.th_to ?? "").trim();
+  const txQuery = (resolvedSearch.tx_q ?? "").trim();
+  const txFrom = (resolvedSearch.tx_from ?? "").trim();
+  const txTo = (resolvedSearch.tx_to ?? "").trim();
+  const ntQuery = (resolvedSearch.nt_q ?? "").trim();
+  const ntType = (resolvedSearch.nt_type ?? "").trim();
+  const ntFrom = (resolvedSearch.nt_from ?? "").trim();
+  const ntTo = (resolvedSearch.nt_to ?? "").trim();
+
   const appStatusRaw = resolvedSearch.app_status ?? "ALL";
   const appStatusFilter: AffiliateApplicationAdminFilter =
     appStatusRaw === "PENDING" || appStatusRaw === "APPROVED" || appStatusRaw === "REJECTED"
@@ -258,6 +306,11 @@ export default async function AdminCollaboratorsPage({
     reconciliationBundle,
     affiliateApplicationRows,
     affiliateApplicationPendingCount,
+    revenueRewardAuditBundle,
+    membershipTiersForAdmin,
+    tierHistoryBundle,
+    rewardTxBundle,
+    ctvNotificationsBundle,
   ] = await Promise.all([
     getAffiliateSettings(),
     activeTab === "danh-sach"
@@ -359,6 +412,43 @@ export default async function AdminCollaboratorsPage({
       ? getAffiliateApplicationsForAdmin({ status: appStatusFilter, scoreTier: appScoreTierFilter })
       : Promise.resolve([] as Awaited<ReturnType<typeof getAffiliateApplicationsForAdmin>>),
     getAffiliateApplicationPendingCountForAdmin(),
+    activeTab === "thuong-doanh-thu"
+      ? getCtvRevenueRewardAuditList({
+          query: rrQuery,
+          tierId: rrTier || undefined,
+          from: rrFrom || undefined,
+          to: rrTo || undefined,
+        })
+      : Promise.resolve({ rows: [], total: 0 }),
+    activeTab === "thuong-doanh-thu" ||
+    activeTab === "lich-su-cap" ||
+    activeTab === "giao-dich-thuong" ||
+    activeTab === "thong-bao-ctv"
+      ? fetchCtvMembershipTiersFromDb(false)
+      : Promise.resolve([]),
+    activeTab === "lich-su-cap"
+      ? getCtvTierHistoryList({
+          query: thQuery,
+          tierId: thTier || undefined,
+          from: thFrom || undefined,
+          to: thTo || undefined,
+        })
+      : Promise.resolve({ rows: [], total: 0 }),
+    activeTab === "giao-dich-thuong"
+      ? getCtvRewardTransactionList({
+          query: txQuery,
+          from: txFrom || undefined,
+          to: txTo || undefined,
+        })
+      : Promise.resolve({ rows: [], total: 0 }),
+    activeTab === "thong-bao-ctv"
+      ? getCtvNotificationList({
+          query: ntQuery,
+          type: ntType || undefined,
+          from: ntFrom || undefined,
+          to: ntTo || undefined,
+        })
+      : Promise.resolve({ rows: [], total: 0 }),
   ]);
 
   const clickRows = clickBundle.rows;
@@ -486,6 +576,51 @@ export default async function AdminCollaboratorsPage({
         </div>
       </nav>
 
+      {activeTab === "lich-su-cap" ? (
+        <CtvTierHistoryAdminPanel
+          rows={tierHistoryBundle.rows}
+          total={tierHistoryBundle.total}
+          tiers={membershipTiersForAdmin.map((t) => ({ id: t.id, name: t.name }))}
+          query={thQuery}
+          tierId={thTier}
+          from={thFrom}
+          to={thTo}
+        />
+      ) : null}
+
+      {activeTab === "giao-dich-thuong" ? (
+        <CtvRewardTransactionsAdminPanel
+          rows={rewardTxBundle.rows}
+          total={rewardTxBundle.total}
+          query={txQuery}
+          from={txFrom}
+          to={txTo}
+        />
+      ) : null}
+
+      {activeTab === "thong-bao-ctv" ? (
+        <CtvNotificationsAdminPanel
+          rows={ctvNotificationsBundle.rows}
+          total={ctvNotificationsBundle.total}
+          query={ntQuery}
+          type={ntType}
+          from={ntFrom}
+          to={ntTo}
+        />
+      ) : null}
+
+      {activeTab === "thuong-doanh-thu" ? (
+        <CtvRevenueRewardHistoryAdmin
+          rows={revenueRewardAuditBundle.rows}
+          total={revenueRewardAuditBundle.total}
+          tiers={membershipTiersForAdmin.map((t) => ({ id: t.id, name: t.name, code: t.code }))}
+          query={rrQuery}
+          tierId={rrTier}
+          from={rrFrom}
+          to={rrTo}
+        />
+      ) : null}
+
       {activeTab === "cai-dat" ? (
         <section className="space-y-4 rounded-2xl border border-[#E2E8F0] bg-white p-4 sm:p-5">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -517,6 +652,7 @@ export default async function AdminCollaboratorsPage({
           ) : null}
 
           <AffiliateCtvSettingsForm settings={settings} redirectTo={ctvSettingsRedirectTo} />
+          <CtvMembershipTiersAdmin />
         </section>
       ) : null}
 

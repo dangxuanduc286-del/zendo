@@ -5,6 +5,8 @@ import {
   formatCommissionUnlockDateVi,
 } from "@/lib/affiliate/commission-hold";
 import { normalizeAffiliateSettings, resolveCtvGuideContentForDisplay } from "@/lib/admin/affiliate-settings-shared";
+import { loadAffiliatePayoutLedgerForProfile } from "@/lib/affiliate/affiliate-withdrawal-ledger";
+import { runCtvAffiliateLifecycle, type CtvTierProgressSummary } from "@/lib/ctv/ctv-affiliate-lifecycle";
 import { db } from "./db";
 import { getWebsiteSettings } from "./settings";
 
@@ -13,6 +15,24 @@ const money = (v: { toString(): string } | null | undefined): number => {
   const n = Number(v.toString());
   return Number.isFinite(n) ? n : 0;
 };
+
+const DASHBOARD_QUICK_LINKS_TTL_MS = 60_000;
+let quickLinksCache: { at: number; rows: Array<{ id: string; name: string; slug: string }> } | null = null;
+
+async function getDashboardQuickLinks(): Promise<Array<{ id: string; name: string; slug: string }>> {
+  const now = Date.now();
+  if (quickLinksCache && now - quickLinksCache.at < DASHBOARD_QUICK_LINKS_TTL_MS) {
+    return quickLinksCache.rows;
+  }
+  const rows = await db.product.findMany({
+    where: { status: "ACTIVE" },
+    orderBy: { updatedAt: "desc" },
+    take: 24,
+    select: { id: true, name: true, slug: true },
+  });
+  quickLinksCache = { at: now, rows };
+  return rows;
+}
 
 /** Mã đơn hiển thị ngắn (khách mua không lộ họ tên/SĐT). */
 export function formatAffiliateOrderCodeShort(code: string): string {
@@ -99,15 +119,20 @@ export type StorefrontAffiliateDashboardData = {
     referralRevenue: number;
     /** Doanh thu đơn giới thiệu: hoàn thành / đã giao + đã thanh toán (rank CTV). */
     qualifiedReferralRevenue: number;
+    /** Tier IDs đã ghi nhận thưởng doanh thu */
+    grantedCtvTierIds: string[];
     commissionPending: number;
     commissionWaitingRelease: number;
     commissionAvailable: number;
-    /** Tổng khả dụng rút — alias commissionAvailable */
+    /** Hoa hồng khả dụng + thưởng doanh thu (trước khi trừ yêu cầu rút pending). */
     commissionApprovedPool: number;
     commissionPaid: number;
     commissionCancelled: number;
     conversionRatePercent: number | null;
     withdrawableBalance: number;
+    /** Số dư thưởng doanh thu đã cộng vào ví (denormalized). */
+    revenueRewardWalletBalance: number;
+    ctvTierProgress: CtvTierProgressSummary;
   };
   referredOrders: StorefrontAffiliateReferredOrderRow[];
   commissions: StorefrontAffiliateCommissionRow[];
@@ -132,14 +157,15 @@ export async function getStorefrontAffiliateDashboardForCustomer(
   const customerId = sessionCustomerId.trim();
   if (!customerId) return null;
 
-  const profile = await db.affiliateProfile.findFirst({
-    where: { customerId },
-    orderBy: { updatedAt: "desc" },
-    select: { id: true, refCode: true, status: true },
-  });
+  const [profile, website] = await Promise.all([
+    db.affiliateProfile.findFirst({
+      where: { customerId },
+      orderBy: { updatedAt: "desc" },
+      select: { id: true, refCode: true, status: true, revenueRewardWalletBalance: true },
+    }),
+    getWebsiteSettings(),
+  ]);
   if (!profile) return null;
-
-  const website = await getWebsiteSettings();
   const cas = website.customerAccountSettings;
   const affiliateSettings = normalizeAffiliateSettings({
     affiliateEnabled: website.affiliateEnabled,
@@ -172,7 +198,6 @@ export async function getStorefrontAffiliateDashboardForCustomer(
           select: {
             amount: true,
             status: true,
-            orderRevenue: true,
           },
         },
       },
@@ -207,23 +232,31 @@ export async function getStorefrontAffiliateDashboardForCustomer(
         paidAt: true,
       },
     }),
-    db.product.findMany({
-      where: { status: "ACTIVE" },
-      orderBy: { updatedAt: "desc" },
-      take: 24,
-      select: { id: true, name: true, slug: true },
-    }),
+    getDashboardQuickLinks(),
     db.order.aggregate({
       where: {
         affiliateProfileId: profile.id,
         paymentStatus: "PAID",
         orderStatus: { in: ["COMPLETED", "DELIVERED"] },
+        createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
       },
       _sum: { totalAmount: true },
     }),
   ]);
 
   const qualifiedReferralRevenue = money(qualifiedRevenueAgg._sum.totalAmount);
+
+  const lifecycle = await runCtvAffiliateLifecycle(profile.id, qualifiedReferralRevenue).catch((err) => {
+    console.error("[affiliate/dashboard] runCtvAffiliateLifecycle", err);
+    return null;
+  });
+
+  const grantRows = await db.ctvRevenueRewardGrant.findMany({
+    where: { affiliateProfileId: profile.id },
+    select: { tierId: true },
+  });
+  const grantedCtvTierIds = grantRows.map((g) => g.tierId);
+  const revenueRewardWalletBalance = money(profile.revenueRewardWalletBalance);
 
   let commissionPending = 0;
   let commissionWaitingRelease = 0;
@@ -255,19 +288,14 @@ export async function getStorefrontAffiliateDashboardForCustomer(
     }
   }
 
-  const commissionApprovedPool = commissionAvailable;
-
   let referralRevenue = 0;
   for (const row of commissions) {
     if (row.status !== "CANCELLED") referralRevenue += money(row.orderRevenue);
   }
 
-  const reservedForWithdrawals = withdrawals.reduce((sum, w) => {
-    if (w.status === "PENDING" || w.status === "APPROVED") return sum + money(w.amount);
-    return sum;
-  }, 0);
-
-  const withdrawableBalance = Math.max(0, commissionAvailable - reservedForWithdrawals);
+  const payoutLedger = await loadAffiliatePayoutLedgerForProfile(profile.id);
+  const commissionApprovedPool = payoutLedger.commissionApprovedPool;
+  const withdrawableBalance = payoutLedger.withdrawableBalance;
 
   const referredOrdersCount = orders.length;
   const conversionRatePercent =
@@ -333,6 +361,7 @@ export async function getStorefrontAffiliateDashboardForCustomer(
       referredOrdersCount,
       referralRevenue,
       qualifiedReferralRevenue,
+      grantedCtvTierIds,
       commissionPending,
       commissionWaitingRelease,
       commissionAvailable,
@@ -341,6 +370,19 @@ export async function getStorefrontAffiliateDashboardForCustomer(
       commissionCancelled,
       conversionRatePercent,
       withdrawableBalance,
+      revenueRewardWalletBalance,
+      ctvTierProgress:
+        lifecycle?.progress ?? {
+          revenue30d: qualifiedReferralRevenue,
+          currentTierName: "—",
+          currentCommissionPercent: 0,
+          nextTierName: null,
+          revenueTargetNext: null,
+          remainingToNext: 0,
+          progressPercent: 0,
+          nextTierRewardAmount: null,
+          isMaxRank: false,
+        },
     },
     referredOrders,
     commissions: commissionRows,

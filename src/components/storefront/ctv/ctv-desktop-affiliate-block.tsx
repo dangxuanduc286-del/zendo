@@ -117,24 +117,30 @@ function CtvDesktopAffiliateBlockInner({
           {...identityProps}
           ctvRankRevenue={ctvRankRevenue}
           ctvRankRevenueLoading={ctvRankRevenueLoading}
+          grantedCtvTierIds={model.affDash.data?.summary.grantedCtvTierIds ?? []}
+          ctvTierProgress={model.affDash.data?.summary.ctvTierProgress ?? null}
+          ctvTierProgressLoading={ctvRankRevenueLoading || model.affDash.loading}
           withdrawableBalance={model.withdrawableBalanceUi}
+          waitingReleaseCommission={model.waitingReleaseCommission}
           conversionRatePercent={conversionRatePercent}
           metrics={metrics}
           withdrawalEnabled={withdrawalEnabled}
           onWithdraw={() => onSelectSubTab("withdrawal")}
         />
-        <CtvAffiliateWorkspace
-          accountSettings={accountSettings}
-          data={data}
-          supportHref={supportHref}
-          shoppingHomeHref={shoppingHomeHref}
-          activeSubTab={activeSubTab}
-          onSelectSubTab={onSelectSubTab}
-          highlightOrderCode={highlightOrderCode}
-          showGrowthToolkit={showGrowthToolkit}
-          affiliateSubTabs={model.affiliateSubTabs}
-          embedInPageOverview={embedInPageOverview}
-        />
+        {!embedInPageOverview ? (
+          <CtvAffiliateWorkspace
+            accountSettings={accountSettings}
+            data={data}
+            supportHref={supportHref}
+            shoppingHomeHref={shoppingHomeHref}
+            activeSubTab={activeSubTab}
+            onSelectSubTab={onSelectSubTab}
+            highlightOrderCode={highlightOrderCode}
+            showGrowthToolkit={showGrowthToolkit}
+            affiliateSubTabs={model.affiliateSubTabs}
+            embedInPageOverview={embedInPageOverview}
+          />
+        ) : null}
       </CtvMobilePageShell>
     </CtvAffiliateDashboardProvider>
   );

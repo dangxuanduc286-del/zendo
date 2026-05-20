@@ -78,7 +78,10 @@ export function useAffiliateAccountDashboardModel(
 
   const affDash = useAffiliateDashboardApi(Boolean(data.affiliate.hasProfile));
   const s = affDash.data?.summary;
-  const approvedCommission = s?.commissionAvailable ?? s?.commissionApprovedPool ?? data.stats.affiliateCommission;
+  const approvedCommission = affDash.data?.summary
+    ? (affDash.data.summary.commissionApprovedPool ??
+        (affDash.data.summary.commissionAvailable ?? 0) + (affDash.data.summary.revenueRewardWalletBalance ?? 0))
+    : data.stats.affiliateCommission;
   const pendingCommission = s?.commissionPending ?? 0;
   const waitingReleaseCommission = s?.commissionWaitingRelease ?? 0;
   const paidCommission = s?.commissionPaid ?? 0;

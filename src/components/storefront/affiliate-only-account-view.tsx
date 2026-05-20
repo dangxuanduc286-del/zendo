@@ -347,7 +347,7 @@ export default function AffiliateOnlyAccountView({
   const [addressMessage, setAddressMessage] = useState("");
   const [addressError, setAddressError] = useState("");
   const [navExpanded, setNavExpanded] = useState<Record<string, boolean>>({});
-  const liveNotifications = useCustomerNotificationsPoll(
+  const [liveNotifications, notificationMutators] = useCustomerNotificationsPoll(
     data.notifications,
     accountSettings.showNotifications,
     activeTab === "notifications",
@@ -358,6 +358,7 @@ export default function AffiliateOnlyAccountView({
         affiliateCommissionTab.tabEnabled,
     ),
   );
+
   const provinceOptions = getProvinces("legacy");
   const districtOptions = getDistrictsByProvince(addressProvinceCode, "legacy");
   const wardOptions = getWardsByDistrict(addressDistrictCode, addressProvinceCode, "legacy");
@@ -388,32 +389,46 @@ export default function AffiliateOnlyAccountView({
     accountSettings.showAddresses && accountSettings.affiliateShowAddressBook;
   const showCouponsEffective =
     accountSettings.showCoupons && accountSettings.affiliateShowVoucher;
-  const quickCards = [
-    {
-      key: "orders",
-      label: "Đơn hàng của tôi",
-      value: data.stats.totalOrders,
-      enabled: accountSettings.showOrders && buyerShortcutStatsOk,
-    },
-    {
-      key: "processing",
-      label: "Đang xử lý",
-      value: data.stats.processingOrders,
-      enabled: accountSettings.showOrderTimeline && buyerShortcutStatsOk,
-    },
-    {
-      key: "vouchers",
-      label: "Kho voucher",
-      value: data.stats.vouchers,
-      enabled: showCouponsEffective,
-    },
-    {
-      key: "rewards",
-      label: affiliateMetricLabel,
-      value: affiliateMetricValue,
-      enabled: true,
-    },
-  ].filter((item) => item.enabled);
+  const quickCards = useMemo(
+    () =>
+      [
+        {
+          key: "orders",
+          label: "Đơn hàng của tôi",
+          value: data.stats.totalOrders,
+          enabled: accountSettings.showOrders && buyerShortcutStatsOk,
+        },
+        {
+          key: "processing",
+          label: "Đang xử lý",
+          value: data.stats.processingOrders,
+          enabled: accountSettings.showOrderTimeline && buyerShortcutStatsOk,
+        },
+        {
+          key: "vouchers",
+          label: "Kho voucher",
+          value: data.stats.vouchers,
+          enabled: showCouponsEffective,
+        },
+        {
+          key: "rewards",
+          label: affiliateMetricLabel,
+          value: affiliateMetricValue,
+          enabled: true,
+        },
+      ].filter((item) => item.enabled),
+    [
+      accountSettings.showOrders,
+      accountSettings.showOrderTimeline,
+      affiliateMetricLabel,
+      affiliateMetricValue,
+      buyerShortcutStatsOk,
+      data.stats.processingOrders,
+      data.stats.totalOrders,
+      data.stats.vouchers,
+      showCouponsEffective,
+    ],
+  );
 
   const ctvNavEntries = useMemo(() => buildAffiliateCtvNavEntriesFromDashboard(accountSettings, data), [accountSettings, data]);
 
@@ -526,11 +541,11 @@ export default function AffiliateOnlyAccountView({
 
   const currentAvatar = avatarPreviewUrl || avatarUrl;
 
-  const onPickAvatar = () => {
+  const onPickAvatar = useCallback(() => {
     avatarInputRef.current?.click();
-  };
+  }, []);
 
-  const onAvatarFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+  const onAvatarFileChange = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
     setAvatarError("");
@@ -574,9 +589,9 @@ export default function AffiliateOnlyAccountView({
       }
       URL.revokeObjectURL(objectUrl);
     }
-  };
+  }, [router]);
 
-  const onRemoveAvatar = async () => {
+  const onRemoveAvatar = useCallback(async () => {
     setAvatarError("");
     setAvatarMessage("");
     setAvatarUploading(true);
@@ -593,7 +608,7 @@ export default function AffiliateOnlyAccountView({
     } finally {
       setAvatarUploading(false);
     }
-  };
+  }, [router]);
 
   const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
   const normalizePhone = (value: string) => value.replace(/[^\d+]/g, "");
@@ -848,29 +863,51 @@ export default function AffiliateOnlyAccountView({
     }
   };
 
-  const profileHeroProps = {
-    accountSettings,
-    accountSubtitle,
-    displayName: data.displayName,
-    contactText: data.contactText,
-    badge: data.badge,
-    currentAvatar,
-    avatarUrl,
-    avatarInputRef,
-    avatarUploading,
-    avatarMessage,
-    avatarError,
-    onPickAvatar,
-    onAvatarFileChange,
-    onRemoveAvatar,
-    onEditProfile: accountSettings.showProfile ? () => selectTab("profile") : undefined,
-    showProfileLink: accountSettings.showProfile,
-    showShoppingCta,
-    shoppingHomeHref,
-    orderLookupHref: accountSettings.orderLookupUrl || "/tra-cuu-don-hang",
-    refCode: data.affiliate.refCode,
-    quickCards,
-  };
+  const profileHeroProps = useMemo(
+    () => ({
+      accountSettings,
+      accountSubtitle,
+      displayName: data.displayName,
+      contactText: data.contactText,
+      badge: data.badge,
+      currentAvatar,
+      avatarUrl,
+      avatarInputRef,
+      avatarUploading,
+      avatarMessage,
+      avatarError,
+      onPickAvatar,
+      onAvatarFileChange,
+      onRemoveAvatar,
+      onEditProfile: accountSettings.showProfile ? () => selectTab("profile") : undefined,
+      showProfileLink: accountSettings.showProfile,
+      showShoppingCta,
+      shoppingHomeHref,
+      orderLookupHref: accountSettings.orderLookupUrl || "/tra-cuu-don-hang",
+      refCode: data.affiliate.refCode,
+      quickCards,
+    }),
+    [
+      accountSettings,
+      accountSubtitle,
+      avatarError,
+      avatarMessage,
+      avatarUploading,
+      avatarUrl,
+      currentAvatar,
+      data.affiliate.refCode,
+      data.badge,
+      data.contactText,
+      data.displayName,
+      onAvatarFileChange,
+      onPickAvatar,
+      onRemoveAvatar,
+      quickCards,
+      selectTab,
+      shoppingHomeHref,
+      showShoppingCta,
+    ],
+  );
 
 
   const toggleNavSection = (id: string) => {
@@ -1015,6 +1052,19 @@ export default function AffiliateOnlyAccountView({
           <AccountTabKeepAlive tabKey="affiliate" activeTab={activeTab}>
             <div className="hidden lg:block">
               <CtvAffiliateWorkspaceDesktop {...affiliateWorkspaceProps} />
+            </div>
+            <div className="lg:hidden">
+              <AffiliateAccountDashboardTab
+                accountSettings={accountSettings}
+                data={data}
+                supportHref={supportHref}
+                shoppingHomeHref={shoppingHomeHref}
+                highlightOrderCode={highlightOrderCode}
+                activeSubTab={activeSubTab}
+                onSelectSubTab={selectAffiliateSubTab}
+                showGrowthToolkit
+                uiShell="ctv"
+              />
             </div>
           </AccountTabKeepAlive>
         ) : null}
@@ -1372,6 +1422,7 @@ export default function AffiliateOnlyAccountView({
             <AccountNotificationsSection
               title={accountSettings.notificationTitle || "Thông báo tài khoản"}
               notifications={liveNotifications}
+              notificationMutators={notificationMutators}
               commissionTab={affiliateCommissionTab}
               affiliateProgramEnabled={affiliateProgramEnabled}
               isAffiliateActive={data.affiliate.isActive}
@@ -1753,24 +1804,6 @@ export default function AffiliateOnlyAccountView({
               zaloHref={supportHref.startsWith("http") ? supportHref : null}
             />
           </AccountTabKeepAlive>
-
-          {accountSettings.showAffiliate ? (
-            <AccountTabKeepAlive tabKey="affiliate" activeTab={activeTab}>
-            <div className="lg:hidden">
-              <AffiliateAccountDashboardTab
-                accountSettings={accountSettings}
-                data={data}
-                supportHref={supportHref}
-                shoppingHomeHref={shoppingHomeHref}
-                highlightOrderCode={highlightOrderCode}
-                activeSubTab={activeSubTab}
-                onSelectSubTab={selectAffiliateSubTab}
-                showGrowthToolkit
-                uiShell="ctv"
-              />
-            </div>
-            </AccountTabKeepAlive>
-          ) : null}
 
           {accountSettings.showSecurity ? (
             <AccountTabKeepAlive tabKey="security" activeTab={activeTab}>
