@@ -16,6 +16,7 @@ export async function GET(): Promise<NextResponse> {
       sortOrder: t.sortOrder,
       badgeColor: t.badgeColor,
       icon: t.icon,
+      isActive: t.isActive,
     })),
   });
 }

@@ -51,12 +51,16 @@ function CtvProfileHeaderInner(props: CtvProfileHeaderProps): JSX.Element {
     ...identityProps
   } = props;
 
-  const { tiers, loading: tiersLoading } = useCtvMembershipTiers();
+  const { tiers, loading: tiersLoading, error: tiersError } = useCtvMembershipTiers();
+
+  const tiersReady = !tiersLoading && tiers.length > 0;
 
   const rankCardGradient = useMemo(() => {
-    if (tiers.length === 0) return "from-slate-100 via-slate-50 to-white";
+    if (!tiersReady) return "from-slate-100 via-slate-50 to-white";
     return getCtvRankFromTiers(ctvRankRevenue, tiers).color.gradient;
-  }, [ctvRankRevenue, tiers]);
+  }, [ctvRankRevenue, tiers, tiersReady]);
+
+  const showRankCard = !tiersError;
 
   return (
     <main className={CTV_HUB_MAIN_WRAP} aria-label="Trung tâm CTV — kiếm tiền và hiệu suất">
@@ -76,13 +80,21 @@ function CtvProfileHeaderInner(props: CtvProfileHeaderProps): JSX.Element {
         <div className={CTV_HUB_LAYOUT_STACK}>
           <div className={`${CTV_HUB_MOBILE_ORDER_ACCOUNT} ${CTV_HUB_ROW_SPLIT}`}>
             <CtvProfileIdentityCard {...identityProps} />
-            <CtvMemberRankCard
-              totalRevenue={ctvRankRevenue}
-              tiers={tiers}
-              grantedTierIds={grantedCtvTierIds}
-              loading={ctvRankRevenueLoading}
-              tiersLoading={tiersLoading}
-            />
+            {showRankCard ? (
+              <CtvMemberRankCard
+                totalRevenue={ctvRankRevenue}
+                tiers={tiers}
+                grantedTierIds={grantedCtvTierIds}
+                loading={ctvRankRevenueLoading}
+                tiersLoading={tiersLoading}
+              />
+            ) : (
+              <div
+                className="min-h-[12rem] animate-pulse rounded-2xl bg-slate-100/90 ring-1 ring-slate-200/60"
+                role="status"
+                aria-label="Không tải được cấp bậc CTV"
+              />
+            )}
           </div>
 
           {ctvTierProgress ? (

@@ -72,15 +72,22 @@ function CtvMemberRankCardInner({
   tiersLoading = false,
 }: CtvMemberRankCardProps): JSX.Element {
   const grantedSet = useMemo(() => new Set(grantedTierIds), [grantedTierIds]);
-  const rank = useMemo(() => getCtvRankFromTiers(totalRevenue, tiers), [totalRevenue, tiers]);
-  const rewardFocus = useMemo(
-    () => getCtvRankCardRewardFocus(totalRevenue, tiers, grantedSet),
-    [totalRevenue, tiers, grantedSet],
-  );
+  const tiersReady = !tiersLoading && tiers.length > 0;
+
+  const rank = useMemo(() => {
+    if (!tiersReady) return getCtvRankFromTiers(0, []);
+    return getCtvRankFromTiers(totalRevenue, tiers);
+  }, [tiersReady, totalRevenue, tiers]);
+
+  const rewardFocus = useMemo(() => {
+    if (tiersLoading || tiers.length === 0) return null;
+    return getCtvRankCardRewardFocus(totalRevenue, tiers, grantedSet);
+  }, [totalRevenue, tiers, grantedSet, tiersLoading]);
+
   const Icon = rank.icon;
   const tierMetaLine = useMemo(() => buildTierMetaLine(rank), [rank]);
   const currentRevenueFormatted = formatCtvRankMoney(totalRevenue);
-  const busy = loading || tiersLoading || tiers.length === 0;
+  const busy = loading || tiersLoading || tiers.length === 0 || rewardFocus == null;
 
   const progressFill = rank.isMaxRank
     ? "from-emerald-500 via-green-500 to-emerald-600"
@@ -177,7 +184,7 @@ function CtvMemberRankCardInner({
                   <div className="h-6 w-full max-w-[12rem] animate-pulse rounded-md bg-slate-200/70" />
                   <div className="h-4 w-28 animate-pulse rounded bg-slate-200/60" />
                 </div>
-              ) : (
+              ) : rewardFocus ? (
                 <div className={CTV_HUB_RANK_REWARD_COPY}>
                   <p className={CTV_HUB_RANK_REWARD_LINE}>
                     <span className={CTV_HUB_RANK_REWARD_LABEL}>Thưởng:</span>
@@ -195,12 +202,12 @@ function CtvMemberRankCardInner({
                   </p>
                   <p className={CTV_HUB_RANK_REWARD_SUFFIX}>khi đạt yêu cầu</p>
                 </div>
-              )}
+              ) : null}
             </div>
 
             {busy ? (
               <div className="h-7 w-24 shrink-0 animate-pulse rounded-full bg-slate-200/70" aria-hidden />
-            ) : rewardFocus.granted ? (
+            ) : rewardFocus?.granted ? (
               <span
                 className={[CTV_HUB_RANK_REWARD_STATUS, "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/80"].join(
                   " ",
@@ -210,7 +217,7 @@ function CtvMemberRankCardInner({
                 <LockOpen className="h-3.5 w-3.5 shrink-0" aria-hidden />
                 Đã nhận thưởng
               </span>
-            ) : rewardFocus.achieved ? (
+            ) : rewardFocus?.achieved ? (
               <span
                 className={[CTV_HUB_RANK_REWARD_STATUS, "bg-amber-50 text-amber-800 ring-1 ring-amber-200/80"].join(" ")}
                 title="Đã đạt mốc, thưởng sẽ được cộng khi tải trung tâm CTV"

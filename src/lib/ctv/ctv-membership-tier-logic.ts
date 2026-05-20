@@ -191,26 +191,28 @@ export function isCtvRevenueRewardAchieved(revenue: number, tier: CtvMembershipT
   return Math.max(0, revenue) >= tier.rewardThreshold;
 }
 
-export function getCtvRankCardRewardFocus(
-  totalRevenue: number,
-  tiers: readonly CtvMembershipTierRecord[],
-  grantedTierIds: ReadonlySet<string>,
-): {
+export type CtvRankCardRewardFocus = {
   tier: CtvMembershipTierRecord;
   achieved: boolean;
   granted: boolean;
   amountTextClass: string;
   progressPercent: number;
-} {
+};
+
+export function getCtvRankCardRewardFocus(
+  totalRevenue: number,
+  tiers: readonly CtvMembershipTierRecord[],
+  grantedTierIds: ReadonlySet<string>,
+): CtvRankCardRewardFocus | null {
   const revenue = Math.max(0, Number.isFinite(totalRevenue) ? totalRevenue : 0);
-  const rank = getCtvRankFromTiers(revenue, tiers);
   const tier =
     resolveCtvMembershipTierForRevenue(revenue, tiers) ??
     tiers.find((t) => t.isActive) ??
     tiers[0];
   if (!tier) {
-    throw new Error("CTV membership tiers not configured");
+    return null;
   }
+  const rank = getCtvRankFromTiers(revenue, tiers);
   const achieved = isCtvRevenueRewardAchieved(revenue, tier);
   const granted = grantedTierIds.has(tier.id);
   return {
