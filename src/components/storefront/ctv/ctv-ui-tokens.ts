@@ -684,9 +684,6 @@ export const CTV_HUB_KPI_LABEL = "text-sm font-medium leading-snug text-slate-60
 
 export const CTV_HUB_KPI_HINT = "text-sm font-medium leading-snug text-slate-500";
 
-/** @deprecated — dùng CTV_HUB_KPI_TILE */
-export const CTV_V2_STATS_CELL = CTV_HUB_KPI_TILE;
-
 export const CTV_V2_STATS_GRID =
   "grid min-w-0 grid-cols-1 divide-y divide-slate-200/70 sm:grid-cols-3 sm:divide-x sm:divide-y-0";
 

@@ -2,9 +2,9 @@
 
 import { memo, type ReactNode } from "react";
 import {
+  CTV_HUB_KPI_TILE,
   CTV_MOBILE_KPI_GRID,
   CTV_MONEY_VALUE_MD,
-  CTV_V2_STATS_CELL,
   CTV_V2_STATS_GRID,
   CTV_V2_LABEL,
 } from "../ctv-ui-tokens";
@@ -42,7 +42,7 @@ function CtvMetricStripInner({
     return (
       <dl className={`${CTV_V2_STATS_GRID} ${className}`} aria-label={ariaLabel}>
         {items.map((item) => (
-          <div key={item.id} className={CTV_V2_STATS_CELL}>
+          <div key={item.id} className={CTV_HUB_KPI_TILE}>
             <dt className={CTV_V2_LABEL}>{item.label}</dt>
             <dd className={`mt-2 block ${CTV_MONEY_VALUE_MD}`}>{item.value}</dd>
             {item.sub ? <dd className="mt-1 text-[10px] text-slate-500">{item.sub}</dd> : null}
