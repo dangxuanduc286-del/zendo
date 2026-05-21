@@ -1,7 +1,7 @@
 "use client";
 
 import { memo } from "react";
-import { CTV_V2_INSET } from "../ctv-ui-tokens";
+import { CTV_MOBILE_KPI_GRID, CTV_V2_INSET } from "../ctv-ui-tokens";
 
 const PULSE = "animate-pulse rounded-lg bg-slate-200/70";
 
@@ -22,7 +22,7 @@ function CtvMetricCardSkeletonInner(): JSX.Element {
 function CtvMetricGridSkeletonInner({ count = 4 }: { count?: number }): JSX.Element {
   return (
     <div
-      className="grid min-w-0 grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4"
+      className={CTV_MOBILE_KPI_GRID}
       aria-busy="true"
       aria-label="Đang tải số liệu"
     >

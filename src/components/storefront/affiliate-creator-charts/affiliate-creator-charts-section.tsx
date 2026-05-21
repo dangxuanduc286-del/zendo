@@ -4,6 +4,7 @@ import Link from "next/link";
 import { clsx } from "clsx";
 import { useState } from "react";
 import { Megaphone, Share2, Sparkles } from "lucide-react";
+import { CTV_TYPE_BODY, CTV_TYPE_CARD_TITLE } from "../affiliate/affiliate-ctv-account-ui-tokens";
 import {
   AFFILIATE_ANALYTICS_SEGMENT_PILL_ACTIVE,
   AFFILIATE_ANALYTICS_SEGMENT_PILL_INACTIVE,
@@ -55,8 +56,8 @@ export default function AffiliateCreatorChartsSection(props: Props): JSX.Element
             <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden />
           </span>
           <div>
-            <h3 className="text-sm font-bold tracking-tight text-slate-900">Phân tích trực quan</h3>
-            <p className="text-[10px] text-slate-500">
+            <h3 className={CTV_TYPE_CARD_TITLE}>Phân tích trực quan</h3>
+            <p className={`${CTV_TYPE_BODY} text-xs`}>
               Xu hướng theo ngày · nguồn · campaign · realtime · landing · kỳ {props.rangeLabel}
             </p>
           </div>

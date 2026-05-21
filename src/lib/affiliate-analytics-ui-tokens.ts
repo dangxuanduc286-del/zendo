@@ -1,62 +1,51 @@
 import { clsx } from "clsx";
+import {
+  CTV_SEGMENTED_ICON,
+  CTV_SEGMENTED_ITEM,
+  CTV_SEGMENTED_ITEM_ACTIVE,
+  CTV_SEGMENTED_ITEM_ICON,
+  CTV_SEGMENTED_LABEL,
+  CTV_SEGMENTED_PILL_ITEM,
+  CTV_SEGMENTED_PILL_ITEM_ACTIVE,
+  CTV_SEGMENTED_WRAP,
+  CTV_TAB_IDLE_HOVER,
+} from "@/components/storefront/ctv/ctv-ui-tokens";
 
 /**
- * Hệ màu tab / segmented control cho Affiliate Analytics (Zendo storefront).
- * Tone xanh nhạt — không dùng pill navy/đen cho tab active.
+ * Alias tab / segmented cho Affiliate Analytics — SSOT: CTV_SEGMENTED_* (ctv-ui-tokens).
+ * Giữ tên export cũ để không đổi import hàng loạt; styling thống nhất CTV/Affiliate.
  */
 
-/** Vùng nền chung cho hàng tab / toolbar phân đoạn (nhẹ, ecommerce SaaS). */
-export const AFFILIATE_ANALYTICS_TAB_ROW_SURFACE =
-  "rounded-xl border border-blue-100/90 bg-blue-50/60 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)]";
+/** @deprecated — dùng CTV_SEGMENTED_WRAP */
+export const AFFILIATE_ANALYTICS_TAB_ROW_SURFACE = CTV_SEGMENTED_WRAP;
 
-const SEGMENT_BASE =
-  "inline-flex items-center justify-center border font-semibold transition-[color,background-color,border-color,box-shadow,transform] active:scale-[0.99]";
+/** @deprecated — dùng CTV_SEGMENTED_ITEM + CTV_TAB_IDLE_HOVER */
+export const AFFILIATE_ANALYTICS_MAIN_TAB_INACTIVE = clsx(CTV_SEGMENTED_ITEM, CTV_TAB_IDLE_HOVER);
 
-/** Tab chính analytics (pill lớn, scroll ngang mobile). */
-export const AFFILIATE_ANALYTICS_MAIN_TAB_BASE = clsx(
-  SEGMENT_BASE,
-  "shrink-0 snap-start rounded-lg px-3.5 py-2 text-xs sm:px-4 sm:text-[13px] lg:px-4 lg:py-2.5",
-);
+/** Tab chính analytics — giữ box model khi active (tránh nhảy chiều cao/padding). */
+export const AFFILIATE_ANALYTICS_MAIN_TAB_ACTIVE = clsx(CTV_SEGMENTED_ITEM, CTV_SEGMENTED_ITEM_ACTIVE);
 
-export const AFFILIATE_ANALYTICS_MAIN_TAB_INACTIVE = clsx(
-  AFFILIATE_ANALYTICS_MAIN_TAB_BASE,
-  "border-transparent bg-blue-50/35 text-slate-600 hover:border-blue-100/90 hover:bg-blue-100/55 hover:text-slate-800",
-);
+/** @deprecated — dùng CTV_SEGMENTED_PILL_ITEM */
+export const AFFILIATE_ANALYTICS_SEGMENT_PILL_INACTIVE = CTV_SEGMENTED_PILL_ITEM;
 
-export const AFFILIATE_ANALYTICS_MAIN_TAB_ACTIVE = clsx(
-  AFFILIATE_ANALYTICS_MAIN_TAB_BASE,
-  "border-blue-300/85 bg-blue-500/10 text-blue-800 shadow-[0_1px_2px_rgba(37,99,235,0.12)] ring-1 ring-blue-200/55",
-);
+/** @deprecated — dùng CTV_SEGMENTED_PILL_ITEM_ACTIVE */
+export const AFFILIATE_ANALYTICS_SEGMENT_PILL_ACTIVE = CTV_SEGMENTED_PILL_ITEM_ACTIVE;
 
-/** Subtab / filter segment nhỏ (campaign hub, creator charts…). */
-export const AFFILIATE_ANALYTICS_SEGMENT_PILL_BASE = clsx(
-  SEGMENT_BASE,
-  "rounded-lg px-2.5 py-1 text-[11px] font-bold",
-);
+/** @deprecated — dùng CTV_SEGMENTED_ITEM_ICON + CTV_TAB_IDLE_HOVER */
+export const AFFILIATE_ANALYTICS_SUBTAB_INACTIVE = clsx(CTV_SEGMENTED_ITEM_ICON, CTV_TAB_IDLE_HOVER);
 
-export const AFFILIATE_ANALYTICS_SEGMENT_PILL_INACTIVE = clsx(
-  AFFILIATE_ANALYTICS_SEGMENT_PILL_BASE,
-  "border-transparent bg-blue-50/40 text-slate-600 ring-1 ring-blue-100/60 hover:bg-blue-100/60 hover:text-slate-800",
-);
-
-export const AFFILIATE_ANALYTICS_SEGMENT_PILL_ACTIVE = clsx(
-  AFFILIATE_ANALYTICS_SEGMENT_PILL_BASE,
-  "border-blue-300/85 bg-blue-500/12 text-blue-800 shadow-[0_1px_2px_rgba(37,99,235,0.1)] ring-1 ring-blue-200/50",
-);
-
-/** Subtab campaign (có icon, `flex` — không dùng chung `inline-flex` với pill chart). */
-const SUBTAB_SHELL =
-  "flex shrink-0 snap-start items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-bold transition-[color,background-color,border-color,box-shadow,transform] active:scale-[0.99]";
-
-export const AFFILIATE_ANALYTICS_SUBTAB_INACTIVE = clsx(
-  SUBTAB_SHELL,
-  "border-transparent bg-blue-50/35 text-slate-600 hover:border-blue-100/90 hover:bg-blue-100/55 hover:text-slate-800",
-);
-
+/** Subtab active — ring inset cố định, khớp inactive (tránh nhảy 1px). */
 export const AFFILIATE_ANALYTICS_SUBTAB_ACTIVE = clsx(
-  SUBTAB_SHELL,
-  "border-blue-300/85 bg-blue-500/10 text-blue-800 shadow-[0_1px_2px_rgba(37,99,235,0.12)] ring-1 ring-blue-200/50",
+  CTV_SEGMENTED_ITEM_ICON,
+  CTV_SEGMENTED_ITEM_ACTIVE,
+  "ring-blue-300/50",
 );
+
+/** @deprecated — dùng CTV_SEGMENTED_ICON */
+export const AFFILIATE_ANALYTICS_SUBTAB_ICON = CTV_SEGMENTED_ICON;
+
+/** @deprecated — dùng CTV_SEGMENTED_LABEL */
+export const AFFILIATE_ANALYTICS_SUBTAB_LABEL = CTV_SEGMENTED_LABEL;
 
 /** Chip link / xuất nhỏ (toolbar phụ, không phải tab). */
 export const AFFILIATE_ANALYTICS_CHIP_LINK = clsx(

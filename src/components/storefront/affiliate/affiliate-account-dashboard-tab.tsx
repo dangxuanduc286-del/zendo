@@ -353,29 +353,7 @@ export function AffiliateAccountDashboardTab({
           {isCtvShell && !isCtvPanels ? (
             <AffiliateCtvSegmentedTabs tabs={affiliateSubTabs} activeKey={activeSubTab} onSelect={onSelectSubTab} />
           ) : !isCtvShell ? (
-          <div className="rounded-2xl border border-slate-200/90 bg-white p-2 shadow-sm max-lg:rounded-none max-lg:border-0 max-lg:border-b max-lg:border-slate-200/80 max-lg:bg-white max-lg:p-0 max-lg:shadow-none max-lg:pb-3">
-            <div className="-mx-0.5 overflow-x-auto px-0.5">
-              <div className="inline-flex min-w-max flex-nowrap gap-1.5 p-0.5 sm:gap-2">
-                {affiliateSubTabs.map((item) => {
-                  const active = activeSubTab === item.key;
-                  return (
-                    <button
-                      key={item.key}
-                      type="button"
-                      onClick={() => onSelectSubTab(item.key)}
-                      className={`whitespace-nowrap rounded-xl px-3.5 py-2 text-xs font-semibold transition sm:px-4 sm:py-2.5 sm:text-sm ${
-                        active
-                          ? "bg-[#2563EB] text-white shadow-sm"
-                          : "border border-[#E2E8F0] bg-white text-[#0F172A] hover:bg-[#EFF6FF]"
-                      }`}
-                    >
-                      {item.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
+            <AffiliateCtvSegmentedTabs tabs={affiliateSubTabs} activeKey={activeSubTab} onSelect={onSelectSubTab} />
           ) : null}
 
           <div
@@ -467,7 +445,7 @@ export function AffiliateAccountDashboardTab({
                 <CtvMetricGridSkeleton count={4} />
               ) : (
               <div
-                className={isCtvPanels ? CTV_MOBILE_KPI_GRID : `grid min-w-0 auto-rows-fr grid-cols-2 lg:grid-cols-4 ${isCtvShell ? "gap-3 lg:gap-4" : "gap-3"}`}
+                className={isCtvPanels || isCtvShell ? CTV_MOBILE_KPI_GRID : "grid min-w-0 auto-rows-fr items-stretch grid-cols-[repeat(auto-fit,minmax(min(100%,10.5rem),1fr))] gap-3"}
               >
                 <AffiliateMetricCard
                   label="Tổng click"
@@ -601,7 +579,11 @@ export function AffiliateAccountDashboardTab({
                   <CtvMetricsDetailTable rows={metricsDetailRows} />
                 ) : (
                 <div
-                  className={`grid min-w-0 grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 ${isCtvShell ? "gap-3 lg:gap-4" : "gap-2"}`}
+                  className={
+                    isCtvShell
+                      ? CTV_MOBILE_KPI_GRID
+                      : "grid min-w-0 auto-rows-fr items-stretch grid-cols-[repeat(auto-fit,minmax(min(100%,10.5rem),1fr))] gap-2 sm:gap-3"
+                  }
                 >
                   <AffiliateMetricCard
                     label="Mã ref"

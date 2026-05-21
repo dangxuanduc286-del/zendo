@@ -3,6 +3,18 @@
 import { clsx } from "clsx";
 import type { LucideIcon } from "lucide-react";
 import { memo, type ReactNode } from "react";
+import {
+  CTV_TYPE_BODY,
+  CTV_TYPE_CARD_TITLE,
+  CTV_TYPE_METRIC_LABEL,
+} from "./affiliate/affiliate-ctv-account-ui-tokens";
+import { CTV_MONEY_VALUE_SM } from "./ctv/ctv-ui-tokens";
+
+/** KPI compact — clamp nhỏ hơn hub + ellipsis khi số cực đoan (visual regression). */
+const CREATOR_METRIC_VALUE = [
+  CTV_MONEY_VALUE_SM,
+  "mt-auto block min-w-0 max-w-full truncate",
+].join(" ");
 
 function Skeleton({ className }: { className: string }): JSX.Element {
   return <div className={clsx("animate-pulse rounded-lg bg-slate-100/90", className)} />;
@@ -38,16 +50,16 @@ function CreatorMetricCardInner(props: CreatorMetricCardProps): JSX.Element {
   return (
     <div
       className={clsx(
-        "flex h-full min-h-[5.25rem] flex-col rounded-xl border border-slate-200/70 bg-white p-3 shadow-sm ring-1 ring-slate-200/50 transition-shadow duration-200 hover:shadow-md sm:rounded-2xl sm:p-3.5",
+        "flex h-full min-h-[5.25rem] min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200/70 bg-white p-3 shadow-sm ring-1 ring-slate-200/50 transition-shadow duration-200 hover:shadow-md sm:rounded-2xl sm:p-3.5",
         toneRing[tone],
       )}
     >
       <div className="flex items-start justify-between gap-1">
-        <div className="flex min-w-0 items-center gap-1">
+        <div className="flex min-w-0 flex-1 items-center gap-1">
           {Icon ? (
             <Icon className="h-3.5 w-3.5 shrink-0 text-slate-400" strokeWidth={1.75} aria-hidden />
           ) : null}
-          <p className="truncate text-[9px] font-semibold uppercase tracking-wide text-slate-500 sm:text-[10px]">{props.label}</p>
+          <p className={`${CTV_TYPE_METRIC_LABEL} min-w-0 flex-1 truncate`}>{props.label}</p>
         </div>
         <div className="flex shrink-0 items-center gap-1">
           {t != null && Number.isFinite(t) ? (
@@ -67,7 +79,9 @@ function CreatorMetricCardInner(props: CreatorMetricCardProps): JSX.Element {
       {props.loading ? (
         <Skeleton className="mt-auto h-8 w-24" />
       ) : (
-        <p className="mt-auto pt-1 text-lg font-semibold tabular-nums tracking-tight text-slate-900 sm:text-xl">{props.value}</p>
+        <p className={CREATOR_METRIC_VALUE} title={props.value}>
+          {props.value}
+        </p>
       )}
       {props.sub ? <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-slate-500">{props.sub}</p> : null}
     </div>
@@ -92,8 +106,10 @@ export function CreatorSectionShell(props: {
       )}
     >
       <div className="flex shrink-0 flex-wrap items-start justify-between gap-2 border-b border-slate-100 pb-3">
-        <h3 className="text-[13px] font-semibold tracking-tight text-slate-900 sm:text-sm">{props.title}</h3>
-        {props.hint ? <span className="max-w-[16rem] text-right text-[11px] font-medium leading-snug text-slate-500">{props.hint}</span> : null}
+        <h3 className={`${CTV_TYPE_CARD_TITLE} min-w-0 flex-1`}>{props.title}</h3>
+        {props.hint ? (
+          <span className={`${CTV_TYPE_BODY} min-w-0 max-w-[16rem] shrink-0 text-right text-xs`}>{props.hint}</span>
+        ) : null}
       </div>
       <div className="flex min-h-0 flex-1 flex-col">{props.children}</div>
     </div>

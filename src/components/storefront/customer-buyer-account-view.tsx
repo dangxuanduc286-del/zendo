@@ -23,6 +23,11 @@ import { AFFILIATE_DASH_SUB_TAB_KEYS } from "../../lib/affiliate-account-dashboa
 import type { AffiliateSubTab } from "../../lib/affiliate-account-dashboard-model";
 import type { AffiliateCommissionTabSettings } from "../../lib/affiliate-commission-tab-settings";
 import type { CustomerAccountSettings } from "../../lib/settings";
+import {
+  UI_ACCOUNT_OVERVIEW_GRID_LG,
+  UI_ACCOUNT_OVERVIEW_GRID_XL,
+  UI_OVERFLOW_CLIP,
+} from "../../lib/ui-layout-stability";
 import { resolveCtvAccountTab } from "../../lib/account-tab-navigation";
 import { useStorefrontAccountTabBootstrap } from "../../lib/use-storefront-account-tab-bootstrap";
 import { useCustomerNotificationsPoll } from "../../lib/use-customer-notifications-poll";
@@ -1057,7 +1062,7 @@ export default function CustomerBuyerAccountView({
     ) : null;
 
   return (
-    <div className="w-full min-w-0 max-w-none space-y-0 bg-transparent max-lg:pb-2 lg:mx-auto lg:max-w-[1400px] lg:space-y-0 lg:px-4 lg:pb-8 lg:pt-2">
+    <div className={`w-full min-w-0 max-w-none space-y-0 bg-transparent max-lg:pb-2 lg:mx-auto lg:max-w-[87.5rem] lg:space-y-0 lg:px-4 lg:pb-8 lg:pt-2 ${UI_OVERFLOW_CLIP}`}>
       <AccountMobileMenuDrawer
         items={enabledMenuItems.map((item) =>
           item.kind === "support"
@@ -1084,9 +1089,11 @@ export default function CustomerBuyerAccountView({
         }}
         supportUnreadTotal={supportUnreadTotal}
       />
-      <section className="flex w-full min-w-0 flex-col gap-0 max-lg:gap-0 lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start lg:gap-6 lg:pt-0">
+      <section
+        className={`flex w-full min-w-0 flex-col gap-0 max-lg:gap-0 lg:grid lg:grid-cols-[minmax(13rem,17.5rem)_minmax(0,1fr)] lg:items-start lg:gap-6 lg:pt-0 ${UI_OVERFLOW_CLIP}`}
+      >
         <aside
-          className={`order-2 hidden w-full min-w-0 shrink-0 rounded-2xl border border-[#E2E8F0] bg-white p-3 shadow-sm md:block lg:order-none lg:col-start-1 lg:row-start-1 lg:sticky lg:top-6 lg:self-start lg:max-h-[calc(100dvh-5rem)] lg:w-full lg:max-w-[260px] lg:overflow-y-auto lg:overscroll-contain lg:rounded-[28px] lg:border-slate-200 lg:p-4 lg:shadow-sm ${
+          className={`order-2 hidden w-full min-w-0 shrink-0 rounded-2xl border border-[#E2E8F0] bg-white p-3 shadow-sm md:block lg:order-none lg:col-start-1 lg:row-start-1 lg:sticky lg:top-6 lg:self-start lg:max-h-[calc(100dvh-5rem)] lg:w-full lg:max-w-full lg:overflow-y-auto lg:overscroll-contain lg:rounded-[28px] lg:border-slate-200 lg:p-4 lg:shadow-sm ${
             activeTab === "overview" ? "lg:row-span-3" : "lg:row-span-1"
           }`}
         >
@@ -1159,7 +1166,9 @@ export default function CustomerBuyerAccountView({
             className="pointer-events-none absolute inset-0 hidden bg-[radial-gradient(circle_at_top_right,rgba(37,99,235,0.06),transparent_40%)] lg:block"
             aria-hidden
           />
-          <div className="relative flex flex-col gap-0 max-lg:gap-0 lg:min-w-0 lg:grid lg:grid-cols-[300px_minmax(0,1fr)_260px] lg:items-stretch lg:gap-6 lg:overflow-x-visible lg:tracking-[-0.03em] xl:grid-cols-[340px_minmax(0,1fr)_320px] xl:gap-7">
+          <div
+            className={`relative flex flex-col gap-0 max-lg:gap-0 lg:min-w-0 ${UI_ACCOUNT_OVERVIEW_GRID_LG} lg:overflow-x-clip lg:tracking-[-0.03em] ${UI_ACCOUNT_OVERVIEW_GRID_XL}`}
+          >
             <div className="min-w-0 w-full lg:flex lg:h-full">
               <div
                 className={`relative flex min-h-0 w-full flex-col rounded-[26px] border border-slate-200/80 bg-white p-6 shadow-[0_4px_28px_rgba(15,23,42,0.07)] sm:rounded-[28px] sm:p-8 ${MOBILE_HERO_BLOCK} lg:h-full lg:rounded-[30px] lg:p-8`}

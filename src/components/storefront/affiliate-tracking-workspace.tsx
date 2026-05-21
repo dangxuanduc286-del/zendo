@@ -168,7 +168,12 @@ export default function AffiliateTrackingWorkspace(): JSX.Element {
   return (
     <div className="flex w-full flex-col gap-5 sm:gap-6">
       <div className="overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className={clsx(AFFILIATE_ANALYTICS_TAB_ROW_SURFACE, "flex w-max min-w-full flex-nowrap gap-1 lg:w-full lg:min-w-0 lg:flex-wrap")}>
+        <div
+          className={clsx(
+            AFFILIATE_ANALYTICS_TAB_ROW_SURFACE,
+            "w-max min-w-full flex-nowrap lg:w-full lg:min-w-0 lg:flex-wrap",
+          )}
+        >
           {SECTIONS.map((s) => (
             <button
               key={s.key}
@@ -214,7 +219,7 @@ export default function AffiliateTrackingWorkspace(): JSX.Element {
       ) : null}
 
       {section === "overview" ? (
-        <div className="grid w-full min-w-0 grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-[repeat(auto-fit,minmax(14rem,1fr))] lg:gap-4">
+        <div className="grid w-full min-w-0 grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-[repeat(auto-fit,minmax(14rem,1fr))] lg:gap-4 [&>*]:min-w-0">
           <CreatorMetricCard
             icon={Zap}
             label="Active pixels"

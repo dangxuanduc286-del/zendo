@@ -6,7 +6,7 @@ import { AffiliateAccountDashboardTab } from "../affiliate/affiliate-account-das
 import type { AffiliateAccountDashboardTabProps } from "../affiliate/affiliate-account-dashboard-tab";
 import { CtvSegmentedTabs } from "./ctv-segmented-tabs";
 import { CTV_MOTION_CLASS } from "./ctv-motion-tokens";
-import { CTV_MOBILE_SAFE, CTV_V2_CONTENT } from "./ctv-ui-tokens";
+import { CTV_MOBILE_SAFE, CTV_WORKSPACE_DESKTOP_CARD, CTV_WORKSPACE_PANEL } from "./ctv-ui-tokens";
 type CtvAffiliateWorkspaceProps = Omit<AffiliateAccountDashboardTabProps, "uiShell" | "panelClassName"> & {
   affiliateSubTabs: Array<{ key: AffiliateSubTab; label: string }>;
   /** Tab trang Tổng quan: bỏ sub-tab trùng KPI hero. */
@@ -33,23 +33,28 @@ function CtvAffiliateWorkspaceInner({
   }, [panelSubTab]);
 
   return (
-    <section className={`${CTV_MOBILE_SAFE} min-w-0 space-y-4 max-md:space-y-4`} aria-label="Không gian làm việc CTV">
-      <CtvSegmentedTabs tabs={visibleSubTabs} activeKey={activeSubTab} onSelect={panelProps.onSelectSubTab} />
-      <div
-        id={`ctv-panel-${panelSubTab}`}
-        role="tabpanel"
-        aria-labelledby={`ctv-tab-${panelSubTab}`}
-        className={`mt-3 min-w-0 ${CTV_V2_CONTENT} ${CTV_MOTION_CLASS.panel} ${
-          panelPhase === "enter" ? "opacity-90" : "opacity-100"
-        }`}
-      >
-        <AffiliateAccountDashboardTab
-          {...panelProps}
-          activeSubTab={panelSubTab}
-          uiShell="ctv-panels"
-          showGrowthToolkit={panelProps.showGrowthToolkit ?? true}
-          embedInPageOverview={embedInPageOverview}
-        />
+    <section
+      className={`${CTV_MOBILE_SAFE} flex min-w-0 flex-col gap-4 max-lg:gap-4`}
+      aria-label="Không gian làm việc CTV"
+    >
+      <div className={CTV_WORKSPACE_DESKTOP_CARD}>
+        <CtvSegmentedTabs tabs={visibleSubTabs} activeKey={activeSubTab} onSelect={panelProps.onSelectSubTab} />
+        <div
+          id={`ctv-panel-${panelSubTab}`}
+          role="tabpanel"
+          aria-labelledby={`ctv-tab-${panelSubTab}`}
+          className={`${CTV_WORKSPACE_PANEL} ${CTV_MOTION_CLASS.panel} ${
+            panelPhase === "enter" ? "opacity-90" : "opacity-100"
+          }`}
+        >
+          <AffiliateAccountDashboardTab
+            {...panelProps}
+            activeSubTab={panelSubTab}
+            uiShell="ctv-panels"
+            showGrowthToolkit={panelProps.showGrowthToolkit ?? true}
+            embedInPageOverview={embedInPageOverview}
+          />
+        </div>
       </div>
     </section>
   );

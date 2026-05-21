@@ -1,5 +1,5 @@
 /** Vùng nội dung admin — không tràn ngang. */
-export const adminLayoutMain = "w-full min-w-0 max-w-none overflow-x-hidden";
+export const adminLayoutMain = "w-full min-w-0 max-w-none overflow-x-clip";
 
 /**
  * Gốc trang trong AdminShell — padding ngang/dọc do `admin-shell` bọc ngoài.
@@ -45,7 +45,8 @@ export const adminStatCard =
 export const adminTableShell = "min-w-0 overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm";
 
 /** Bảng trong `adminTableShell` — min-width để cuộn ngang mượt trên mobile. */
-export const adminTable = "w-full min-w-[700px] caption-bottom text-sm";
+/** Min-width vừa đủ cột; cuộn ngang trong adminTableShell */
+export const adminTable = "w-full min-w-[min(100%,42rem)] caption-bottom text-sm";
 
 export const adminTableHeaderRow = "border-b border-slate-200 bg-slate-50";
 

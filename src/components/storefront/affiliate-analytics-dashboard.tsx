@@ -37,6 +37,7 @@ import {
   useAffiliateTrafficSources,
   type RangeKey,
 } from "./use-affiliate-analytics-hooks";
+import { CTV_TYPE_BODY, CTV_TYPE_TITLE } from "./affiliate/affiliate-ctv-account-ui-tokens";
 import {
   AFFILIATE_ANALYTICS_MAIN_TAB_ACTIVE,
   AFFILIATE_ANALYTICS_MAIN_TAB_INACTIVE,
@@ -436,10 +437,8 @@ export default function AffiliateAnalyticsDashboard({
                     <BarChart3 className="h-5 w-5" strokeWidth={1.75} aria-hidden />
                   </span>
                   <div className="min-w-0 space-y-1.5">
-                    <h1 className="text-xl font-semibold tracking-tight text-[#0F172A] sm:text-2xl lg:text-[1.65rem] lg:leading-tight">
-                      Bảng số CTV
-                    </h1>
-                    <p className="w-full min-w-0 text-sm leading-relaxed text-[#64748B] sm:text-[15px]">
+                    <h1 className={CTV_TYPE_TITLE}>Bảng số CTV</h1>
+                    <p className={`${CTV_TYPE_BODY} w-full min-w-0`}>
                       Theo dõi hiệu quả theo thời gian thực. Mã ref{" "}
                       <span className="rounded-md bg-[#F1F5F9] px-1.5 py-0.5 font-mono text-[13px] font-semibold text-[#1E293B]">
                         {affiliateRefCode}
@@ -496,7 +495,7 @@ export default function AffiliateAnalyticsDashboard({
                   <div
                     className={clsx(
                       AFFILIATE_ANALYTICS_TAB_ROW_SURFACE,
-                      "flex w-max min-w-full touch-pan-x snap-x snap-mandatory flex-nowrap gap-1 pb-0.5 lg:w-full lg:min-w-0 lg:flex-wrap lg:justify-start lg:gap-1 lg:snap-none",
+                      "w-max min-w-full touch-pan-x snap-x snap-mandatory flex-nowrap pb-0.5 lg:w-full lg:min-w-0 lg:flex-wrap lg:justify-start lg:snap-none",
                     )}
                   >
                     {menu.map((m) => (
@@ -534,7 +533,7 @@ export default function AffiliateAnalyticsDashboard({
                     rtHistory={rtHistory}
                   />
 
-                  <div className="grid w-full min-w-0 grid-cols-2 gap-3 sm:gap-3.5 md:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))] lg:gap-4 [&>*]:min-h-0">
+                  <div className="grid w-full min-w-0 grid-cols-2 gap-3 sm:gap-3.5 md:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))] lg:gap-4 [&>*]:min-h-0 [&>*]:min-w-0">
             <CreatorMetricCard
               icon={MousePointer2}
               label="Tổng click"

@@ -55,11 +55,11 @@ function CtvCommissionHeroInner({
             Hoa hồng khả dụng
           </h2>
           <div className={CTV_HUB_WALLET_AMOUNT_ROW} aria-label={`Hoa hồng khả dụng ${ariaAmountLabel}`}>
-            <span className={`${CTV_HUB_WALLET_AMOUNT} shrink-0 whitespace-nowrap`}>
+            <span className={`${CTV_HUB_WALLET_AMOUNT} min-w-0 shrink`}>
               {availableCommissionDisplay}
             </span>
             <span
-              className={`${CTV_HUB_WALLET_PENDING_AMOUNT} inline-flex shrink-0 items-center gap-1 whitespace-nowrap`}
+              className={`${CTV_HUB_WALLET_PENDING_AMOUNT} inline-flex min-w-0 items-center gap-1`}
               title={PENDING_UNLOCK_TOOLTIP}
               aria-label={`${PENDING_UNLOCK_TOOLTIP}: ${pendingCommissionDisplay}`}
             >

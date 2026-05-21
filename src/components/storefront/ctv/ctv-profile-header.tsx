@@ -12,12 +12,14 @@ import { CtvTierProgressWidget } from "./ctv-tier-progress-widget";
 import type { CtvTierProgressSummary } from "@/lib/ctv/ctv-affiliate-lifecycle";
 import type { CtvAffiliateMetrics } from "@/lib/ctv/use-ctv-affiliate-metrics";
 import {
+  CTV_HUB_ACCOUNT_RANK_GROUP,
   CTV_HUB_LAYOUT_STACK,
   CTV_HUB_MAIN_WRAP,
-  CTV_HUB_MOBILE_ORDER_ACCOUNT,
+  CTV_HUB_MOBILE_ORDER_IDENTITY,
   CTV_HUB_MOBILE_ORDER_PERFORMANCE,
+  CTV_HUB_MOBILE_ORDER_RANK,
+  CTV_HUB_MOBILE_ORDER_TIER,
   CTV_HUB_MOBILE_ORDER_WALLET,
-  CTV_HUB_ROW_SPLIT,
   CTV_HUB_SECTION_SHELL,
 } from "./ctv-ui-tokens";
 
@@ -78,27 +80,33 @@ function CtvProfileHeaderInner(props: CtvProfileHeaderProps): JSX.Element {
         </header>
 
         <div className={CTV_HUB_LAYOUT_STACK}>
-          <div className={`${CTV_HUB_MOBILE_ORDER_ACCOUNT} ${CTV_HUB_ROW_SPLIT}`}>
-            <CtvProfileIdentityCard {...identityProps} />
-            {showRankCard ? (
-              <CtvMemberRankCard
-                totalRevenue={ctvRankRevenue}
-                tiers={tiers}
-                grantedTierIds={grantedCtvTierIds}
-                loading={ctvRankRevenueLoading}
-                tiersLoading={tiersLoading}
-              />
-            ) : (
-              <div
-                className="min-h-[12rem] animate-pulse rounded-2xl bg-slate-100/90 ring-1 ring-slate-200/60"
-                role="status"
-                aria-label="Không tải được cấp bậc CTV"
-              />
-            )}
+          <div className={CTV_HUB_ACCOUNT_RANK_GROUP}>
+            <div className={CTV_HUB_MOBILE_ORDER_IDENTITY}>
+              <CtvProfileIdentityCard {...identityProps} />
+            </div>
+            <div className={CTV_HUB_MOBILE_ORDER_RANK}>
+              {showRankCard ? (
+                <CtvMemberRankCard
+                  totalRevenue={ctvRankRevenue}
+                  tiers={tiers}
+                  grantedTierIds={grantedCtvTierIds}
+                  loading={ctvRankRevenueLoading}
+                  tiersLoading={tiersLoading}
+                />
+              ) : (
+                <div
+                  className="min-h-[12rem] animate-pulse rounded-2xl bg-slate-100/90 ring-1 ring-slate-200/60"
+                  role="status"
+                  aria-label="Không tải được cấp bậc CTV"
+                />
+              )}
+            </div>
           </div>
 
           {ctvTierProgress ? (
-            <CtvTierProgressWidget progress={ctvTierProgress} loading={ctvTierProgressLoading} />
+            <div className={CTV_HUB_MOBILE_ORDER_TIER}>
+              <CtvTierProgressWidget progress={ctvTierProgress} loading={ctvTierProgressLoading} />
+            </div>
           ) : null}
 
           <div className={CTV_HUB_MOBILE_ORDER_WALLET}>

@@ -8,6 +8,7 @@ import { clampNextImageQuality } from "@/lib/next-image-quality";
 import { CtvRoleBadge, CtvVerifiedBadge } from "../ctv/ctv-profile-badges";
 import type { ChangeEvent, RefObject } from "react";
 import type { CustomerAccountSettings } from "../../../lib/settings";
+import { CTV_MOBILE_KPI_GRID } from "../ctv/ctv-ui-tokens";
 import {
   CTV_CTA_ACCENT,
   CTV_CTA_PRIMARY,
@@ -142,7 +143,7 @@ export function AffiliateCtvAccountProfileHero({
       {quickCards.length > 0 ? (
         <div
           id={statsGridId}
-          className="grid grid-cols-2 gap-3 sm:grid-cols-4"
+          className={CTV_MOBILE_KPI_GRID}
           role="list"
           aria-label="Chỉ số nhanh tài khoản"
         >

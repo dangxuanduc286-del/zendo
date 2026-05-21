@@ -9,6 +9,7 @@ import {
   CTV_METRIC_TILE_ACCENT,
 } from "../../affiliate/affiliate-ctv-account-ui-tokens";
 import {
+  CTV_METRIC_CONTENT,
   CTV_MOBILE_KPI_HINT,
   CTV_MOBILE_KPI_LABEL,
   CTV_MOBILE_KPI_VALUE,
@@ -45,15 +46,15 @@ function CtvMetricCardInner({
   return (
     <article
       id={id}
-      className={`${shell} min-w-0 max-w-full overflow-hidden break-words ${CTV_MOTION_CLASS.base} ${className}`}
+      className={`${shell} h-full min-w-0 max-w-full ${CTV_MOTION_CLASS.base} ${className}`}
       aria-labelledby={labelId}
     >
-      <div className="flex items-start justify-between gap-2 sm:gap-3">
-        <div className="min-w-0 flex-1 overflow-hidden break-words">
+      <div className="flex items-start justify-between gap-1.5 sm:gap-2.5">
+        <div className={CTV_METRIC_CONTENT}>
           <p id={labelId} className={`${CTV_MOBILE_KPI_LABEL} break-words`}>
             {label}
           </p>
-          <p className={`${CTV_MOBILE_KPI_VALUE} mt-1.5`} title={value}>
+          <p className={`${CTV_MOBILE_KPI_VALUE} mt-1 block`} title={value}>
             {value}
           </p>
           {trend ? (

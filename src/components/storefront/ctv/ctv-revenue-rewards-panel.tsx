@@ -4,7 +4,6 @@ import { Check, Lock } from "lucide-react";
 import { memo, useMemo } from "react";
 import { useAffiliateDashboardApi } from "@/components/storefront/use-affiliate-dashboard-api";
 import {
-  formatCtvRevenueRangeLine,
   formatCtvRevenueRewardAmount,
   getCtvRankFromTiers,
   getCtvRevenueRewardTierStatus,
@@ -14,11 +13,38 @@ import { useCtvMembershipTiers } from "@/lib/ctv/use-ctv-membership-tiers";
 import { useCtvRankRevenue } from "@/lib/ctv/use-ctv-rank-revenue";
 import { resolveCtvTierIcon } from "@/lib/ctv/ctv-membership-tier-icons";
 import type { CtvMembershipTierRecord } from "@/lib/ctv/ctv-membership-tier-types";
-import { CTV_V2_MOTION, CTV_V2_PANEL_INSET } from "./ctv-ui-tokens";
+import {
+  CTV_GRID_TIER_REWARDS,
+  CTV_MONEY_VALUE_SM,
+  CTV_TIER_REWARD_BORDER_BY_CODE,
+  CTV_TIER_REWARD_BORDER_FALLBACK,
+  CTV_TIER_REWARD_CARD_ACTIVE,
+  CTV_TIER_REWARD_CARD_BASE,
+  CTV_TIER_REWARD_REVENUE_LABEL,
+  CTV_TIER_REWARD_REVENUE_VALUE,
+  CTV_V2_PANEL_INSET,
+} from "./ctv-ui-tokens";
 
 type CtvRevenueRewardsPanelProps = {
   affiliateProfileEnabled: boolean;
 };
+
+/** Hiển thị desktop — UI only, không đổi `formatCtvRevenueRangeLine` (mobile). */
+function formatCtvRevenueRangeDesktop(tier: CtvMembershipTierRecord): string {
+  return `${formatCtvRankMoney(tier.revenueFrom)} → ${formatCtvRankMoney(tier.revenueTo)}`;
+}
+
+/** Hiển thị mobile — giữ format hiện tại. */
+function formatCtvRevenueRangeMobile(tier: CtvMembershipTierRecord, isFirst: boolean): string {
+  const from = formatCtvRankMoney(tier.revenueFrom);
+  const to = formatCtvRankMoney(tier.revenueTo);
+  if (isFirst) return `${from} - ${to} / 30 ngày`;
+  return `> ${formatCtvRankMoney(tier.revenueFrom)} - ${to} / 30 ngày`;
+}
+
+function tierRewardBorderClass(code: string): string {
+  return CTV_TIER_REWARD_BORDER_BY_CODE[code] ?? CTV_TIER_REWARD_BORDER_FALLBACK;
+}
 
 function RewardTierCard({
   tier,
@@ -41,16 +67,16 @@ function RewardTierCard({
   );
   const Icon = resolveCtvTierIcon(tier.icon);
   const isFirst = index === 0;
+  const revenueDesktop = formatCtvRevenueRangeDesktop(tier);
+  const revenueMobile = formatCtvRevenueRangeMobile(tier, isFirst);
 
   return (
     <article
       className={[
-        "group relative flex min-w-0 flex-col overflow-hidden rounded-2xl border p-4",
-        "bg-gradient-to-br ring-1 transition-[transform,box-shadow] duration-200 ease-out",
+        CTV_TIER_REWARD_CARD_BASE,
+        tierRewardBorderClass(tier.code),
         rankAtTier.color.gradient,
-        milestone !== "not_achieved" ? rankAtTier.color.glow : "border-black/[0.05] shadow-[0_4px_18px_rgba(0,0,0,0.04)]",
-        isCurrent ? "ring-2 ring-blue-500/35" : "ring-black/[0.04]",
-        CTV_V2_MOTION,
+        isCurrent ? CTV_TIER_REWARD_CARD_ACTIVE : "",
       ].join(" ")}
     >
       <div className="flex items-start justify-between gap-2">
@@ -65,19 +91,29 @@ function RewardTierCard({
         </div>
       </div>
 
-      <h4 className="mt-3 text-base font-bold leading-tight text-[#0f172a]">
+      <h4 className="mt-2.5 text-base font-bold leading-tight text-[#0f172a]">
         {tier.name}
         <span className="ml-1.5 text-sm font-semibold text-slate-500">| {tier.commissionPercent}%</span>
       </h4>
-      <p className="mt-1 text-[12px] font-medium text-slate-500">
-        Doanh thu:{" "}
-        <span className="font-semibold text-slate-700">{formatCtvRevenueRangeLine(tier, isFirst)}</span>
+
+      <p className={`${CTV_TIER_REWARD_REVENUE_LABEL} mt-1.5 max-lg:inline lg:hidden`}>
+        Doanh thu: <span className="font-semibold text-slate-700">{revenueMobile}</span>
       </p>
-      <p className="mt-2 text-xl font-black tabular-nums tracking-tight text-[#0f172a]">
-        Thưởng: <span className={tier.badgeColor.amountText}>{formatCtvRevenueRewardAmount(tier)}</span>
+      <div className="mt-1.5 hidden min-w-0 lg:block">
+        <p className={CTV_TIER_REWARD_REVENUE_LABEL}>Doanh thu (30 ngày)</p>
+        <p className={CTV_TIER_REWARD_REVENUE_VALUE} title={revenueDesktop}>
+          {revenueDesktop}
+        </p>
+      </div>
+
+      <p className="mt-1.5 text-sm font-semibold text-[#0f172a]">
+        Thưởng:{" "}
+        <span className={[CTV_MONEY_VALUE_SM, tier.badgeColor.amountText].join(" ")}>
+          {formatCtvRevenueRewardAmount(tier)}
+        </span>
       </p>
 
-      <div className="mt-auto pt-3">
+      <div className="mt-auto pt-2.5">
         {milestone === "granted" ? (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-800 ring-1 ring-emerald-200/80">
             <Check className="h-3.5 w-3.5" aria-hidden />
@@ -145,7 +181,7 @@ function CtvRevenueRewardsPanelInner({ affiliateProfileEnabled }: CtvRevenueRewa
         )}
       </header>
 
-      <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className={CTV_GRID_TIER_REWARDS}>
         {tiers.map((tier, index) => (
           <RewardTierCard
             key={tier.id}

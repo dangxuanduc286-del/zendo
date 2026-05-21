@@ -12,9 +12,9 @@ import {
 } from "@/lib/ctv/ctv-membership-tier-logic";
 import type { CtvMembershipTierRecord } from "@/lib/ctv/ctv-membership-tier-types";
 import {
-  CTV_HUB_CARD_PAD,
+  CTV_HUB_CARD_HEADER,
   CTV_HUB_CARD_TITLE,
-  CTV_HUB_INNER_CARD,
+  CTV_HUB_OVERVIEW_CARD,
   CTV_HUB_PROGRESS_PCT,
   CTV_HUB_PROGRESS_TRACK,
   CTV_HUB_RANK_BADGE,
@@ -33,13 +33,12 @@ import {
   CTV_HUB_RANK_REWARD_AMOUNT_ACHIEVED,
   CTV_HUB_RANK_REWARD_AMOUNT_PENDING,
   CTV_HUB_RANK_REWARD_BODY,
-  CTV_HUB_RANK_REWARD_COPY,
-  CTV_HUB_RANK_REWARD_DIVIDER,
+  CTV_HUB_SECTION_DIVIDER,
   CTV_HUB_RANK_REWARD_GIFT_GLYPH,
   CTV_HUB_RANK_REWARD_GIFT_ICON,
   CTV_HUB_RANK_REWARD_LABEL,
-  CTV_HUB_RANK_REWARD_LINE,
-  CTV_HUB_RANK_REWARD_MAIN,
+  CTV_HUB_RANK_REWARD_LOCK_GLYPH,
+  CTV_HUB_RANK_REWARD_ROW,
   CTV_HUB_RANK_REWARD_SECTION,
   CTV_HUB_RANK_REWARD_STATUS,
   CTV_HUB_RANK_REWARD_SUFFIX,
@@ -97,32 +96,32 @@ function CtvMemberRankCardInner({
   return (
     <article
       className={[
-        CTV_HUB_INNER_CARD,
-        CTV_HUB_CARD_PAD,
+        CTV_HUB_OVERVIEW_CARD,
         CTV_HUB_RANK_CARD_SURFACE,
         rank.color.gradient,
+        "lg:flex lg:flex-col",
       ].join(" ")}
       aria-labelledby="ctv-member-rank-heading"
     >
       <div
-        className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-white/25 blur-2xl"
+        className="pointer-events-none absolute -right-3 -top-3 h-[4.5rem] w-[4.5rem] rounded-full bg-white/25 blur-2xl sm:-right-5 sm:-top-5 sm:h-20 sm:w-20"
         aria-hidden
       />
 
-      <header className="relative flex min-w-0 items-center justify-between gap-3">
-        <h2 id="ctv-member-rank-heading" className={CTV_HUB_CARD_TITLE}>
+      <header className={CTV_HUB_CARD_HEADER}>
+        <h2 id="ctv-member-rank-heading" className={`${CTV_HUB_CARD_TITLE} min-w-0`}>
           Cấp bậc thành viên CTV
         </h2>
-        <span className={[CTV_HUB_RANK_BADGE, rank.color.badge].join(" ")}>{rank.badge}</span>
+        <span className={[CTV_HUB_RANK_BADGE, "shrink-0", rank.color.badge].join(" ")}>{rank.badge}</span>
       </header>
 
       <div className={CTV_HUB_RANK_BODY}>
         <div className={[CTV_HUB_RANK_ICON_WRAP, rank.color.iconBg].join(" ")} aria-hidden>
-          <Icon className={`h-8 w-8 sm:h-9 sm:w-9 ${rank.color.iconText}`} strokeWidth={1.6} />
+          <Icon className={`h-7 w-7 sm:h-8 sm:w-8 ${rank.color.iconText}`} strokeWidth={1.6} />
         </div>
 
         <div className={CTV_HUB_RANK_CONTENT}>
-          <p className={`${CTV_HUB_RANK_NAME} truncate`} title={rank.name}>
+          <p className={CTV_HUB_RANK_NAME} title={rank.name}>
             {rank.name}
           </p>
           <p className={CTV_HUB_RANK_META} title={tierMetaLine}>
@@ -131,7 +130,7 @@ function CtvMemberRankCardInner({
           {busy ? (
             <div className="h-7 w-36 max-w-full animate-pulse rounded-md bg-slate-200/80" aria-hidden />
           ) : (
-            <p className={CTV_HUB_RANK_REVENUE} title={currentRevenueFormatted}>
+            <p className={`${CTV_HUB_RANK_REVENUE} block`} title={currentRevenueFormatted}>
               {currentRevenueFormatted}
             </p>
           )}
@@ -171,69 +170,71 @@ function CtvMemberRankCardInner({
         </div>
 
         <div className={CTV_HUB_RANK_REWARD_SECTION}>
-          <div className={CTV_HUB_RANK_REWARD_DIVIDER} role="separator" aria-hidden />
+          <div className={CTV_HUB_SECTION_DIVIDER} role="separator" aria-hidden />
 
           <div className={CTV_HUB_RANK_REWARD_BODY}>
-            <div className={CTV_HUB_RANK_REWARD_MAIN}>
-              <span className={CTV_HUB_RANK_REWARD_GIFT_ICON} aria-hidden>
-                <Gift className={CTV_HUB_RANK_REWARD_GIFT_GLYPH} strokeWidth={2.25} />
-              </span>
-
-              {busy ? (
-                <div className="flex min-w-[9rem] flex-col items-center gap-1.5" aria-hidden>
-                  <div className="h-6 w-full max-w-[12rem] animate-pulse rounded-md bg-slate-200/70" />
-                  <div className="h-4 w-28 animate-pulse rounded bg-slate-200/60" />
-                </div>
-              ) : rewardFocus ? (
-                <div className={CTV_HUB_RANK_REWARD_COPY}>
-                  <p className={CTV_HUB_RANK_REWARD_LINE}>
-                    <span className={CTV_HUB_RANK_REWARD_LABEL}>Thưởng:</span>
-                    <span
-                      className={[
-                        CTV_HUB_RANK_REWARD_AMOUNT,
-                        rewardFocus.achieved
-                          ? CTV_HUB_RANK_REWARD_AMOUNT_ACHIEVED
-                          : CTV_HUB_RANK_REWARD_AMOUNT_PENDING,
-                        !rewardFocus.achieved ? rewardFocus.amountTextClass : "",
-                      ].join(" ")}
-                    >
-                      {formatCtvRevenueRewardAmount(rewardFocus.tier)}
-                    </span>
-                  </p>
-                  <p className={CTV_HUB_RANK_REWARD_SUFFIX}>khi đạt yêu cầu</p>
-                </div>
-              ) : null}
-            </div>
-
             {busy ? (
-              <div className="h-7 w-24 shrink-0 animate-pulse rounded-full bg-slate-200/70" aria-hidden />
-            ) : rewardFocus?.granted ? (
-              <span
-                className={[CTV_HUB_RANK_REWARD_STATUS, "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/80"].join(
-                  " ",
+              <div className={CTV_HUB_RANK_REWARD_ROW} aria-hidden>
+                <span className={CTV_HUB_RANK_REWARD_GIFT_ICON}>
+                  <span className={`${CTV_HUB_RANK_REWARD_GIFT_GLYPH} block rounded-md bg-slate-200/80`} />
+                </span>
+                <span className="h-[1em] w-[10em] max-w-[70%] animate-pulse rounded bg-slate-200/70" />
+                <span className="h-[1.35em] w-[4.5em] shrink-0 animate-pulse rounded-full bg-slate-200/70" />
+              </div>
+            ) : rewardFocus ? (
+              <div className={CTV_HUB_RANK_REWARD_ROW} role="text">
+                <span className={CTV_HUB_RANK_REWARD_GIFT_ICON} aria-hidden>
+                  <Gift className={CTV_HUB_RANK_REWARD_GIFT_GLYPH} strokeWidth={2.25} />
+                </span>
+                <span className={CTV_HUB_RANK_REWARD_LABEL}>Thưởng:</span>
+                <span
+                  className={[
+                    CTV_HUB_RANK_REWARD_AMOUNT,
+                    rewardFocus.achieved
+                      ? CTV_HUB_RANK_REWARD_AMOUNT_ACHIEVED
+                      : CTV_HUB_RANK_REWARD_AMOUNT_PENDING,
+                    !rewardFocus.achieved ? rewardFocus.amountTextClass : "",
+                  ].join(" ")}
+                >
+                  {formatCtvRevenueRewardAmount(rewardFocus.tier)}
+                </span>
+                <span className={CTV_HUB_RANK_REWARD_SUFFIX}>khi đạt yêu cầu</span>
+                {rewardFocus.granted ? (
+                  <span
+                    className={[
+                      CTV_HUB_RANK_REWARD_STATUS,
+                      "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/80",
+                    ].join(" ")}
+                    title="Đã nhận thưởng doanh thu hạng này"
+                  >
+                    <LockOpen className={CTV_HUB_RANK_REWARD_LOCK_GLYPH} strokeWidth={2.25} aria-hidden />
+                    Đã nhận thưởng
+                  </span>
+                ) : rewardFocus.achieved ? (
+                  <span
+                    className={[
+                      CTV_HUB_RANK_REWARD_STATUS,
+                      "bg-amber-50 text-amber-800 ring-1 ring-amber-200/80",
+                    ].join(" ")}
+                    title="Đã đạt mốc, thưởng sẽ được cộng khi tải trung tâm CTV"
+                  >
+                    <LockOpen className={CTV_HUB_RANK_REWARD_LOCK_GLYPH} strokeWidth={2.25} aria-hidden />
+                    Chờ nhận thưởng
+                  </span>
+                ) : (
+                  <span
+                    className={[
+                      CTV_HUB_RANK_REWARD_STATUS,
+                      "bg-slate-100 text-slate-500 ring-1 ring-slate-200/80",
+                    ].join(" ")}
+                    title="Chưa đạt mốc doanh thu thưởng"
+                  >
+                    <Lock className={CTV_HUB_RANK_REWARD_LOCK_GLYPH} strokeWidth={2.25} aria-hidden />
+                    Chưa đạt
+                  </span>
                 )}
-                title="Đã nhận thưởng doanh thu hạng này"
-              >
-                <LockOpen className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                Đã nhận thưởng
-              </span>
-            ) : rewardFocus?.achieved ? (
-              <span
-                className={[CTV_HUB_RANK_REWARD_STATUS, "bg-amber-50 text-amber-800 ring-1 ring-amber-200/80"].join(" ")}
-                title="Đã đạt mốc, thưởng sẽ được cộng khi tải trung tâm CTV"
-              >
-                <LockOpen className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                Chờ nhận thưởng
-              </span>
-            ) : (
-              <span
-                className={[CTV_HUB_RANK_REWARD_STATUS, "bg-slate-100 text-slate-500 ring-1 ring-slate-200/80"].join(" ")}
-                title="Chưa đạt mốc doanh thu thưởng"
-              >
-                <Lock className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                Chưa đạt
-              </span>
-            )}
+              </div>
+            ) : null}
           </div>
         </div>
       </footer>

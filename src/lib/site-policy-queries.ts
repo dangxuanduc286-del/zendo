@@ -3,6 +3,7 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 import type { Session } from "next-auth";
 
+import { coerceCachedDate } from "./serialize-safe-datetime";
 import type { PolicyHubCard, SitePolicyPublicType } from "./site-policy-public";
 
 export type { PolicyHubCard } from "./site-policy-public";
@@ -77,13 +78,23 @@ const getPublishedBySlugUncached = async (slug: string): Promise<StorefrontSiteP
   return row ? { ...row, type: row.type as SitePolicyPublicType } : null;
 };
 
-export function getPublishedSitePolicyCached(slug: string): Promise<StorefrontSitePolicyRow | null> {
+/** Sau `unstable_cache`, `updatedAt` có thể là string ISO thay vì `Date`. */
+function normalizePublishedSitePolicyRow(
+  row: (Omit<StorefrontSitePolicyRow, "updatedAt"> & { updatedAt: Date | string }) | null,
+): StorefrontSitePolicyRow | null {
+  if (!row) return null;
+  const updatedAt = coerceCachedDate(row.updatedAt) ?? new Date();
+  return { ...row, updatedAt };
+}
+
+export async function getPublishedSitePolicyCached(slug: string): Promise<StorefrontSitePolicyRow | null> {
   const normalized = slug.trim().toLowerCase();
-  return unstable_cache(
+  const raw = await unstable_cache(
     () => getPublishedBySlugUncached(normalized),
     ["site-policy", normalized],
     { tags: [SITE_POLICIES_CACHE_TAG], revalidate: 300 },
   )();
+  return normalizePublishedSitePolicyRow(raw);
 }
 
 export function excerptPlain(text: string, max = 160): string {

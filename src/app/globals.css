@@ -21,6 +21,8 @@ body {
   padding: 0;
   background: #ffffff;
   color: #18181b;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 body {

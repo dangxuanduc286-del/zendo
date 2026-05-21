@@ -15,7 +15,7 @@ export function StorefrontAccountShell({ children, variant = "default" }: Storef
   return (
     <div
       className={clsx(
-        "flex min-h-0 w-full max-w-none flex-1 flex-col space-y-4",
+        "flex min-h-0 w-full max-w-none flex-1 flex-col space-y-4 max-lg:overflow-x-clip lg:overflow-x-visible",
         variant === "flush" ? "px-0" : APP_FRAME,
       )}
     >

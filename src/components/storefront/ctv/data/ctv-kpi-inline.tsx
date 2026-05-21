@@ -15,7 +15,7 @@ function CtvKpiInlineInner({ label, value, trend, className = "" }: CtvKpiInline
   return (
     <div className={`min-w-0 ${className}`}>
       <p className={CTV_V2_STAT_CAPTION}>{label}</p>
-      <p className={`${CTV_V2_STAT_VALUE} text-lg lg:text-xl`}>{value}</p>
+      <p className={`${CTV_V2_STAT_VALUE} block`}>{value}</p>
       {trend ? <div className="mt-1"><CtvMetricTrend {...trend} /></div> : null}
     </div>
   );

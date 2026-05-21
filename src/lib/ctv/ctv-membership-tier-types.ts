@@ -60,7 +60,6 @@ export type CtvRankResult = {
   rewardThreshold: number;
 };
 
-export const CTV_RANK_REVENUE_CAPTION =
-  "Tổng doanh thu đơn thành công (đã thanh toán) — 30 ngày gần nhất";
+export const CTV_RANK_REVENUE_CAPTION = "Tổng doanh thu đơn thành công (đã thanh toán)";
 
 export const CTV_REVENUE_WINDOW_DAYS = 30;

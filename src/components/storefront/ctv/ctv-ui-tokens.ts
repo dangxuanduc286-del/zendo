@@ -1,5 +1,12 @@
 /** CTV / Affiliate dashboard — design system (SaaS, mobile-first) */
 
+import {
+  UI_GRID_ACTIONS_STABLE,
+  UI_GRID_HUB_SPLIT_STABLE,
+  UI_GRID_KPI_STABLE,
+  UI_GRID_STAT_STABLE,
+  UI_GRID_TIER_CARDS_STABLE,
+} from "@/lib/ui-layout-stability";
 import { CTV_MOTION_CLASS } from "./ctv-motion-tokens";
 
 export const CTV_DS_TEXT = "text-[#1A1A1A]";
@@ -32,9 +39,12 @@ export const CTV_TAB_IDLE_HOVER = [
 
 export const CTV_V2_MOTION = CTV_MOTION_CLASS.base;
 
-/** Containment mobile CTV — tránh overflow ngang toàn trang */
-export const CTV_MOBILE_SAFE =
-  "box-border w-full max-w-full min-w-0 overflow-x-hidden [contain:layout]";
+/** Containment mobile CTV — clip ngang chỉ mobile; desktop để cụm thưởng không bị cắt khi zoom */
+export const CTV_MOBILE_SAFE = [
+  "box-border w-full max-w-full min-w-0",
+  "max-lg:overflow-x-clip lg:overflow-visible",
+  "max-lg:[contain:layout]",
+].join(" ");
 
 /** Horizontal inset — safe area + 16px minimum (Promax native) */
 export const CTV_MOBILE_INSET_X = [
@@ -111,6 +121,26 @@ export const CTV_V2_CONTENT = [
   CTV_MOTION_CLASS.card,
 ].join(" ");
 
+/**
+ * Workspace CTV — Desktop: tab + panel trong một card (pt/px/pb 24px, gap 24px).
+ * Mobile: `contents` — tab trên, panel card trắng dưới (giữ nguyên).
+ */
+export const CTV_WORKSPACE_DESKTOP_CARD = [
+  "max-lg:contents",
+  "lg:flex lg:min-w-0 lg:flex-col",
+  "lg:rounded-xl lg:border lg:border-black/[0.05] lg:bg-white",
+  "lg:p-6 lg:shadow-[0_4px_20px_rgba(0,0,0,0.05)]",
+].join(" ");
+
+export const CTV_WORKSPACE_PANEL = [
+  "min-w-0 overflow-hidden break-words",
+  "max-lg:mt-3",
+  "max-md:rounded-2xl max-md:border max-md:border-slate-200/70 max-md:bg-white/95",
+  "max-md:px-4 max-md:py-4 max-md:shadow-sm max-md:backdrop-blur-sm",
+  "max-md:ring-1 max-md:ring-white/40",
+  "lg:mt-0 lg:border-t lg:border-slate-200/60 lg:pt-6",
+].join(" ");
+
 export const CTV_V2_INSET = `${CTV_DS_RADIUS} border border-black/[0.04] bg-slate-50/80 p-4`;
 
 export const CTV_V2_DIVIDER = "border-t border-slate-200/60";
@@ -161,40 +191,99 @@ export const CTV_V2_SECTION_TITLE = [
   "text-sm sm:text-[15px] lg:mb-0",
 ].join(" ");
 
-/** ——— Mobile KPI grid (2 cột · gap 12px) ——— */
-export const CTV_MOBILE_KPI_GRID =
-  "grid w-full min-w-0 max-w-full auto-rows-fr grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4";
+/** ——— KPI grid — auto-fit minmax, cùng hàng cùng chiều cao khi zoom ——— */
+export const CTV_MOBILE_KPI_GRID = UI_GRID_KPI_STABLE;
+
+/** Grid thưởng doanh thu theo hạng */
+export const CTV_GRID_TIER_REWARDS = UI_GRID_TIER_CARDS_STABLE;
 
 export const CTV_MOBILE_KPI_LABEL = CTV_V2_LABEL_UPPER;
 
-/** Số liệu chính: clamp(28px, 5vw, 34px) · tối đa 2 dòng */
-export const CTV_MOBILE_KPI_VALUE = [
-  "font-bold tabular-nums text-[#0f172a]",
-  "text-[length:clamp(1.75rem,5vw,2.125rem)]",
-  "leading-[1.1] tracking-[-0.025em]",
-  "[overflow-wrap:break-word] [word-break:keep-all]",
-  "max-md:line-clamp-2",
+/** SSOT — số tiền VND: luôn một dòng, không tách ₫ / nhóm số */
+export const CTV_MONEY_BASE = [
+  "inline-block max-w-full tabular-nums tracking-tight",
+  "whitespace-nowrap [overflow-wrap:normal] [word-break:keep-all]",
 ].join(" ");
+
+/** Hero / ví / doanh thu — clamp(24px, 2vw, 48px) */
+export const CTV_MONEY_VALUE_LG = [
+  CTV_MONEY_BASE,
+  "font-bold text-[#0F172A]",
+  "text-[length:clamp(1.5rem,2vw,3rem)] leading-none",
+].join(" ");
+
+/** KPI / metric card */
+export const CTV_MONEY_VALUE_MD = [
+  CTV_MONEY_BASE,
+  "font-bold text-[#0F172A]",
+  "text-[length:clamp(1.125rem,1.8vw,2.125rem)] leading-none",
+].join(" ");
+
+/** Ô phụ / thưởng / số nhỏ trong card */
+export const CTV_MONEY_VALUE_SM = [
+  CTV_MONEY_BASE,
+  "font-semibold text-[#0F172A]",
+  "text-[length:clamp(0.875rem,1.4vw,1.125rem)] leading-tight",
+].join(" ");
+
+/** Số liệu KPI card — đồng bộ CTV_MONEY_VALUE_MD */
+export const CTV_MOBILE_KPI_VALUE = CTV_MONEY_VALUE_MD;
 
 export const CTV_MOBILE_KPI_HINT =
   "text-[12px] font-normal leading-snug text-[#94a3b8] line-clamp-2 max-md:text-[12px] lg:text-[13px] lg:text-[#6B7280]";
 
 export const CTV_MOBILE_KPI_TILE = [
-  "flex min-h-[5.75rem] min-w-0 flex-col justify-between overflow-hidden break-words",
+  "flex h-full min-h-[5.5rem] min-w-0 flex-col justify-between",
   "rounded-[18px] border border-slate-200/75 bg-white",
-  "p-[14px] shadow-[0_2px_10px_rgba(15,23,42,0.05)] ring-1 ring-black/[0.03]",
+  "p-3 shadow-[0_2px_10px_rgba(15,23,42,0.05)] ring-1 ring-black/[0.03]",
   CTV_MOTION_CLASS.card,
-  "max-lg:min-h-[5.5rem]",
-  "lg:min-h-[7rem] lg:rounded-2xl lg:border-slate-200/70 lg:p-5 lg:shadow-[0_4px_20px_rgba(0,0,0,0.05)]",
+  "sm:min-h-[5.75rem] sm:p-[14px]",
+  "lg:rounded-2xl lg:border-slate-200/70 lg:p-5 lg:shadow-[0_4px_20px_rgba(0,0,0,0.05)]",
 ].join(" ");
 
 export const CTV_MOBILE_KPI_TILE_ACCENT = [
-  "flex min-h-[5.75rem] min-w-0 flex-col justify-between overflow-hidden break-words",
+  "flex h-full min-h-[5.5rem] min-w-0 flex-col justify-between",
   "rounded-[18px] border border-emerald-100/85 bg-gradient-to-br from-emerald-50/95 to-white",
-  "p-[14px] shadow-[0_2px_10px_rgba(16,185,129,0.08)] ring-1 ring-emerald-100/50",
+  "p-3 shadow-[0_2px_10px_rgba(16,185,129,0.08)] ring-1 ring-emerald-100/50",
   CTV_MOTION_CLASS.card,
-  "max-lg:min-h-[5.5rem]",
-  "lg:min-h-[7rem] lg:rounded-xl lg:p-5 lg:shadow-[0_4px_20px_rgba(16,185,129,0.08)]",
+  "sm:min-h-[5.75rem] sm:p-[14px]",
+  "lg:rounded-xl lg:p-5 lg:shadow-[0_4px_20px_rgba(16,185,129,0.08)]",
+].join(" ");
+
+/** Vùng nội dung metric — không cắt số tiền khi zoom */
+export const CTV_METRIC_CONTENT = "min-w-0 flex-1";
+
+/** Card thưởng doanh thu theo hạng — viền theo cấp (Đồng/Bạc/Vàng/Kim Cương) */
+export const CTV_TIER_REWARD_CARD_BASE = [
+  "group relative flex min-w-0 flex-col overflow-hidden rounded-2xl",
+  "border-[1.5px] border-solid p-4",
+  "bg-gradient-to-br",
+  "shadow-[0_4px_12px_rgba(15,23,42,0.06)]",
+  "transition-all duration-200 ease-out",
+  "lg:hover:-translate-y-0.5 lg:hover:shadow-[0_6px_16px_rgba(15,23,42,0.08)]",
+  CTV_V2_MOTION,
+].join(" ");
+
+export const CTV_TIER_REWARD_CARD_ACTIVE = [
+  "!border-2",
+  "shadow-[0_8px_24px_rgba(59,130,246,0.12)]",
+  "lg:hover:shadow-[0_10px_28px_rgba(59,130,246,0.14)]",
+].join(" ");
+
+export const CTV_TIER_REWARD_BORDER_BY_CODE: Record<string, string> = {
+  bronze: "border-[#D6B38A]",
+  silver: "border-[#BFD4FF]",
+  gold: "border-[#F5D26A]",
+  diamond: "border-[#B9D8FF]",
+};
+
+export const CTV_TIER_REWARD_BORDER_FALLBACK = "border-slate-200/90";
+
+export const CTV_TIER_REWARD_REVENUE_LABEL = "text-[12px] font-medium leading-snug text-slate-500";
+
+export const CTV_TIER_REWARD_REVENUE_VALUE = [
+  "mt-0.5 block text-[13px] font-semibold text-slate-700",
+  CTV_MONEY_VALUE_SM,
 ].join(" ");
 
 /** Badge trạng thái (vd. Đang hoạt động) */
@@ -217,29 +306,67 @@ export const CTV_V2_CARD_COMPACT = [CTV_V2_CARD, CTV_V2_CARD_PAD].join(" ");
 
 /** ——— Trung tâm CTV · Enterprise earning dashboard (8pt grid) ——— */
 
-/** Card surface: radius 16px, border 1px, shadow nhẹ */
+/** Card surface: radius 16px, border 1px, shadow nhẹ — không clip nội dung khi zoom */
 export const CTV_HUB_INNER_CARD = [
-  "min-w-0 overflow-hidden rounded-2xl",
+  "min-w-0 rounded-2xl",
   "border border-slate-200 bg-white",
   "shadow-sm",
 ].join(" ");
 
-/** Padding card: 16px mobile · 24px desktop */
-export const CTV_HUB_CARD_PAD = "p-4 lg:p-6";
+/** Padding card: ~12% gọn hơn — 14px mobile · 20px desktop */
+export const CTV_HUB_CARD_PAD = "p-3.5 lg:p-5";
 
-/** Nền gradient card Cấp bậc / Hoa hồng (cùng lớp với `rank.color.gradient`) */
-export const CTV_HUB_RANK_CARD_SURFACE = "relative min-w-0 overflow-hidden bg-gradient-to-br";
+/** Shell chung Tài khoản + Cấp bậc (desktop cùng chiều cao) */
+export const CTV_HUB_OVERVIEW_CARD = [
+  CTV_HUB_INNER_CARD,
+  CTV_HUB_CARD_PAD,
+  "relative flex w-full min-w-0 flex-col overflow-visible",
+  "lg:h-full",
+].join(" ");
 
-/** Stack dọc hub: gap 24px */
-export const CTV_HUB_LAYOUT_STACK = "flex min-w-0 flex-col gap-6";
+/** Header card hub — desktop cùng chiều cao hàng */
+export const CTV_HUB_CARD_HEADER = [
+  "relative min-w-0 shrink-0",
+  "lg:flex lg:min-h-[2.5rem] lg:items-center lg:justify-between lg:gap-2.5",
+].join(" ");
 
-/** Hàng 2 cột: Tài khoản | Cấp bậc */
-export const CTV_HUB_ROW_SPLIT = "grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-2 lg:items-stretch lg:gap-6";
+/** Nền gradient card Cấp bậc / Hoa hồng — overflow visible để không cắt icon thưởng khi zoom */
+export const CTV_HUB_RANK_CARD_SURFACE = "relative min-w-0 w-full overflow-visible bg-gradient-to-br";
 
-/** Mobile: Tài khoản → Cấp bậc → Hoa hồng. Desktop: Hoa hồng → hàng 2 cột → Hiệu suất */
-export const CTV_HUB_MOBILE_ORDER_ACCOUNT = "order-1 lg:order-2";
-export const CTV_HUB_MOBILE_ORDER_WALLET = "order-3 lg:order-1";
-export const CTV_HUB_MOBILE_ORDER_PERFORMANCE = "order-4 lg:order-3";
+/**
+ * Tổng quan hub — gap 24px.
+ * Mobile: flex + order (1→5, không đổi).
+ * Desktop: grid 2 cột 50/50 — hàng 1 Tài khoản|Cấp bậc, hàng 2–4 full width.
+ */
+export const CTV_HUB_LAYOUT_STACK = [
+  "flex w-full min-w-0 flex-col gap-5",
+  "max-lg:overflow-x-clip lg:overflow-visible",
+  "lg:grid lg:grid-cols-[minmax(0,1fr)] lg:items-stretch lg:gap-5",
+].join(" ");
+
+/** Hàng 2 cột: Tài khoản | Cấp bậc (desktop) */
+export const CTV_HUB_ROW_SPLIT = UI_GRID_HUB_SPLIT_STABLE;
+
+/**
+ * Mobile: `contents` — Tài khoản/Cấp bậc order 1–2 trong stack cha.
+ * Desktop: full width hàng 1, lưới auto-fit cùng hàng ngang.
+ */
+export const CTV_HUB_ACCOUNT_RANK_GROUP = [
+  "max-lg:contents",
+  "lg:col-span-2 lg:row-start-1",
+  "lg:grid lg:w-full lg:min-w-0 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-stretch lg:gap-5 lg:overflow-visible",
+].join(" ");
+
+/** Mobile: 1 Tài khoản → 2 Cấp bậc → 3 Tiến độ → 4 Hoa hồng → 5 Hiệu suất */
+export const CTV_HUB_MOBILE_ORDER_IDENTITY = "min-w-0 w-full max-lg:order-1 lg:min-w-0 lg:h-full";
+export const CTV_HUB_MOBILE_ORDER_RANK =
+  "min-w-0 w-full max-lg:order-2 lg:min-h-0 lg:min-w-0 lg:h-full lg:overflow-visible";
+export const CTV_HUB_MOBILE_ORDER_TIER = "min-w-0 w-full max-lg:order-3 lg:col-span-2 lg:row-start-2";
+export const CTV_HUB_MOBILE_ORDER_WALLET = "min-w-0 w-full max-lg:order-4 lg:col-span-2 lg:row-start-3";
+export const CTV_HUB_MOBILE_ORDER_PERFORMANCE = "min-w-0 w-full max-lg:order-5 lg:col-span-2 lg:row-start-4";
+
+/** @deprecated — dùng CTV_HUB_ACCOUNT_RANK_GROUP */
+export const CTV_HUB_MOBILE_ORDER_ACCOUNT = CTV_HUB_ACCOUNT_RANK_GROUP;
 
 /** Tiêu đề card hub — 20px / 700 / #0F172A */
 export const CTV_HUB_CARD_TITLE = "text-xl font-bold leading-snug text-[#0F172A]";
@@ -248,53 +375,56 @@ export const CTV_HUB_CARD_TITLE = "text-xl font-bold leading-snug text-[#0F172A]
 export const CTV_HUB_SECTION_TITLE = CTV_HUB_CARD_TITLE;
 
 /** Cấp bậc — typography (ảnh mẫu gốc) */
-export const CTV_HUB_RANK_NAME = "text-lg font-bold leading-snug text-[#0F172A] lg:text-xl";
+export const CTV_HUB_RANK_NAME =
+  "text-lg font-bold leading-snug text-[#0F172A] break-words text-pretty lg:text-xl";
 
 export const CTV_HUB_RANK_META =
-  "text-[13px] font-medium leading-snug text-slate-600 max-lg:break-words lg:whitespace-nowrap lg:overflow-hidden lg:text-ellipsis";
+  "text-[13px] font-medium leading-snug text-slate-600 break-words text-pretty";
 
-export const CTV_HUB_RANK_REVENUE =
-  "text-xl font-bold tabular-nums leading-snug text-[#0F172A] lg:text-2xl";
+export const CTV_HUB_RANK_REVENUE = CTV_MONEY_VALUE_LG;
 
-/** Hoa hồng khả dụng — số chính (đồng bộ doanh thu card Cấp bậc) */
-export const CTV_HUB_WALLET_AMOUNT = CTV_HUB_RANK_REVENUE;
+/** Hoa hồng khả dụng — số chính */
+export const CTV_HUB_WALLET_AMOUNT = CTV_MONEY_VALUE_LG;
 
-/** Hoa hồng chờ mở khóa — cùng màu/weight, nhỏ hơn số chính một bậc (text-xl → text-sm) */
+/** Hoa hồng chờ mở khóa — nhỏ hơn số chính, vẫn một dòng */
 export const CTV_HUB_WALLET_PENDING_AMOUNT = [
-  "text-sm font-bold tabular-nums leading-snug text-[#0F172A]",
-  "lg:text-base",
+  CTV_MONEY_BASE,
+  "font-bold text-[#0F172A]",
+  "text-[length:clamp(0.875rem,1.4vw,1rem)]",
 ].join(" ");
 
 /** Dấu «+» giữa số khả dụng và hoa hồng chờ mở khóa */
 export const CTV_HUB_WALLET_PLUS = CTV_HUB_WALLET_PENDING_AMOUNT;
 
-/** Hàng số tiền: một dòng, gap 8–12px, không wrap */
+/** Hàng số tiền — wrap khi zoom hẹp */
 export const CTV_HUB_WALLET_AMOUNT_ROW = [
-  "mt-4 flex min-h-[1.75rem] min-w-0 max-w-full flex-nowrap items-center",
-  "gap-2 sm:gap-3",
+  "mt-4 flex min-h-[1.75rem] min-w-0 max-w-full flex-wrap items-baseline",
+  "gap-x-2 gap-y-1 sm:gap-x-3",
 ].join(" ");
 
 export const CTV_HUB_RANK_CAPTION =
-  "text-[13px] font-medium leading-snug text-slate-500 max-lg:break-words lg:whitespace-nowrap lg:overflow-hidden lg:text-ellipsis";
+  "text-[13px] font-medium leading-snug text-slate-500 break-words text-pretty";
 
 export const CTV_HUB_RANK_FOOTER_HINT =
-  "min-w-0 flex-1 text-sm font-semibold leading-snug text-slate-700 max-lg:break-words lg:truncate lg:whitespace-nowrap";
+  "min-w-0 flex-1 text-sm font-semibold leading-snug text-slate-700 break-words text-pretty";
 
 export const CTV_HUB_RANK_BADGE = [
-  "inline-flex shrink-0 items-center rounded-full px-3 py-1.5",
+  "inline-flex shrink-0 items-center rounded-full px-2.5 py-1",
   "text-xs font-bold uppercase tracking-wide ring-1",
 ].join(" ");
 
 export const CTV_HUB_RANK_ICON_WRAP = [
-  "flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ring-1 ring-white/70",
-  "sm:h-[4.5rem] sm:w-[4.5rem]",
+  "flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ring-1 ring-white/70",
+  "sm:h-[4rem] sm:w-[4rem]",
 ].join(" ");
 
-export const CTV_HUB_RANK_BODY = "relative mt-3 flex min-w-0 items-start gap-3 sm:gap-4";
+export const CTV_HUB_RANK_BODY =
+  "relative mt-2.5 flex min-w-0 items-start gap-2.5 sm:gap-3 lg:mt-3 lg:flex-1 lg:min-h-0";
 
-export const CTV_HUB_RANK_CONTENT = "min-w-0 flex-1 space-y-1.5 text-left";
+export const CTV_HUB_RANK_CONTENT = "min-w-0 flex-1 space-y-1 text-left";
 
-export const CTV_HUB_RANK_FOOTER = "relative mt-3 space-y-2";
+export const CTV_HUB_RANK_FOOTER =
+  "relative mt-2.5 flex w-full min-w-0 flex-col gap-1.5 overflow-visible sm:gap-2 lg:mt-4 lg:shrink-0";
 
 export const CTV_HUB_RANK_FOOTER_ROW = "flex min-w-0 items-center justify-between gap-3";
 
@@ -303,43 +433,107 @@ export const CTV_HUB_PROGRESS_TRACK =
 
 export const CTV_HUB_PROGRESS_PCT = "shrink-0 text-sm font-bold tabular-nums text-slate-800";
 
-/** Khu vực thưởng — căn giữa, tách khỏi thanh tiến độ */
+/** Tiến độ cấp bậc — rhythm 8pt, phân bổ đều từ trên xuống */
+export const CTV_TIER_PROGRESS_BODY = [
+  "mt-3 flex min-w-0 flex-col gap-3 sm:mt-3.5 sm:gap-3.5 lg:gap-4",
+].join(" ");
+
+export const CTV_TIER_PROGRESS_REVENUE_LABEL = "text-xs font-medium leading-snug text-slate-500";
+
+export const CTV_TIER_PROGRESS_REVENUE_VALUE = ["mt-1", CTV_MONEY_VALUE_LG].join(" ");
+
+/** 4 ô thông tin — cùng chiều cao, cột đồng đều */
+export const CTV_TIER_PROGRESS_STAT_GRID = UI_GRID_STAT_STABLE;
+
+export const CTV_TIER_PROGRESS_STAT_CELL = [
+  "flex min-h-[3.5rem] min-w-0 flex-col justify-center rounded-xl",
+  "border border-slate-100/90 bg-slate-50/70 px-2.5 py-2 sm:min-h-[3.75rem] sm:px-3",
+].join(" ");
+
+export const CTV_TIER_PROGRESS_STAT_LABEL = "text-[11px] font-medium leading-tight text-slate-500 sm:text-xs";
+
+export const CTV_TIER_PROGRESS_STAT_VALUE = [
+  "mt-1 min-w-0 text-sm font-semibold leading-snug text-[#0F172A]",
+  "break-words text-pretty",
+].join(" ");
+
+export const CTV_TIER_PROGRESS_REMAINING = "text-sm leading-relaxed text-slate-600";
+
+export const CTV_TIER_PROGRESS_PROGRESS_BLOCK = [
+  "flex min-w-0 flex-col gap-1.5 pb-1 sm:gap-2 sm:pb-1.5",
+].join(" ");
+
+export const CTV_TIER_PROGRESS_PROGRESS_HEAD = "flex min-w-0 items-center justify-between gap-3";
+
+export const CTV_TIER_PROGRESS_PROGRESS_LABEL = "min-w-0 text-xs font-medium text-slate-500";
+
+export const CTV_TIER_PROGRESS_PROGRESS_PCT = [
+  CTV_HUB_PROGRESS_PCT,
+  "ml-auto shrink-0 text-right",
+].join(" ");
+
+/** Divider mờ phân tách section — dùng chung hub */
+export const CTV_HUB_SECTION_DIVIDER = [
+  "mx-auto h-px w-[36%] min-w-[6.5rem] max-w-[11rem] shrink-0",
+  "bg-gradient-to-r from-transparent via-slate-400/12 to-transparent",
+].join(" ");
+
+/**
+ * Khu vực thưởng — 3 tầng: [tiến độ] → pt → [divider] → gap → [hàng thưởng] → pb
+ * pt ≈ gap ≈ pb để cụm thưởng căn giữa theo chiều dọc.
+ */
 export const CTV_HUB_RANK_REWARD_SECTION = [
-  "mt-3 flex min-w-0 w-full flex-col items-center px-2 sm:mt-4 sm:px-3",
+  "mt-2.5 flex w-full min-w-0 flex-col items-center justify-center overflow-visible",
+  "gap-2.5 px-1 pb-1.5 pt-2.5 sm:gap-3 sm:px-2 sm:pb-2 sm:pt-3",
 ].join(" ");
 
-/** Divider ngắn giữa progress và thưởng (~40% khung) */
-export const CTV_HUB_RANK_REWARD_DIVIDER = [
-  "mx-auto mb-3 h-px w-[40%] min-w-[7rem] max-w-[12rem]",
-  "bg-gradient-to-r from-transparent via-slate-400/15 to-transparent sm:mb-3.5",
-].join(" ");
+/** @deprecated — dùng CTV_HUB_SECTION_DIVIDER */
+export const CTV_HUB_RANK_REWARD_DIVIDER = CTV_HUB_SECTION_DIVIDER;
 
+/** Vùng bọc — full width, container query thu font khi card hẹp (zoom 150–200%) */
 export const CTV_HUB_RANK_REWARD_BODY = [
-  "flex w-full min-w-0 max-w-full flex-col items-center gap-2.5 py-1 sm:gap-3 sm:py-2",
+  "@container/reward flex w-full min-w-0 items-center justify-center overflow-visible",
+  "py-1 sm:py-1.5",
 ].join(" ");
 
-export const CTV_HUB_RANK_REWARD_MAIN = [
-  "flex min-w-0 max-w-full flex-nowrap items-center justify-center gap-3 sm:gap-4",
+/** @deprecated — dùng CTV_HUB_RANK_REWARD_BODY */
+export const CTV_HUB_RANK_REWARD_MAIN = CTV_HUB_RANK_REWARD_BODY;
+
+/**
+ * Một hàng: [quà] Thưởng: 500.000₫ khi đạt yêu cầu [khóa + trạng thái]
+ * Font-size clamp — icon/badge dùng `em` scale đồng bộ khi zoom.
+ */
+export const CTV_HUB_RANK_REWARD_ROW = [
+  "flex w-full min-w-0 max-w-full flex-nowrap items-center justify-center",
+  "gap-[clamp(0.2rem,0.3em,0.45rem)]",
+  "overflow-visible",
+  "text-[length:clamp(0.5625rem,2.2vw,1rem)] leading-none whitespace-nowrap text-slate-800",
+  "@[max-width:20rem]/reward:text-[length:clamp(0.5rem,1.75vw,0.875rem)]",
+  "@[max-width:16rem]/reward:text-[length:clamp(0.4375rem,1.5vw,0.75rem)]",
 ].join(" ");
 
 export const CTV_HUB_RANK_REWARD_GIFT_ICON = [
-  "flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl",
+  "inline-flex shrink-0 items-center justify-center rounded-md",
+  "h-[2em] w-[2em] min-h-[2em] min-w-[2em]",
+  "mr-[0.4em]",
   "bg-gradient-to-br from-amber-400 via-yellow-400 to-orange-500",
-  "shadow-[0_4px_14px_rgba(245,158,11,0.38)] ring-1 ring-amber-300/55",
+  "shadow-[0_0.35em_0.9em_rgba(245,158,11,0.38)] ring-1 ring-amber-300/55",
 ].join(" ");
 
-export const CTV_HUB_RANK_REWARD_GIFT_GLYPH = "h-7 w-7 text-amber-950";
+export const CTV_HUB_RANK_REWARD_GIFT_GLYPH = "h-[1em] w-[1em] shrink-0 text-amber-950";
 
-export const CTV_HUB_RANK_REWARD_COPY = "min-w-0 text-center";
+/** @deprecated — dùng CTV_HUB_RANK_REWARD_ROW */
+export const CTV_HUB_RANK_REWARD_COPY = CTV_HUB_RANK_REWARD_ROW;
 
-export const CTV_HUB_RANK_REWARD_LINE = [
-  "flex flex-wrap items-baseline justify-center gap-x-1.5 gap-y-0.5",
-  "text-base font-semibold leading-snug text-slate-800 sm:text-lg",
+/** @deprecated — dùng CTV_HUB_RANK_REWARD_ROW */
+export const CTV_HUB_RANK_REWARD_LINE = CTV_HUB_RANK_REWARD_ROW;
+
+export const CTV_HUB_RANK_REWARD_LABEL = "shrink-0 font-semibold whitespace-nowrap";
+
+export const CTV_HUB_RANK_REWARD_AMOUNT = [
+  "shrink-0 font-semibold tabular-nums whitespace-nowrap leading-none",
+  "text-[1em]",
 ].join(" ");
-
-export const CTV_HUB_RANK_REWARD_LABEL = "font-semibold text-slate-800";
-
-export const CTV_HUB_RANK_REWARD_AMOUNT = "font-bold tabular-nums tracking-tight text-lg sm:text-xl";
 
 /** Số tiền khi đã đạt mốc — xanh lá hệ thống */
 export const CTV_HUB_RANK_REWARD_AMOUNT_ACHIEVED =
@@ -349,22 +543,20 @@ export const CTV_HUB_RANK_REWARD_AMOUNT_ACHIEVED =
 export const CTV_HUB_RANK_REWARD_AMOUNT_PENDING =
   "bg-gradient-to-r from-amber-600 via-yellow-600 to-amber-700 bg-clip-text text-transparent";
 
-export const CTV_HUB_RANK_REWARD_SUFFIX = [
-  "mt-0.5 text-center text-sm font-medium leading-snug text-slate-600 sm:text-[15px]",
-].join(" ");
+export const CTV_HUB_RANK_REWARD_SUFFIX = "shrink-0 font-medium whitespace-nowrap text-slate-600";
 
-/** @deprecated — dùng CTV_HUB_RANK_REWARD_SECTION */
-export const CTV_HUB_RANK_REWARD_ROW = CTV_HUB_RANK_REWARD_SECTION;
+/** @deprecated — dùng CTV_HUB_RANK_REWARD_ROW */
+export const CTV_HUB_RANK_REWARD_LEFT = CTV_HUB_RANK_REWARD_ROW;
 
-/** @deprecated — dùng CTV_HUB_RANK_REWARD_MAIN */
-export const CTV_HUB_RANK_REWARD_LEFT = CTV_HUB_RANK_REWARD_MAIN;
+/** @deprecated — dùng CTV_HUB_RANK_REWARD_ROW */
+export const CTV_HUB_RANK_REWARD_TEXT = CTV_HUB_RANK_REWARD_ROW;
 
-/** @deprecated — dùng CTV_HUB_RANK_REWARD_LINE */
-export const CTV_HUB_RANK_REWARD_TEXT = CTV_HUB_RANK_REWARD_LINE;
+export const CTV_HUB_RANK_REWARD_LOCK_GLYPH = "h-[1em] w-[1em] shrink-0";
 
 export const CTV_HUB_RANK_REWARD_STATUS = [
-  "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1",
-  "text-xs font-semibold",
+  "inline-flex shrink-0 items-center whitespace-nowrap rounded-full",
+  "gap-[0.45em] px-[0.55em] py-[0.2em]",
+  "text-[0.8125em] font-semibold leading-none",
 ].join(" ");
 
 /** @deprecated */
@@ -375,13 +567,13 @@ export const CTV_HUB_PROGRESS_ROW = CTV_HUB_RANK_FOOTER_ROW;
 
 /** Tài khoản — hierarchy */
 export const CTV_HUB_ACCOUNT_NAME =
-  "text-lg font-bold leading-[1.35] tracking-tight text-[#0F172A] truncate lg:text-xl";
+  "text-lg font-bold leading-[1.35] tracking-tight text-[#0F172A] break-words text-pretty max-lg:truncate lg:text-xl lg:whitespace-normal";
 
 export const CTV_HUB_ACCOUNT_META = "text-sm font-medium leading-[1.5] text-slate-600";
 
 export const CTV_HUB_ACCOUNT_SECONDARY = "text-sm font-medium leading-[1.5] text-slate-500";
 
-export const CTV_HUB_IDENTITY_STACK = "mt-4 min-w-0 space-y-2.5";
+export const CTV_HUB_IDENTITY_STACK = "mt-3 min-w-0 space-y-2 lg:flex-1 lg:min-h-0";
 
 /** @deprecated — dùng CTV_HUB_INNER_CARD + CTV_HUB_CARD_PAD */
 export const CTV_V2_CARD_ACCOUNT = [CTV_HUB_INNER_CARD, CTV_HUB_CARD_PAD].join(" ");
@@ -393,7 +585,8 @@ export const CTV_V2_ACCOUNT_TIER_IDENTITY = CTV_HUB_IDENTITY_STACK;
 export const CTV_V2_ACCOUNT_TIER_COMMISSION = "hidden";
 
 /** Quick actions */
-export const CTV_V2_ACCOUNT_TIER_ACTIONS = "mt-6 border-t border-slate-200 pt-6";
+export const CTV_V2_ACCOUNT_TIER_ACTIONS =
+  "mt-5 shrink-0 border-t border-slate-200 pt-5 lg:mt-auto";
 
 export const CTV_V2_SUBHEADING = "text-[13px] font-medium text-[#6B7280]";
 
@@ -411,8 +604,9 @@ export const CTV_V2_PROGRESS_TRACK = "h-2 overflow-hidden rounded-full bg-slate-
 export const CTV_V2_PROGRESS_FILL =
   "h-full rounded-full bg-gradient-to-r from-blue-600 via-sky-500 to-emerald-500 transition-[width] duration-700 ease-out";
 
-export const CTV_V2_SEGMENTED_WRAP = [
-  "flex w-full min-w-0 gap-2 overflow-x-auto overscroll-x-contain",
+/** Segmented tab — SSOT (CTV / Affiliate workspace + analytics/campaign hubs). */
+export const CTV_SEGMENTED_WRAP = [
+  "flex w-full min-w-0 items-center gap-2 overflow-x-auto overscroll-x-contain",
   "rounded-xl bg-slate-100/90 px-2 py-1.5 shadow-inner shadow-slate-900/[0.02]",
   "[scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden",
   "[-webkit-overflow-scrolling:touch]",
@@ -420,16 +614,56 @@ export const CTV_V2_SEGMENTED_WRAP = [
   "lg:gap-1.5 lg:rounded-2xl lg:p-1.5",
 ].join(" ");
 
-export const CTV_V2_SEGMENTED_ITEM = [
+export const CTV_SEGMENTED_ITEM = [
   "flex h-10 shrink-0 items-center justify-center whitespace-nowrap rounded-xl",
-  "px-4 text-[13px] font-semibold text-[#6B7280]",
+  "px-4 text-[13px] font-semibold text-slate-600",
   CTV_V2_TOUCH,
   CTV_TAB_IDLE_HOVER,
   CTV_V2_MOTION,
-  "lg:min-h-12 lg:rounded-[14px] lg:px-5 lg:py-2.5 lg:text-sm",
+  "lg:min-h-12 lg:flex-1 lg:rounded-[14px] lg:px-5 lg:py-2.5 lg:text-sm",
 ].join(" ");
 
-export const CTV_V2_SEGMENTED_ITEM_ACTIVE = CTV_TAB_ACTIVE;
+export const CTV_SEGMENTED_ITEM_ACTIVE = CTV_TAB_ACTIVE;
+
+/** Icon + label tab (Campaign, Tracking, …) — cùng box model active/inactive. */
+export const CTV_SEGMENTED_ICON = [
+  "size-4 shrink-0 opacity-90",
+  "[&>svg]:block [&>svg]:size-full",
+  "pointer-events-none",
+].join(" ");
+
+export const CTV_SEGMENTED_LABEL = "inline-block leading-none";
+
+export const CTV_SEGMENTED_ITEM_ICON = [
+  CTV_SEGMENTED_ITEM,
+  "inline-flex gap-2",
+  "box-border ring-1 ring-inset ring-transparent",
+].join(" ");
+
+/** Segment nhỏ trong card (metric toggle, cửa sổ realtime). */
+export const CTV_SEGMENTED_PILL_ITEM = [
+  "inline-flex h-8 shrink-0 items-center justify-center rounded-lg px-2.5",
+  "text-[11px] font-bold whitespace-nowrap text-slate-600",
+  CTV_V2_TOUCH,
+  CTV_TAB_IDLE_HOVER,
+].join(" ");
+
+export const CTV_SEGMENTED_PILL_ITEM_ACTIVE = [
+  CTV_TAB_RADIUS,
+  "inline-flex h-8 shrink-0 items-center justify-center border border-blue-300/80 px-2.5",
+  "bg-gradient-to-br from-[#3b82f6] to-[#2563eb] text-[11px] font-bold text-white",
+  "shadow-sm shadow-blue-500/20",
+  "transition-[background-color,box-shadow,color] duration-200 ease-out",
+].join(" ");
+
+/** @deprecated — dùng CTV_SEGMENTED_WRAP */
+export const CTV_V2_SEGMENTED_WRAP = CTV_SEGMENTED_WRAP;
+
+/** @deprecated — dùng CTV_SEGMENTED_ITEM */
+export const CTV_V2_SEGMENTED_ITEM = CTV_SEGMENTED_ITEM;
+
+/** @deprecated — dùng CTV_SEGMENTED_ITEM_ACTIVE */
+export const CTV_V2_SEGMENTED_ITEM_ACTIVE = CTV_SEGMENTED_ITEM_ACTIVE;
 
 export const CTV_V2_PANEL_INSET = [
   CTV_V2_INSET,
@@ -515,8 +749,8 @@ export const CTV_V2_AVATAR_OUTER = [
 
 export const CTV_V2_AVATAR_INNER = "overflow-hidden rounded-full bg-white ring-1 ring-blue-100/80";
 
-/** Hub avatar — phụ trợ, không chiếm spotlight */
-export const CTV_V2_AVATAR_SIZE = "h-16 w-16 lg:h-16 lg:w-16";
+/** Hub avatar — gọn ~12% so với 64px */
+export const CTV_V2_AVATAR_SIZE = "h-14 w-14 lg:h-14 lg:w-14";
 
 /** @deprecated — dùng CTV_V2_AVATAR_SIZE */
 export const CTV_V2_AVATAR_SIZE_LEGACY = "h-24 w-24 lg:h-32 lg:w-32";
@@ -526,7 +760,7 @@ export const CTV_V2_AVATAR_IMG_PX = 256;
 
 export const CTV_V2_AVATAR_QUALITY = 92;
 
-export const CTV_V2_AVATAR_SIZES = "(max-width: 1024px) 64px, 64px";
+export const CTV_V2_AVATAR_SIZES = "(max-width: 1024px) 56px, 56px";
 
 export const CTV_V2_AVATAR_IMG_CLASS = [
   CTV_V2_AVATAR_SIZE,
@@ -538,26 +772,41 @@ export const CTV_V2_AVATAR_IMG_CLASS = [
 export const CTV_V2_TIER_BADGE =
   "mt-2 inline-flex rounded-lg bg-gradient-to-r from-amber-100 to-orange-100 px-2.5 py-0.5 text-[10px] font-bold text-amber-900 ring-1 ring-amber-200/70";
 
-/** Quick actions — icon trên, text dưới, căn giữa */
-export const CTV_V2_PROFILE_ACTIONS_GRID =
-  "grid w-full min-w-0 max-w-full grid-cols-2 gap-3 sm:grid-cols-4";
+/** Quick actions — mobile: auto-fit; desktop: 4 cột 1 hàng, icon/label đồng nhất */
+export const CTV_V2_PROFILE_ACTIONS_GRID = [
+  UI_GRID_ACTIONS_STABLE,
+  "lg:grid-cols-4 lg:gap-2",
+].join(" ");
 
 export const CTV_V2_PROFILE_ACTION_TILE = [
-  "group flex min-h-[5.75rem] min-w-0 flex-col items-center justify-center gap-2 rounded-xl",
-  "border border-slate-200 bg-white px-2 py-3",
-  "hover:border-slate-300 hover:bg-[#F8FAFC]",
+  "group flex min-h-[5.25rem] min-w-0 flex-col items-center justify-center gap-1.5 rounded-xl",
+  "border border-slate-200 bg-white px-2 py-2.5",
+  CTV_MOTION_CLASS.base,
+  "hover:border-slate-300 hover:bg-[#F8FAFC] hover:shadow-sm",
+  "active:border-slate-300 active:bg-slate-100/80 active:shadow-sm",
+  "focus-visible:border-slate-300 focus-visible:bg-[#F8FAFC] focus-visible:shadow-sm",
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500/45",
   "disabled:pointer-events-none disabled:opacity-40",
+  "lg:min-h-0 lg:h-full lg:gap-1.5 lg:rounded-lg lg:px-1 lg:py-2",
 ].join(" ");
 
 export const CTV_V2_PROFILE_ACTION_ICON = [
   "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#F8FAFC] text-slate-700",
   "ring-1 ring-slate-200/80",
+  CTV_MOTION_CLASS.base,
   "group-hover:bg-blue-50 group-hover:text-blue-700 group-hover:ring-blue-100",
+  "group-active:bg-blue-50 group-active:text-blue-700 group-active:ring-blue-100",
+  "group-focus-visible:bg-blue-50 group-focus-visible:text-blue-700 group-focus-visible:ring-blue-100",
+  "lg:h-9 lg:w-9 lg:rounded-lg",
 ].join(" ");
 
-export const CTV_V2_PROFILE_ACTION_LABEL =
-  "w-full text-center text-sm font-semibold leading-tight text-slate-700 group-hover:text-slate-900 max-sm:text-xs";
+export const CTV_V2_PROFILE_ACTION_LABEL = [
+  "w-full min-w-0 text-center text-sm font-semibold leading-tight text-slate-700",
+  CTV_MOTION_CLASS.base,
+  "group-hover:text-slate-900 group-active:text-slate-900 group-focus-visible:text-slate-900",
+  "max-sm:text-xs",
+  "lg:text-[11px] lg:leading-4 lg:whitespace-nowrap lg:overflow-hidden lg:text-ellipsis",
+].join(" ");
 
 export const CTV_V2_BTN_OUTLINE = [
   "inline-flex h-9 w-full min-w-0 items-center justify-center sm:h-10",
@@ -585,17 +834,14 @@ export const CTV_V2_RANK_BADGE = [
 ].join(" ");
 
 /** KPI dashboard — 2×2 mobile, 1×4 desktop · số trên, nhãn dưới */
-export const CTV_HUB_KPI_GRID =
-  "grid w-full min-w-0 max-w-full grid-cols-2 gap-4 auto-rows-fr lg:grid-cols-4 lg:gap-4";
+export const CTV_HUB_KPI_GRID = UI_GRID_KPI_STABLE;
 
 export const CTV_HUB_KPI_TILE = [
-  "flex min-h-[7rem] min-w-0 flex-col justify-center gap-2 overflow-hidden break-words",
-  "rounded-2xl border border-slate-200 bg-slate-50/80 p-4 lg:p-5",
-  "lg:min-h-[7.5rem]",
+  "flex h-full min-h-[6.5rem] min-w-0 flex-col justify-center gap-1.5",
+  "rounded-2xl border border-slate-200 bg-slate-50/80 p-3 sm:p-4 lg:gap-2 lg:p-5",
 ].join(" ");
 
-export const CTV_HUB_KPI_VALUE =
-  "text-2xl font-bold tabular-nums leading-none tracking-tight text-[#0F172A] lg:text-[1.875rem]";
+export const CTV_HUB_KPI_VALUE = CTV_MONEY_VALUE_MD;
 
 export const CTV_HUB_KPI_LABEL = "text-sm font-medium leading-snug text-slate-600";
 
@@ -610,8 +856,11 @@ export const CTV_V2_STATS_CELL = CTV_HUB_KPI_TILE;
 export const CTV_V2_STATS_GRID =
   "grid min-w-0 grid-cols-1 divide-y divide-slate-200/70 sm:grid-cols-3 sm:divide-x sm:divide-y-0";
 
-export const CTV_V2_LAYOUT_SHELL =
-  "box-border w-full min-w-0 max-w-full max-md:mx-0 lg:mx-auto lg:max-w-[88rem]";
+export const CTV_V2_LAYOUT_SHELL = [
+  "box-border w-full min-w-0 max-w-full max-md:mx-0",
+  "max-lg:overflow-x-clip lg:overflow-visible",
+  "lg:mx-auto lg:max-w-[88rem]",
+].join(" ");
 
 export const CTV_V2_STACK_GAP = "flex flex-col gap-4 max-md:gap-4 lg:gap-5";
 
@@ -652,7 +901,7 @@ export const CTV_V2_WALLET_ORB_SM = "hidden";
 export const CTV_HUB_MAIN_WRAP = [CTV_MOBILE_SAFE, "w-full min-w-0 pb-4 sm:pb-5 lg:px-4 lg:pb-6"].join(" ");
 
 export const CTV_HUB_SECTION_SHELL = [
-  "w-full min-w-0 overflow-hidden rounded-2xl",
+  "w-full min-w-0 max-lg:overflow-x-clip lg:overflow-visible rounded-2xl",
   "border border-slate-200 bg-white",
   "shadow-sm",
   "p-4 lg:p-6",

@@ -10,7 +10,8 @@ import {
   CTV_V2_PROFILE_ACTIONS_GRID,
 } from "./ctv-ui-tokens";
 
-const ACTION_ICON_CLASS = "h-6 w-6";
+/** Mobile giữ 24px; desktop thu nhỏ đồng đều 16px */
+const ACTION_ICON_CLASS = "h-6 w-6 lg:h-4 lg:w-4";
 
 export type CtvProfileQuickAction = {
   id: string;
@@ -67,9 +68,6 @@ function buildProfileQuickActions({
       title: "Xóa ảnh",
       onClick: onRemoveAvatar,
       disabled: avatarUploading || !hasAvatar,
-      tileClassName: "hover:!border-rose-200 hover:!bg-rose-50/80",
-      iconClassName:
-        "group-hover:!bg-rose-50 group-hover:!text-rose-600 group-hover:!ring-rose-100/90",
     },
     {
       id: "order-lookup",

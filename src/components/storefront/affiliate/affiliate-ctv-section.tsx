@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { CTV_V2_SECTION_TITLE, CTV_V2_SUBHEADING } from "../ctv/ctv-ui-tokens";
+import { CTV_TYPE_BODY, CTV_TYPE_SECTION } from "./affiliate-ctv-account-ui-tokens";
 
 type AffiliateCtvSectionProps = {
   title?: string;
@@ -30,11 +30,11 @@ export function AffiliateCtvSection({
       {title || description ? (
         <header className="space-y-1">
           {title ? (
-            <h3 id={headingId} className={CTV_V2_SECTION_TITLE}>
+            <h3 id={headingId} className={CTV_TYPE_SECTION}>
               {title}
             </h3>
           ) : null}
-          {description ? <p className={CTV_V2_SUBHEADING}>{description}</p> : null}
+          {description ? <p className={CTV_TYPE_BODY}>{description}</p> : null}
         </header>
       ) : null}
       {children}

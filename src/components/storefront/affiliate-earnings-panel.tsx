@@ -7,7 +7,12 @@ import { CtvDataEmpty } from "./ctv/data/ctv-data-states";
 import { CTV_LIST_ROW } from "./ctv/data/ctv-data-table";
 import { CtvMetricStrip } from "./ctv/data/ctv-metric-strip";
 import { CtvTableSkeleton } from "./ctv/data/ctv-skeleton";
-import { CTV_V2_SEGMENTED_ITEM, CTV_V2_SEGMENTED_ITEM_ACTIVE, CTV_V2_SEGMENTED_WRAP } from "./ctv/ctv-ui-tokens";
+import {
+  CTV_SEGMENTED_ITEM,
+  CTV_SEGMENTED_ITEM_ACTIVE,
+  CTV_SEGMENTED_WRAP,
+  CTV_TAB_IDLE_HOVER,
+} from "./ctv/ctv-ui-tokens";
 import { CTV_MOTION_CLASS } from "./ctv/ctv-motion-tokens";
 
 type CommissionRow = {
@@ -149,7 +154,7 @@ export default function AffiliateEarningsPanel({
       )}
 
       <div
-        className={isCtv ? `${CTV_V2_SEGMENTED_WRAP} !overflow-x-auto` : "mt-3 flex min-w-0 flex-wrap gap-2"}
+        className={isCtv ? `${CTV_SEGMENTED_WRAP} !overflow-x-auto` : "mt-3 flex min-w-0 flex-wrap gap-2"}
         role={isCtv ? "tablist" : undefined}
       >
         {tabItems.map((item) => (
@@ -159,8 +164,8 @@ export default function AffiliateEarningsPanel({
             onClick={() => setTab(item.key)}
             className={
               isCtv
-                ? `${CTV_V2_SEGMENTED_ITEM} ${CTV_MOTION_CLASS.tab} !min-h-9 shrink-0 !flex-none !px-3 ${
-                    tab === item.key ? CTV_V2_SEGMENTED_ITEM_ACTIVE : "hover:bg-white/60"
+                ? `${CTV_SEGMENTED_ITEM} ${CTV_MOTION_CLASS.tab} !min-h-9 shrink-0 !flex-none !px-3 ${
+                    tab === item.key ? CTV_SEGMENTED_ITEM_ACTIVE : CTV_TAB_IDLE_HOVER
                   }`
                 : `shrink-0 rounded-full px-3 py-1 text-xs ${
                     tab === item.key ? "bg-[#2563EB] text-white" : "bg-[#F8FAFC] text-[#0F172A]"

@@ -204,7 +204,7 @@ export default function AdminShell({
   return (
     <div className="min-h-screen bg-[#F8FAFC] lg:flex lg:h-[100dvh] lg:min-h-0 lg:flex-col lg:overflow-hidden">
       <div className="flex w-full min-w-0 flex-1 flex-col lg:min-h-0 lg:flex-1 lg:flex-row lg:overflow-hidden">
-        <aside className="hidden w-[236px] shrink-0 border-r border-slate-200 bg-white px-2.5 py-4 lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-y-auto xl:w-[244px]">
+        <aside className="hidden w-full min-w-0 max-w-[17.5rem] shrink-0 basis-[minmax(13rem,17.5rem)] border-r border-slate-200 bg-white px-2.5 py-4 lg:flex lg:h-full lg:min-h-0 lg:w-[minmax(13rem,17.5rem)] lg:flex-col lg:overflow-y-auto">
           <Link
             href="/admin"
             className="mb-4 block rounded-xl border border-sky-200/60 bg-gradient-to-r from-sky-600 via-sky-500 to-violet-500 px-3.5 py-3.5 text-base font-extrabold tracking-tight text-white shadow-md shadow-sky-900/15 transition hover:brightness-105"
@@ -373,9 +373,9 @@ export default function AdminShell({
           ) : null}
 
           <div
-            className={`admin-scrollbar flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto pb-6 [-webkit-overflow-scrolling:touch] md:pb-8 lg:min-h-0 lg:flex-1 ${adminShellContentPadding}`}
+            className={`admin-scrollbar flex min-h-0 min-w-0 flex-1 flex-col overflow-x-clip overflow-y-auto pb-6 [-webkit-overflow-scrolling:touch] md:pb-8 lg:min-h-0 lg:flex-1 ${adminShellContentPadding}`}
           >
-            <div className="w-full min-w-0 max-w-full flex-1 overflow-x-hidden">{children}</div>
+            <div className="w-full min-w-0 max-w-full flex-1 overflow-x-clip">{children}</div>
           </div>
         </div>
       </div>

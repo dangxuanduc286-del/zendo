@@ -213,7 +213,7 @@ export default async function StorefrontChromeLayout({ children }: Props): Promi
             delayMs={websiteSettings.popupDelayMs}
             frequencyHours={websiteSettings.popupFrequencyHours}
           />
-          <main className="flex w-full min-w-0 max-w-none flex-1 flex-col min-h-0 pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
+          <main className="flex w-full min-w-0 max-w-none flex-1 flex-col min-h-0 overflow-x-clip pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
             {children}
           </main>
           <MobileBottomNav categories={categories} />

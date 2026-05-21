@@ -8,6 +8,7 @@ import {
   buildWebPageJsonLd,
 } from "../../../../../lib/seo";
 import { authOptions } from "../../../../../lib/auth";
+import { toIsoStringOrUndefined } from "../../../../../lib/serialize-safe-datetime";
 import {
   canViewAffiliatePolicyOnStorefront,
   excerptPlain,
@@ -39,7 +40,7 @@ export async function generateMetadata({ params }: { params: ParamsInput }): Pro
     title: titleMeta,
     description,
     path,
-    modifiedTime: policy.updatedAt.toISOString(),
+    modifiedTime: toIsoStringOrUndefined(policy.updatedAt),
     noIndex: policy.type === "AFFILIATE_POLICY",
   });
 }

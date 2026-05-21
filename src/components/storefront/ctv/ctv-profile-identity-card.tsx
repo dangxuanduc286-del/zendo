@@ -6,13 +6,13 @@ import { memo, useEffect, useState, type ChangeEvent, type RefObject } from "rea
 import type { CustomerAccountSettings } from "@/lib/settings";
 import { clampNextImageQuality } from "@/lib/next-image-quality";
 import {
-  CTV_HUB_CARD_PAD,
+  CTV_HUB_CARD_HEADER,
   CTV_HUB_CARD_TITLE,
   CTV_HUB_ACCOUNT_META,
   CTV_HUB_ACCOUNT_NAME,
   CTV_HUB_ACCOUNT_SECONDARY,
   CTV_HUB_IDENTITY_STACK,
-  CTV_HUB_INNER_CARD,
+  CTV_HUB_OVERVIEW_CARD,
   CTV_V2_ACCOUNT_TIER_ACTIONS,
   CTV_V2_AVATAR_IMG_CLASS,
   CTV_V2_AVATAR_IMG_PX,
@@ -98,15 +98,17 @@ function CtvProfileIdentityCardInner(props: CtvProfileIdentityCardProps): JSX.El
 
   return (
     <article
-      className={[CTV_HUB_INNER_CARD, CTV_HUB_CARD_PAD, "flex min-h-0 min-w-0 flex-col"].join(" ")}
+      className={[CTV_HUB_OVERVIEW_CARD, "min-h-0 lg:flex lg:flex-col"].join(" ")}
       aria-labelledby="ctv-account-card-heading"
     >
-      <h2 id="ctv-account-card-heading" className={CTV_HUB_CARD_TITLE}>
-        {accountTitle}
-      </h2>
+      <header className={CTV_HUB_CARD_HEADER}>
+        <h2 id="ctv-account-card-heading" className={`${CTV_HUB_CARD_TITLE} min-w-0`}>
+          {accountTitle}
+        </h2>
+      </header>
 
       <div className={CTV_HUB_IDENTITY_STACK}>
-        <div className="flex min-w-0 items-start gap-4">
+        <div className="flex min-w-0 items-start gap-3">
           <div className={CTV_V2_AVATAR_OUTER}>
             <div className={CTV_V2_AVATAR_INNER}>
               {currentAvatar && !avatarBroken ? (
@@ -132,7 +134,7 @@ function CtvProfileIdentityCardInner(props: CtvProfileIdentityCardProps): JSX.El
             </div>
           </div>
 
-          <div className="min-w-0 flex-1 space-y-2">
+          <div className="min-w-0 flex-1 space-y-1.5">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <p className={CTV_HUB_ACCOUNT_NAME}>{displayName}</p>
               <CtvRoleBadge badge={badge} isCtv={isCtv} />
@@ -140,14 +142,14 @@ function CtvProfileIdentityCardInner(props: CtvProfileIdentityCardProps): JSX.El
 
             {contactText ? (
               <p className={`${CTV_HUB_ACCOUNT_META} flex min-w-0 items-center gap-1.5`}>
-                <span className="truncate">{contactText}</span>
+                <span className="min-w-0 break-words text-pretty max-lg:truncate lg:whitespace-normal">{contactText}</span>
                 <CtvVerifiedBadge className="shrink-0" />
               </p>
             ) : null}
 
             {refCode ? (
               <div className="flex min-w-0 flex-wrap items-center gap-2">
-                <span className={`${CTV_HUB_ACCOUNT_SECONDARY} truncate`}>
+                <span className={`${CTV_HUB_ACCOUNT_SECONDARY} min-w-0 break-words text-pretty max-lg:truncate lg:whitespace-normal`}>
                   Mã ref: <strong className="font-semibold text-[#0F172A]">{refCode}</strong>
                 </span>
                 <button

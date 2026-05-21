@@ -20,7 +20,9 @@ import {
 import {
   AFFILIATE_ANALYTICS_CHIP_LINK,
   AFFILIATE_ANALYTICS_SUBTAB_ACTIVE,
+  AFFILIATE_ANALYTICS_SUBTAB_ICON,
   AFFILIATE_ANALYTICS_SUBTAB_INACTIVE,
+  AFFILIATE_ANALYTICS_SUBTAB_LABEL,
   AFFILIATE_ANALYTICS_TAB_ROW_SURFACE,
   AFFILIATE_ANALYTICS_TOOLBAR_BTN_PRIMARY,
 } from "@/lib/affiliate-analytics-ui-tokens";
@@ -262,7 +264,7 @@ export default memo(function AffiliateCampaignGrowthHub(props: { range: RangeKey
         <div
           className={clsx(
             AFFILIATE_ANALYTICS_TAB_ROW_SURFACE,
-            "flex w-full min-w-0 snap-x snap-mandatory flex-nowrap gap-1 overflow-x-auto pb-1 touch-pan-x [-ms-overflow-style:none] [scrollbar-width:none] md:flex-wrap md:justify-start md:gap-1.5 md:overflow-visible md:pb-0 [&::-webkit-scrollbar]:hidden",
+            "w-full min-w-0 snap-x snap-mandatory flex-nowrap pb-1 touch-pan-x [-ms-overflow-style:none] [scrollbar-width:none] md:flex-wrap md:justify-start md:overflow-visible md:pb-0 [&::-webkit-scrollbar]:hidden",
           )}
         >
           {SUBS.map((s) => {
@@ -277,8 +279,8 @@ export default memo(function AffiliateCampaignGrowthHub(props: { range: RangeKey
                 }}
                 className={sub === s.key ? AFFILIATE_ANALYTICS_SUBTAB_ACTIVE : AFFILIATE_ANALYTICS_SUBTAB_INACTIVE}
               >
-                <Icon className="h-3.5 w-3.5 shrink-0 opacity-90" strokeWidth={1.75} aria-hidden />
-                {s.label}
+                <Icon className={AFFILIATE_ANALYTICS_SUBTAB_ICON} strokeWidth={2} aria-hidden />
+                <span className={AFFILIATE_ANALYTICS_SUBTAB_LABEL}>{s.label}</span>
               </button>
             );
           })}

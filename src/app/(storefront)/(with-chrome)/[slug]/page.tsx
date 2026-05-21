@@ -6,6 +6,7 @@ import {
   buildDynamicMetadata,
   buildWebPageJsonLd,
 } from "../../../../lib/seo";
+import { toIsoStringOrUndefined } from "../../../../lib/serialize-safe-datetime";
 import {
   excerptFromPageContent,
   getStorefrontPublicPageCached,
@@ -52,7 +53,7 @@ export async function generateMetadata({ params }: { params: ParamsInput }): Pro
     title: titleMeta,
     description,
     path,
-    modifiedTime: page.updatedAt.toISOString(),
+    modifiedTime: toIsoStringOrUndefined(page.updatedAt),
   });
 }
 

@@ -58,11 +58,11 @@ function CtvPerformanceSectionInner({
       ) : (
         <div className={`${CTV_HUB_KPI_GRID} mt-6`} role="list">
           <article className={CTV_HUB_KPI_TILE} role="listitem" aria-label={`Click hôm nay ${todayClicks}`}>
-            <p className={CTV_HUB_KPI_VALUE}>{todayClicks.toLocaleString("vi-VN")}</p>
+            <p className={`${CTV_HUB_KPI_VALUE} block`}>{todayClicks.toLocaleString("vi-VN")}</p>
             <p className={CTV_HUB_KPI_LABEL}>Click hôm nay</p>
           </article>
           <article className={CTV_HUB_KPI_TILE} role="listitem" aria-label={`Đơn phát sinh ${monthOrders}`}>
-            <p className={CTV_HUB_KPI_VALUE}>{monthOrders.toLocaleString("vi-VN")}</p>
+            <p className={`${CTV_HUB_KPI_VALUE} block`}>{monthOrders.toLocaleString("vi-VN")}</p>
             <p className={CTV_HUB_KPI_LABEL}>Đơn phát sinh</p>
           </article>
           <article
@@ -70,11 +70,11 @@ function CtvPerformanceSectionInner({
             role="listitem"
             aria-label={conv != null ? `Tỷ lệ chuyển đổi ${conv}%` : "Tỷ lệ chuyển đổi chưa có"}
           >
-            <p className={CTV_HUB_KPI_VALUE}>{conv != null ? `${conv}%` : "—"}</p>
+            <p className={`${CTV_HUB_KPI_VALUE} block`}>{conv != null ? `${conv}%` : "—"}</p>
             <p className={CTV_HUB_KPI_LABEL}>Tỷ lệ chuyển đổi</p>
           </article>
           <article className={CTV_HUB_KPI_TILE} role="listitem" aria-label={`Đơn thành công ${monthPaidOrders}`}>
-            <p className={CTV_HUB_KPI_VALUE}>{monthPaidOrders.toLocaleString("vi-VN")}</p>
+            <p className={`${CTV_HUB_KPI_VALUE} block`}>{monthPaidOrders.toLocaleString("vi-VN")}</p>
             <p className={CTV_HUB_KPI_LABEL}>Đơn thành công</p>
             {monthCommission > 0 ? (
               <p className={CTV_HUB_KPI_HINT}>

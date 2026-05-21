@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Phase 1 — CreatorMetricCard stress (offline)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body { font-family: system-ui, sans-serif; }
+      .money-sm {
+        font-variant-numeric: tabular-nums;
+        font-weight: 700;
+        white-space: nowrap;
+        font-size: clamp(0.875rem, 1.4vw, 1.125rem);
+      }
+    </style>
+  </head>
+  <body class="bg-slate-100 p-4">
+    <p class="mb-4 text-sm text-slate-600">
+      Offline fixture — resize viewport / zoom browser. Values mirror Phase 1.6 stress data.
+    </p>
+    <div
+      id="grid"
+      class="grid w-full min-w-0 grid-cols-2 gap-3 md:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))] [&>*]:min-w-0"
+    >
+      <div class="flex min-h-[5.25rem] min-w-0 flex-col overflow-hidden rounded-xl border bg-white p-3 ring-1 ring-slate-200/50">
+        <p class="truncate text-[13px] font-medium text-slate-600">Doanh thu</p>
+        <p class="money-sm mt-auto block min-w-0 max-w-full truncate" title="999.999.999.999₫">999.999.999.999₫</p>
+      </div>
+      <div class="flex min-h-[5.25rem] min-w-0 flex-col overflow-hidden rounded-xl border bg-white p-3 ring-1 ring-slate-200/50">
+        <p class="truncate text-[13px] font-medium text-slate-600">Tổng đơn</p>
+        <p class="money-sm mt-auto block min-w-0 max-w-full truncate" title="999.999 đơn">999.999 đơn</p>
+      </div>
+      <div class="flex min-h-[5.25rem] min-w-0 flex-col overflow-hidden rounded-xl border bg-white p-3 ring-1 ring-slate-200/50">
+        <p class="truncate text-[13px] font-medium text-slate-600">Click</p>
+        <p class="money-sm mt-auto block min-w-0 max-w-full truncate" title="999.999 click">999.999 click</p>
+      </div>
+      <div class="flex min-h-[5.25rem] min-w-0 flex-col overflow-hidden rounded-xl border bg-white p-3 ring-1 ring-slate-200/50">
+        <p class="truncate text-[13px] font-medium text-slate-600">EPC</p>
+        <p class="money-sm mt-auto block min-w-0 max-w-full truncate" title="999.999.999 EPC">999.999.999 EPC</p>
+      </div>
+    </div>
+  </body>
+</html>
