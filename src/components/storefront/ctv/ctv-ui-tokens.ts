@@ -78,9 +78,6 @@ export const CTV_MOBILE_INSIGHTS_BODY =
 export const CTV_MOBILE_INSIGHTS_LINK =
   "inline-block text-xs font-medium text-blue-600 hover:underline";
 
-/** @deprecated — không flush sát mép; giữ rỗng để không phá import cũ */
-export const CTV_MOBILE_PANEL_FLAT = "";
-
 export const CTV_PAGE_BG = [
   "min-w-0",
   CTV_MOBILE_SAFE,
@@ -466,25 +463,11 @@ export const CTV_HUB_ACCOUNT_SECONDARY = "text-sm font-medium leading-[1.5] text
 
 export const CTV_HUB_IDENTITY_STACK = "mt-3 min-w-0 space-y-2 lg:flex-1 lg:min-h-0";
 
-/** @deprecated — dùng CTV_HUB_INNER_CARD + CTV_HUB_CARD_PAD */
-export const CTV_V2_CARD_ACCOUNT = [CTV_HUB_INNER_CARD, CTV_HUB_CARD_PAD].join(" ");
-
-/** @deprecated */
-export const CTV_V2_ACCOUNT_TIER_IDENTITY = CTV_HUB_IDENTITY_STACK;
-
-/** @deprecated */
-export const CTV_V2_ACCOUNT_TIER_COMMISSION = "hidden";
-
 /** Quick actions */
 export const CTV_V2_ACCOUNT_TIER_ACTIONS =
   "mt-5 shrink-0 border-t border-slate-200 pt-5 lg:mt-auto";
 
 export const CTV_V2_STAT_VALUE = CTV_MOBILE_KPI_VALUE;
-
-/** KPI / detail lớn (Mã ref, hoa hồng…) */
-export const CTV_V2_STAT_VALUE_DETAIL = CTV_MOBILE_KPI_VALUE;
-
-export const CTV_V2_STAT_VALUE_MONEY = CTV_MOBILE_KPI_VALUE;
 
 export const CTV_V2_STAT_CAPTION = `mt-1 ${CTV_MOBILE_KPI_HINT}`;
 
@@ -618,12 +601,6 @@ export const CTV_V2_ROLE_BADGE = [
 /** Tick xác minh cạnh SĐT — inline, tinh gọn (kiểu verified chuẩn) */
 export const CTV_V2_VERIFIED_INLINE = "inline-flex shrink-0 items-center text-[#2563eb]";
 
-/** @deprecated */
-export const CTV_V2_VERIFIED_GLOW = CTV_V2_VERIFIED_INLINE;
-
-/** @deprecated — dùng CTV_V2_ROLE_BADGE */
-export const CTV_V2_BADGE_MINT = CTV_V2_ROLE_BADGE;
-
 export const CTV_V2_AVATAR_OUTER = [
   "group relative shrink-0 rounded-full p-[3px]",
   "bg-gradient-to-br from-[#3b82f6] via-[#2563eb] to-[#1d4ed8]",
@@ -634,9 +611,6 @@ export const CTV_V2_AVATAR_INNER = "overflow-hidden rounded-full bg-white ring-1
 
 /** Hub avatar — gọn ~12% so với 64px */
 export const CTV_V2_AVATAR_SIZE = "h-14 w-14 lg:h-14 lg:w-14";
-
-/** @deprecated — dùng CTV_V2_AVATAR_SIZE */
-export const CTV_V2_AVATAR_SIZE_LEGACY = "h-24 w-24 lg:h-32 lg:w-32";
 
 /** Render 2× max display (128×2) */
 export const CTV_V2_AVATAR_IMG_PX = 256;
@@ -688,9 +662,6 @@ export const CTV_V2_PROFILE_ACTION_LABEL = [
   "lg:text-[11px] lg:leading-4 lg:whitespace-nowrap lg:overflow-hidden lg:text-ellipsis",
 ].join(" ");
 
-/** @deprecated */
-export const CTV_V2_AVATAR_RING = CTV_V2_AVATAR_OUTER;
-
 export const CTV_V2_RANK_BADGE = [
   "flex h-12 w-12 shrink-0 items-center justify-center sm:h-[52px] sm:w-[52px]",
   CTV_DS_RADIUS,
@@ -712,9 +683,6 @@ export const CTV_HUB_KPI_VALUE = CTV_MONEY_VALUE_MD;
 export const CTV_HUB_KPI_LABEL = "text-sm font-medium leading-snug text-slate-600";
 
 export const CTV_HUB_KPI_HINT = "text-sm font-medium leading-snug text-slate-500";
-
-/** @deprecated — dùng CTV_HUB_KPI_GRID */
-export const CTV_V2_STATS_GRID_4 = CTV_HUB_KPI_GRID;
 
 /** @deprecated — dùng CTV_HUB_KPI_TILE */
 export const CTV_V2_STATS_CELL = CTV_HUB_KPI_TILE;
@@ -747,15 +715,6 @@ export const CTV_MOBILE_SHARE_BTN_PRIMARY = [
   "border-blue-200 bg-gradient-to-br from-blue-600 to-blue-500 font-semibold text-white",
   "hover:from-blue-700 hover:to-blue-600",
 ].join(" ");
-
-export const CTV_V2_METRIC_GRID = CTV_MOBILE_KPI_GRID;
-
-/** @deprecated */
-export const CTV_V2_STAT_VALUE_HERO = CTV_V2_STAT_VALUE;
-export const CTV_V2_STAT_VALUE_WALLET = CTV_V2_STAT_VALUE;
-export const CTV_V2_LABEL_ON_MINT = CTV_V2_LABEL_UPPER;
-export const CTV_V2_WALLET_ORB = "hidden";
-export const CTV_V2_WALLET_ORB_SM = "hidden";
 
 /** Khung ngoài «Trung tâm CTV» — SaaS / affiliate dashboard */
 export const CTV_HUB_MAIN_WRAP = [CTV_MOBILE_SAFE, "w-full min-w-0 pb-4 sm:pb-5 lg:px-4 lg:pb-6"].join(" ");
