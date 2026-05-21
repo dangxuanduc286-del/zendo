@@ -29,7 +29,7 @@ export function AffiliateCtvMetricCard({
   const shell = accent ? CTV_METRIC_TILE_ACCENT : CTV_METRIC_TILE;
 
   return (
-    <article className={`${shell} flex h-full min-h-[5.5rem] min-w-0 max-w-full flex-col justify-between`}>
+    <article className={`${shell} flex h-full min-h-[5.5rem] min-w-0 max-w-full flex-col justify-between overflow-hidden`}>
       <div className="flex h-full min-h-0 items-start justify-between gap-1.5 sm:gap-2.5">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <p className={`${CTV_TYPE_METRIC_LABEL} break-words`}>{label}</p>

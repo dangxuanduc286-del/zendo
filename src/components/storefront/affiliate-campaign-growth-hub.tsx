@@ -17,6 +17,7 @@ import {
   useAffiliateGrowthInsightsPack,
   useAffiliateLandingGrowth,
 } from "./use-affiliate-analytics-hooks";
+import { CTV_CARD_COMPACT, CTV_CARD_SOFT } from "./affiliate/affiliate-ctv-account-ui-tokens";
 import {
   AFFILIATE_ANALYTICS_CHIP_LINK,
   AFFILIATE_ANALYTICS_SUBTAB_ACTIVE,
@@ -293,7 +294,7 @@ export default memo(function AffiliateCampaignGrowthHub(props: { range: RangeKey
 
       {sub === "campaigns" ? (
         <div className="grid w-full min-w-0 gap-4 lg:grid-cols-[repeat(auto-fit,minmax(22rem,1fr))]">
-          <div className="rounded-2xl border border-[#E2E8F0] bg-white p-3 shadow-sm">
+          <div className={CTV_CARD_COMPACT}>
             <h3 className="text-sm font-semibold text-[#0F172A]">Tạo campaign nhanh</h3>
             <p className="mt-1 text-xs text-[#64748B]">Ví dụ: TikTok-Deal-7-7, FB-Reels-NoiChien…</p>
             <label className="mt-3 block text-xs font-medium text-[#64748B]">Tên</label>
@@ -348,7 +349,7 @@ export default memo(function AffiliateCampaignGrowthHub(props: { range: RangeKey
             </div>
           </div>
 
-          <div className="rounded-2xl border border-[#E2E8F0] bg-white p-3 shadow-sm">
+          <div className={CTV_CARD_COMPACT}>
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-sm font-semibold text-[#0F172A]">Danh sách</h3>
               <button type="button" className="text-xs font-semibold text-[#2563EB]" onClick={() => void campaigns.refetch()}>
@@ -423,7 +424,7 @@ export default memo(function AffiliateCampaignGrowthHub(props: { range: RangeKey
 
           {selectedId ? (
             <div className="space-y-3 lg:col-span-2">
-              <div className="rounded-2xl border border-[#E2E8F0] bg-white p-3 shadow-sm">
+              <div className={CTV_CARD_COMPACT}>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h3 className="text-sm font-semibold text-[#0F172A]">{detail.data?.name ?? "Campaign"}</h3>
                   <div className="flex flex-wrap gap-2">
@@ -469,7 +470,7 @@ export default memo(function AffiliateCampaignGrowthHub(props: { range: RangeKey
               </div>
 
               <div className="grid w-full min-w-0 gap-3 lg:grid-cols-[repeat(auto-fit,minmax(20rem,1fr))]">
-                <div className="rounded-2xl border border-[#E2E8F0] bg-white p-3 shadow-sm">
+                <div className={CTV_CARD_COMPACT}>
                   <h4 className="text-xs font-semibold uppercase text-[#64748B]">Timeline &amp; trend</h4>
                   {chartBuckets.length ? (
                     <div className="mt-2">
@@ -480,7 +481,7 @@ export default memo(function AffiliateCampaignGrowthHub(props: { range: RangeKey
                   )}
                   <p className="mt-2 text-[11px] text-[#64748B]">Conversion trend theo ngày (đơ/click trong bucket).</p>
                 </div>
-                <div className="rounded-2xl border border-[#E2E8F0] bg-white p-3 shadow-sm">
+                <div className={CTV_CARD_COMPACT}>
                   <h4 className="text-xs font-semibold uppercase text-[#64748B]">Funnel (theo link campaign)</h4>
                   <AffiliateConversionFunnelVisual
                     loading={detail.loading}
@@ -490,7 +491,7 @@ export default memo(function AffiliateCampaignGrowthHub(props: { range: RangeKey
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-[#E2E8F0] bg-white p-3 shadow-sm">
+              <div className={CTV_CARD_COMPACT}>
                 <h4 className="text-sm font-semibold text-[#0F172A]">Link ngắn trong campaign</h4>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <input
@@ -545,7 +546,7 @@ export default memo(function AffiliateCampaignGrowthHub(props: { range: RangeKey
       ) : null}
 
       {sub === "landing" ? (
-        <div className="rounded-xl border border-[#E2E8F0]/90 bg-gradient-to-b from-white to-[#F8FAFC]/40 p-3 shadow-[0_1px_3px_rgba(15,23,42,0.05)] sm:rounded-2xl sm:p-4">
+        <div className={CTV_CARD_SOFT}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#EFF6FF]0/10 text-[#2563EB]">
@@ -573,7 +574,7 @@ export default memo(function AffiliateCampaignGrowthHub(props: { range: RangeKey
                 {landing.data.rows.slice(0, 14).map((r) => (
                   <div
                     key={r.pathname}
-                    className="min-w-[220px] max-w-[85vw] shrink-0 snap-start rounded-xl border border-[#E2E8F0]/90 bg-white/90 p-3 shadow-sm"
+                    className={`${CTV_CARD_COMPACT} min-w-[220px] max-w-[85vw] shrink-0 snap-start`}
                   >
                     <p className="line-clamp-2 text-xs font-bold text-[#0F172A]">{r.pathname}</p>
                     <div className="mt-2 grid grid-cols-2 gap-x-2 gap-y-1 text-[10px] text-[#64748B]">
@@ -628,7 +629,7 @@ export default memo(function AffiliateCampaignGrowthHub(props: { range: RangeKey
       ) : null}
 
       {sub === "insights" ? (
-        <div className="rounded-xl border border-[#E2E8F0]/90 bg-gradient-to-b from-white to-[#F8FAFC]/40 p-3 shadow-[0_1px_3px_rgba(15,23,42,0.05)] sm:rounded-2xl sm:p-4">
+        <div className={CTV_CARD_SOFT}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600">
@@ -719,7 +720,7 @@ export default memo(function AffiliateCampaignGrowthHub(props: { range: RangeKey
       ) : null}
 
       {sub === "templates" ? (
-        <div className="rounded-2xl border border-[#E2E8F0] bg-white p-3 shadow-sm">
+        <div className={CTV_CARD_COMPACT}>
           <h3 className="text-sm font-semibold text-[#0F172A]">Caption &amp; CTA — copy nhanh</h3>
           <p className="mt-1 text-xs text-[#64748B]">Lưu trên trình duyệt của bạn (local).</p>
           <ul className="mt-3 space-y-2">
@@ -761,7 +762,7 @@ export default memo(function AffiliateCampaignGrowthHub(props: { range: RangeKey
       ) : null}
 
       {sub === "assets" ? (
-        <div className="rounded-2xl border border-[#E2E8F0] bg-white p-3 shadow-sm">
+        <div className={CTV_CARD_COMPACT}>
           <h3 className="text-sm font-semibold text-[#0F172A]">Kho ảnh / banner</h3>
           {assets.loading && !assets.data ? (
             <div className="mt-3 h-40 animate-pulse rounded-xl bg-[#F1F5F9]" />

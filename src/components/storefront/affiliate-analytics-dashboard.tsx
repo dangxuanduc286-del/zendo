@@ -37,7 +37,13 @@ import {
   useAffiliateTrafficSources,
   type RangeKey,
 } from "./use-affiliate-analytics-hooks";
-import { CTV_TYPE_BODY, CTV_TYPE_TITLE } from "./affiliate/affiliate-ctv-account-ui-tokens";
+import {
+  CTV_DASHBOARD_HEADER_BORDER,
+  CTV_DASHBOARD_HEADER_ICON,
+  CTV_DASHBOARD_SHELL,
+  CTV_TYPE_BODY,
+  CTV_TYPE_TITLE,
+} from "./affiliate/affiliate-ctv-account-ui-tokens";
 import {
   AFFILIATE_ANALYTICS_MAIN_TAB_ACTIVE,
   AFFILIATE_ANALYTICS_MAIN_TAB_INACTIVE,
@@ -429,11 +435,13 @@ export default function AffiliateAnalyticsDashboard({
 
   return (
     <AnalyticsErrorBoundary title="Dashboard analytics tạm thời không khả dụng.">
-      <div className="relative w-full min-w-0 flex-1 overflow-x-hidden rounded-2xl border border-[#E2E8F0] bg-white shadow-sm [-webkit-font-smoothing:antialiased] px-4 py-4 sm:px-5 sm:py-5 lg:px-6 lg:py-6">
+      <div className={CTV_DASHBOARD_SHELL}>
         <section className="flex w-full min-w-0 flex-1 flex-col gap-5 overflow-x-hidden sm:gap-6 lg:gap-7">
-              <header className="flex w-full min-w-0 shrink-0 flex-col gap-5 border-b border-[#DBEAFE]/70 pb-5 lg:flex-row lg:items-end lg:justify-between lg:gap-8">
+              <header
+                className={`flex w-full min-w-0 shrink-0 flex-col gap-5 ${CTV_DASHBOARD_HEADER_BORDER} lg:flex-row lg:items-end lg:justify-between lg:gap-8`}
+              >
                 <div className="flex min-w-0 items-start gap-3 sm:gap-4">
-                  <span className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#DBEAFE] text-[#1D4ED8] shadow-sm ring-1 ring-[#BFDBFE]/60 sm:h-12 sm:w-12">
+                  <span className={CTV_DASHBOARD_HEADER_ICON}>
                     <BarChart3 className="h-5 w-5" strokeWidth={1.75} aria-hidden />
                   </span>
                   <div className="min-w-0 space-y-1.5">
@@ -533,7 +541,7 @@ export default function AffiliateAnalyticsDashboard({
                     rtHistory={rtHistory}
                   />
 
-                  <div className="grid w-full min-w-0 grid-cols-2 gap-3 sm:gap-3.5 md:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))] lg:gap-4 [&>*]:min-h-0 [&>*]:min-w-0">
+                  <div className="grid w-full min-w-0 auto-rows-fr items-stretch grid-cols-2 gap-3 sm:gap-3.5 md:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))] lg:gap-4 [&>*]:min-h-0 [&>*]:min-w-0">
             <CreatorMetricCard
               icon={MousePointer2}
               label="Tổng click"

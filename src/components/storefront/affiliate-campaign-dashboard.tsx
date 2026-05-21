@@ -4,6 +4,13 @@ import dynamic from "next/dynamic";
 import { Megaphone } from "lucide-react";
 import { useState } from "react";
 import { AnalyticsErrorBoundary } from "@/components/analytics/analytics-error-boundary";
+import {
+  CTV_DASHBOARD_HEADER_BORDER,
+  CTV_DASHBOARD_HEADER_ICON,
+  CTV_DASHBOARD_SHELL,
+  CTV_TYPE_BODY,
+  CTV_TYPE_TITLE,
+} from "./affiliate/affiliate-ctv-account-ui-tokens";
 import { CreatorSectionShell } from "./affiliate-creator-metric-card";
 import type { RangeKey } from "./use-affiliate-analytics-hooks";
 
@@ -24,18 +31,18 @@ export default function AffiliateCampaignDashboard(): JSX.Element {
 
   return (
     <AnalyticsErrorBoundary title="Campaign & khuyến mãi tạm thời không khả dụng.">
-      <div className="relative w-full min-w-0 flex-1 overflow-x-hidden rounded-2xl border border-[#E2E8F0] bg-white shadow-sm [-webkit-font-smoothing:antialiased] px-4 py-4 sm:px-5 sm:py-5 lg:px-6 lg:py-6">
+      <div className={CTV_DASHBOARD_SHELL}>
         <section className="flex w-full min-w-0 flex-1 flex-col gap-5 overflow-x-hidden sm:gap-6 lg:gap-7">
-          <header className="flex w-full min-w-0 shrink-0 flex-col gap-5 border-b border-[#DBEAFE]/70 pb-5 lg:flex-row lg:items-end lg:justify-between lg:gap-8">
+          <header
+            className={`flex w-full min-w-0 shrink-0 flex-col gap-5 ${CTV_DASHBOARD_HEADER_BORDER} lg:flex-row lg:items-end lg:justify-between lg:gap-8`}
+          >
             <div className="flex min-w-0 items-start gap-3 sm:gap-4">
-              <span className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#DBEAFE] text-[#1D4ED8] shadow-sm ring-1 ring-[#BFDBFE]/60 sm:h-12 sm:w-12">
+              <span className={CTV_DASHBOARD_HEADER_ICON}>
                 <Megaphone className="h-5 w-5" strokeWidth={1.75} aria-hidden />
               </span>
               <div className="min-w-0 space-y-1.5">
-                <h1 className="text-xl font-semibold tracking-tight text-[#0F172A] sm:text-2xl lg:text-[1.65rem] lg:leading-tight">
-                  Campaign / Khuyến mãi
-                </h1>
-                <p className="w-full min-w-0 text-sm leading-relaxed text-[#64748B] sm:text-[15px]">
+                <h1 className={CTV_TYPE_TITLE}>Campaign / Khuyến mãi</h1>
+                <p className={`${CTV_TYPE_BODY} w-full min-w-0`}>
                   Quản lý chiến dịch, landing EPC, mẫu share và kho ảnh.
                 </p>
               </div>

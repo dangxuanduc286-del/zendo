@@ -4,8 +4,12 @@ import { clsx } from "clsx";
 import type { LucideIcon } from "lucide-react";
 import { memo, type ReactNode } from "react";
 import {
+  CTV_METRIC_TILE,
+  CTV_METRIC_TILE_ACCENT,
+  CTV_SECTION_CARD,
   CTV_TYPE_BODY,
   CTV_TYPE_CARD_TITLE,
+  CTV_TYPE_METRIC_HINT,
   CTV_TYPE_METRIC_LABEL,
 } from "./affiliate/affiliate-ctv-account-ui-tokens";
 import { CTV_MONEY_VALUE_SM } from "./ctv/ctv-ui-tokens";
@@ -20,12 +24,12 @@ function Skeleton({ className }: { className: string }): JSX.Element {
   return <div className={clsx("animate-pulse rounded-lg bg-slate-100/90", className)} />;
 }
 
-const toneRing: Record<"blue" | "emerald" | "fuchsia" | "slate" | "amber", string> = {
-  blue: "ring-blue-100/80 hover:ring-blue-200/90",
-  emerald: "ring-emerald-100/80 hover:ring-emerald-200/90",
-  fuchsia: "ring-fuchsia-100/80 hover:ring-fuchsia-200/90",
-  slate: "ring-slate-100/80 hover:ring-slate-200/90",
-  amber: "ring-amber-100/80 hover:ring-amber-200/90",
+const metricToneShell: Record<"blue" | "emerald" | "fuchsia" | "slate" | "amber", string> = {
+  slate: CTV_METRIC_TILE,
+  emerald: CTV_METRIC_TILE_ACCENT,
+  blue: `${CTV_METRIC_TILE} ring-blue-100/80 hover:ring-blue-200/90`,
+  fuchsia: `${CTV_METRIC_TILE} ring-fuchsia-100/80 hover:ring-fuchsia-200/90`,
+  amber: `${CTV_METRIC_TILE} ring-amber-100/80 hover:ring-amber-200/90`,
 };
 
 export type CreatorMetricCardProps = {
@@ -33,7 +37,7 @@ export type CreatorMetricCardProps = {
   label: string;
   value: string;
   sub?: string;
-  tone?: keyof typeof toneRing;
+  tone?: keyof typeof metricToneShell;
   loading?: boolean;
   pulse?: boolean;
   /** % so với lần tải trước (client-only). */
@@ -49,10 +53,7 @@ function CreatorMetricCardInner(props: CreatorMetricCardProps): JSX.Element {
 
   return (
     <div
-      className={clsx(
-        "flex h-full min-h-[5.25rem] min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200/70 bg-white p-3 shadow-sm ring-1 ring-slate-200/50 transition-shadow duration-200 hover:shadow-md sm:rounded-2xl sm:p-3.5",
-        toneRing[tone],
-      )}
+      className={clsx(metricToneShell[tone], "overflow-hidden")}
     >
       <div className="flex items-start justify-between gap-1">
         <div className="flex min-w-0 flex-1 items-center gap-1">
@@ -83,7 +84,7 @@ function CreatorMetricCardInner(props: CreatorMetricCardProps): JSX.Element {
           {props.value}
         </p>
       )}
-      {props.sub ? <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-slate-500">{props.sub}</p> : null}
+      {props.sub ? <p className={`${CTV_TYPE_METRIC_HINT} mt-0.5 min-w-0`}>{props.sub}</p> : null}
     </div>
   );
 }
@@ -99,13 +100,8 @@ export function CreatorSectionShell(props: {
   className?: string;
 }): JSX.Element {
   return (
-    <div
-      className={clsx(
-        "flex flex-col rounded-2xl border border-slate-200/70 bg-white p-4 shadow-sm ring-1 ring-slate-200/50 sm:p-5",
-        props.className,
-      )}
-    >
-      <div className="flex shrink-0 flex-wrap items-start justify-between gap-2 border-b border-slate-100 pb-3">
+    <div className={clsx(CTV_SECTION_CARD, props.className)}>
+      <div className="flex shrink-0 flex-wrap items-start justify-between gap-2 border-b border-slate-200/60 pb-3">
         <h3 className={`${CTV_TYPE_CARD_TITLE} min-w-0 flex-1`}>{props.title}</h3>
         {props.hint ? (
           <span className={`${CTV_TYPE_BODY} min-w-0 max-w-[16rem] shrink-0 text-right text-xs`}>{props.hint}</span>

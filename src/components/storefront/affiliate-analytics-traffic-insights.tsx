@@ -15,6 +15,11 @@ import {
   type RangeKey,
 } from "./use-affiliate-analytics-hooks";
 import {
+  CTV_COLOR_DIVIDER,
+  CTV_SECTION_CARD,
+  CTV_TYPE_CARD_TITLE,
+} from "./affiliate/affiliate-ctv-account-ui-tokens";
+import {
   AFFILIATE_ANALYTICS_TOOLBAR_BTN_PRIMARY,
   AFFILIATE_ANALYTICS_TOOLBAR_BTN_SECONDARY,
 } from "@/lib/affiliate-analytics-ui-tokens";
@@ -177,9 +182,9 @@ export default function AffiliateAnalyticsTrafficInsights(props: {
         </div>
       ) : null}
 
-      <section className="rounded-2xl border border-[#E2E8F0]/70 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-[#E2E8F0]/50 sm:p-5">
-        <div className="border-b border-[#F1F5F9] pb-3">
-          <h3 className="text-[13px] font-semibold tracking-tight text-[#0F172A] sm:text-sm">Top link affiliate</h3>
+      <section className={CTV_SECTION_CARD}>
+        <div className={`border-b ${CTV_COLOR_DIVIDER} pb-3`}>
+          <h3 className={CTV_TYPE_CARD_TITLE}>Top link affiliate</h3>
         </div>
         <div className="mt-4 w-full min-w-0 overflow-x-auto rounded-xl border border-[#F1F5F9]">
           <table className="w-full min-w-[720px] text-left text-sm">
@@ -211,9 +216,9 @@ export default function AffiliateAnalyticsTrafficInsights(props: {
       </section>
 
       <div className="grid w-full min-w-0 gap-4 lg:grid-cols-[repeat(auto-fit,minmax(20rem,1fr))] lg:gap-5">
-        <section className="rounded-2xl border border-[#E2E8F0]/70 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-[#E2E8F0]/50 sm:p-5">
-          <div className="border-b border-[#F1F5F9] pb-3">
-            <h3 className="text-[13px] font-semibold tracking-tight text-[#0F172A] sm:text-sm">Nguồn traffic</h3>
+        <section className={CTV_SECTION_CARD}>
+          <div className={`border-b ${CTV_COLOR_DIVIDER} pb-3`}>
+            <h3 className={CTV_TYPE_CARD_TITLE}>Nguồn traffic</h3>
           </div>
           <div className="mt-4 overflow-x-auto rounded-xl border border-[#F1F5F9]">
             <table className="w-full min-w-[520px] text-left text-sm">
@@ -248,9 +253,9 @@ export default function AffiliateAnalyticsTrafficInsights(props: {
           </div>
         </section>
 
-        <section className="rounded-2xl border border-[#E2E8F0]/70 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-[#E2E8F0]/50 sm:p-5">
-          <div className="border-b border-[#F1F5F9] pb-3">
-            <h3 className="text-[13px] font-semibold tracking-tight text-[#0F172A] sm:text-sm">Thiết bị</h3>
+        <section className={CTV_SECTION_CARD}>
+          <div className={`border-b ${CTV_COLOR_DIVIDER} pb-3`}>
+            <h3 className={CTV_TYPE_CARD_TITLE}>Thiết bị</h3>
           </div>
           <div className="mt-4 overflow-x-auto rounded-xl border border-[#F1F5F9]">
             <table className="w-full min-w-[480px] text-left text-sm">
@@ -284,9 +289,9 @@ export default function AffiliateAnalyticsTrafficInsights(props: {
         </section>
       </div>
 
-      <section className="rounded-2xl border border-[#E2E8F0]/70 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-[#E2E8F0]/50 sm:p-5">
-        <div className="border-b border-[#F1F5F9] pb-3">
-          <h3 className="text-[13px] font-semibold tracking-tight text-[#0F172A] sm:text-sm">Landing pages</h3>
+      <section className={CTV_SECTION_CARD}>
+        <div className={`border-b ${CTV_COLOR_DIVIDER} pb-3`}>
+          <h3 className={CTV_TYPE_CARD_TITLE}>Landing pages</h3>
         </div>
         <div className="mt-4 overflow-x-auto rounded-xl border border-[#F1F5F9]">
           <table className="w-full min-w-[760px] text-left text-sm">
@@ -316,9 +321,9 @@ export default function AffiliateAnalyticsTrafficInsights(props: {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-[#E2E8F0]/70 bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-[#E2E8F0]/50 sm:p-5">
-        <div className="border-b border-[#F1F5F9] pb-3">
-          <h3 className="text-[13px] font-semibold tracking-tight text-[#0F172A] sm:text-sm">Conversion timeline</h3>
+      <section className={CTV_SECTION_CARD}>
+        <div className={`border-b ${CTV_COLOR_DIVIDER} pb-3`}>
+          <h3 className={CTV_TYPE_CARD_TITLE}>Conversion timeline</h3>
           <p className="mt-1 text-xs text-[#64748B]">Trên: click & đơn · Dưới: conv %, commission, doanh thu</p>
         </div>
         {timeline.loading && !timeline.data ? (

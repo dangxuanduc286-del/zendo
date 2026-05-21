@@ -138,7 +138,7 @@ export const CTV_METRIC_TILE_ACCENT = [
   "shadow-[0_2px_10px_rgba(16,185,129,0.08)] ring-1 ring-emerald-100/50",
   CTV_MOTION_CLASS.card,
   "sm:min-h-[5.75rem] sm:p-[14px]",
-  "lg:rounded-xl lg:p-5 lg:shadow-[0_4px_20px_rgba(16,185,129,0.08)]",
+  "lg:rounded-2xl lg:border-slate-200/70 lg:p-5 lg:shadow-[0_4px_20px_rgba(16,185,129,0.08)]",
 ].join(" ");
 
 export const CTV_METRIC_ICON = [
@@ -160,3 +160,44 @@ export const CTV_CTA_ACCENT =
   "inline-flex h-11 min-h-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-5 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(245,158,11,0.25)] transition-[transform,box-shadow] duration-[250ms] ease-out hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500";
 
 export const CTV_CARD = CTV_CONTENT_SURFACE;
+
+/** Shell trang dashboard (Analytics / Campaign / Tracking). */
+export const CTV_DASHBOARD_SHELL = [
+  "relative w-full min-w-0 flex-1 overflow-x-hidden",
+  CTV_CONTENT_SURFACE,
+  "[-webkit-font-smoothing:antialiased]",
+].join(" ");
+
+/** Panel / section card (CreatorSectionShell, traffic insights…). */
+export const CTV_SECTION_CARD = ["flex min-w-0 flex-col", CTV_CONTENT_SURFACE].join(" ");
+
+/** Card nội dung compact (form, list trong hub). */
+export const CTV_CARD_COMPACT = [
+  "min-w-0 rounded-2xl border border-slate-200/70 bg-white/95 p-3",
+  "shadow-sm ring-1 ring-black/[0.03]",
+  CTV_MOTION_CLASS.card,
+].join(" ");
+
+/** Card gradient nhẹ (carousel, growth strip). */
+export const CTV_CARD_SOFT = [
+  "min-w-0 rounded-xl border border-slate-200/70 bg-gradient-to-b from-white to-slate-50/80 p-3",
+  "shadow-sm ring-1 ring-black/[0.03] sm:rounded-2xl sm:p-4",
+].join(" ");
+
+/** Header dashboard — viền + icon (thay #DBEAFE). */
+export const CTV_DASHBOARD_HEADER_BORDER = "border-b border-slate-200/70 pb-5";
+export const CTV_DASHBOARD_HEADER_ICON = [
+  "mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl",
+  "bg-blue-50 text-blue-700 shadow-sm ring-1 ring-blue-200/60",
+  "sm:h-12 sm:w-12",
+].join(" ");
+
+/** Màu chữ / viền — SSOT slate (thay #0F172A / #64748B / #E2E8F0). */
+export const CTV_COLOR_TEXT_PRIMARY = "text-slate-900";
+export const CTV_COLOR_TEXT_SECONDARY = "text-slate-800";
+export const CTV_COLOR_TEXT_MUTED = "text-slate-600";
+export const CTV_COLOR_TEXT_SUBTLE = "text-slate-500";
+export const CTV_COLOR_BORDER = "border-slate-200/70";
+export const CTV_COLOR_BORDER_STRONG = "border-slate-200/90";
+export const CTV_COLOR_DIVIDER = "border-slate-100";
+export const CTV_COLOR_SURFACE_MUTED = "bg-slate-50/80";

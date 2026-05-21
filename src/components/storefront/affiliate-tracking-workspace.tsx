@@ -219,7 +219,7 @@ export default function AffiliateTrackingWorkspace(): JSX.Element {
       ) : null}
 
       {section === "overview" ? (
-        <div className="grid w-full min-w-0 grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-[repeat(auto-fit,minmax(14rem,1fr))] lg:gap-4 [&>*]:min-w-0">
+        <div className="grid w-full min-w-0 auto-rows-fr items-stretch grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-[repeat(auto-fit,minmax(14rem,1fr))] lg:gap-4 [&>*]:min-h-0 [&>*]:min-w-0">
           <CreatorMetricCard
             icon={Zap}
             label="Active pixels"
