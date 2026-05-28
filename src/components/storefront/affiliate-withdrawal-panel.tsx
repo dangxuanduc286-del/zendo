@@ -138,6 +138,8 @@ export default function AffiliateWithdrawalPanel({
 
           <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
             <input
+              id="affiliate-withdrawal-amount"
+              name="amount"
               value={amount}
               onChange={(event) => setAmount(event.target.value)}
               placeholder="Số tiền (VNĐ)"
@@ -145,6 +147,8 @@ export default function AffiliateWithdrawalPanel({
               className="h-11 min-w-0 rounded-lg border border-[#E2E8F0] px-3 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
             />
             <input
+              id="affiliate-withdrawal-note"
+              name="note"
               value={note}
               onChange={(event) => setNote(event.target.value)}
               placeholder="Ghi chú (tuỳ chọn)"

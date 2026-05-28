@@ -11,6 +11,7 @@ import { getWebsiteSettings } from "../../../../lib/settings";
 import { formatVnd } from "../../../../lib/currency";
 import { authOptions } from "../../../../lib/auth";
 import { resolveCustomerAffiliateActiveDb } from "../../../../lib/affiliate-customer-status";
+import { fetchCtvMembershipTiersFromDb } from "../../../../lib/ctv/ctv-membership-tier-repository";
 
 export const metadata: Metadata = buildMetadata({
   title: "Đăng ký Cộng tác viên Zendo.vn | Kiếm hoa hồng Affiliate",
@@ -173,7 +174,11 @@ function CommissionPolicyBlocks({ rows }: { rows: PolicyRow[] }): JSX.Element {
 }
 
 export default async function CongTacVienLandingPage(): Promise<JSX.Element> {
-  const [website, session] = await Promise.all([getWebsiteSettings(), getServerSession(authOptions)]);
+  const [website, session, ctvTiers] = await Promise.all([
+    getWebsiteSettings(),
+    getServerSession(authOptions),
+    fetchCtvMembershipTiersFromDb(true),
+  ]);
   const sessionUser = session?.user?.id
     ? (() => {
         const u = session.user;
@@ -195,12 +200,22 @@ export default async function CongTacVienLandingPage(): Promise<JSX.Element> {
   const affiliateOn = website.affiliateEnabled;
   const affiliateCanBuy = website.customerAccountSettings.affiliateCanBuy === true;
 
-  const commissionPct = Number(website.commissionRate);
-  const hasNumericRate = Number.isFinite(commissionPct) && commissionPct > 0;
-
+  const activeCtvTiers = ctvTiers.filter((tier) => Number.isFinite(tier.commissionPercent) && tier.commissionPercent > 0);
   const commissionDisplayFallback = "Theo chính sách hiện hành";
-  const catalogueRateDisplay =
-    !affiliateOn ? "—" : hasNumericRate ? `${commissionPct}% trên giá trị đơn hợp lệ (ước tính)` : commissionDisplayFallback;
+  const tierCommissionPercents = activeCtvTiers.map((tier) => tier.commissionPercent);
+  const minCommissionPct = Math.min(...tierCommissionPercents);
+  const maxCommissionPct = Math.max(...tierCommissionPercents);
+  const hasTierRates = activeCtvTiers.length > 0 && Number.isFinite(minCommissionPct) && Number.isFinite(maxCommissionPct);
+  const commissionRangeDisplay = hasTierRates
+    ? minCommissionPct === maxCommissionPct
+      ? `${minCommissionPct}%`
+      : `${minCommissionPct}% - ${maxCommissionPct}%`
+    : "—";
+  const catalogueRateDisplay = !affiliateOn
+    ? "—"
+    : hasTierRates
+      ? `${commissionRangeDisplay} theo hạng CTV`
+      : commissionDisplayFallback;
 
   const payoutFloor = Number(website.payoutThreshold);
   const safePayout = Number.isFinite(payoutFloor) ? payoutFloor : 0;
@@ -231,13 +246,22 @@ export default async function CongTacVienLandingPage(): Promise<JSX.Element> {
     ? [withdrawLineShort, payoutLine || null, buyerShort].filter(Boolean).join(" ")
     : `Liên hệ cửa hàng qua nút "${primaryContact.label}" hoặc thông tin công khai của Zendo.`;
 
-  const policyRowsAll: PolicyRow[] = [];
-  policyRowsAll.push({
-    group: affiliateOn ? "Toàn danh mục sản phẩm trong Affiliate" : "Sản phẩm Affiliate (đang đóng chương trình)",
-    rate: catalogueRateDisplay,
-    condition: catalogueCondition,
-    notes: catalogueNotes,
-  });
+  const policyRowsAll: PolicyRow[] =
+    affiliateOn && activeCtvTiers.length > 0
+      ? activeCtvTiers.map((tier) => ({
+          group: tier.name,
+          rate: `${tier.commissionPercent}% trên giá trị đơn hợp lệ`,
+          condition: catalogueCondition,
+          notes: catalogueNotes,
+        }))
+      : [
+          {
+            group: affiliateOn ? "Toàn danh mục sản phẩm trong Affiliate" : "Sản phẩm Affiliate (đang đóng chương trình)",
+            rate: catalogueRateDisplay,
+            condition: catalogueCondition,
+            notes: catalogueNotes,
+          },
+        ];
   if (affiliateOn) {
     policyRowsAll.push(
       {
@@ -369,7 +393,7 @@ export default async function CongTacVienLandingPage(): Promise<JSX.Element> {
               <div className="mx-auto mt-8 grid max-w-lg grid-cols-3 gap-2 sm:gap-3">
                 <div className="rounded-2xl border border-white/70 bg-white/80 px-2 py-3 text-center shadow-sm backdrop-blur-sm sm:px-3">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 sm:text-[11px]">Tỷ lệ</p>
-                  <p className="mt-1 text-sm font-bold tabular-nums text-sky-950 sm:text-base">{hasNumericRate ? `${commissionPct}%` : "—"}</p>
+                  <p className="mt-1 text-sm font-bold tabular-nums text-sky-950 sm:text-base">{commissionRangeDisplay}</p>
                 </div>
                 <div className="rounded-2xl border border-white/70 bg-white/80 px-2 py-3 text-center shadow-sm backdrop-blur-sm sm:px-3">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 sm:text-[11px]">Cookie</p>
@@ -557,11 +581,11 @@ export default async function CongTacVienLandingPage(): Promise<JSX.Element> {
                 <li className="rounded-2xl border border-slate-200/90 bg-gradient-to-br from-white to-slate-50/90 px-4 py-5 shadow-md shadow-slate-900/5 ring-1 ring-slate-100">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Tỷ lệ hoa hồng (cấu hình)</p>
                   <p className="mt-2 text-2xl font-bold tabular-nums text-slate-900 sm:text-3xl">
-                    {hasNumericRate ? `${commissionPct}%` : "—"}
+                    {commissionRangeDisplay}
                   </p>
                   <p className="mt-1 text-xs leading-relaxed text-slate-600">
-                    {hasNumericRate
-                      ? "Theo cửa hàng cấu hình; chỉ được ghi nhận khi đơn và trạng thái Affiliate thỏa điều kiện."
+                    {hasTierRates
+                      ? "Theo hạng CTV; chỉ được ghi nhận khi đơn và trạng thái Affiliate thỏa điều kiện."
                       : commissionDisplayFallback}
                   </p>
                 </li>

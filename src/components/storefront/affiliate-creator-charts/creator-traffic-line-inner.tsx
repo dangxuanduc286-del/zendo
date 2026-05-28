@@ -1,5 +1,7 @@
 "use client";
 
+import { CTV_PAID_ORDER_KPI_BASE } from "@/lib/ctv/ctv-order-display";
+
 import { memo, useMemo } from "react";
 import {
   CartesianGrid,
@@ -90,7 +92,7 @@ function CreatorTrafficLineInnerImpl(props: { buckets: CreatorTimelinePoint[] })
             yAxisId="left"
             type="monotone"
             dataKey="orders"
-            name="Đơn trả"
+            name={CTV_PAID_ORDER_KPI_BASE}
             stroke="#10b981"
             strokeWidth={2}
             dot={false}

@@ -1,3 +1,4 @@
+/** Gợi ý tài khoản (email/SĐT) — không lưu mật khẩu, token hay phiên đăng nhập. */
 export const CUSTOMER_SAVED_LOGIN_STORAGE_KEY = "zendo.storefront.savedLoginProfiles";
 
 const MAX_PROFILES = 5;

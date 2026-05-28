@@ -8,11 +8,30 @@ try {
 } catch {
   mediaHost = defaultMediaHost;
 }
+const imageRemotePatterns = [...new Set([mediaHost, defaultMediaHost])].map((hostname) => ({
+  protocol: "https",
+  hostname,
+  pathname: "/**",
+}));
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  poweredByHeader: false,
   experimental: {
     optimizePackageImports: ["lucide-react", "recharts"],
+  },
+  async headers() {
+    return [
+      {
+        source: "/_next/static/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+    ];
   },
   images: {
     qualities: NEXT_IMAGE_QUALITIES,
@@ -20,18 +39,7 @@ const nextConfig = {
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
     minimumCacheTTL: 86400,
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: mediaHost,
-        pathname: "/**",
-      },
-      {
-        protocol: "https",
-        hostname: defaultMediaHost,
-        pathname: "/**",
-      },
-    ],
+    remotePatterns: imageRemotePatterns,
   },
   compiler: {
     removeConsole: process.env.NODE_ENV === "production",

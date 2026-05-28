@@ -46,6 +46,20 @@ export const couponFormSchema = z
         message: "Giảm theo % chỉ nhận giá trị từ 1 đến 100.",
       });
     }
+    if (data.discountType === "PERCENT" && (!data.maxDiscountValue || data.maxDiscountValue <= 0)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["maxDiscountValue"],
+        message: "Mã giảm theo % bắt buộc phải có Giảm tối đa lớn hơn 0 để tránh thất thoát lợi nhuận.",
+      });
+    }
+    if (data.discountType === "PERCENT" && (!data.minOrderValue || data.minOrderValue <= 0)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["minOrderValue"],
+        message: "Mã giảm theo % bắt buộc phải có Đơn tối thiểu lớn hơn 0.",
+      });
+    }
     if (data.startAt && data.endAt) {
       const start = new Date(data.startAt);
       const end = new Date(data.endAt);

@@ -13,19 +13,30 @@ import {
   Sparkles,
   Zap,
 } from "lucide-react";
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { TrackingOverviewDto } from "@/lib/affiliate-tracking-center-types";
 
 type AffiliatePixelProvider = TrackingOverviewDto["pixels"][number]["provider"];
 type AffiliatePixelConnectionStatus = TrackingOverviewDto["pixels"][number]["status"];
 import { CreatorEmptyState, CreatorMetricCard, CreatorSectionShell } from "./affiliate-creator-metric-card";
 import {
-  AFFILIATE_ANALYTICS_SUBTAB_ACTIVE,
-  AFFILIATE_ANALYTICS_SUBTAB_INACTIVE,
-  AFFILIATE_ANALYTICS_TAB_ROW_SURFACE,
+  CTV_HORIZONTAL_TAB_SCROLL,
+  CTV_SEGMENTED_ITEM_ACTIVE,
+  CTV_SEGMENTED_ITEM_ICON,
+  CTV_TAB_IDLE_HOVER,
+} from "./ctv/ctv-ui-tokens";
+import {
+  CTV_TRACKING_METRIC_GRID,
+  CTV_TRACKING_PIXEL_GRID,
+  CTV_TRACKING_SECTION_SHELL,
+  CTV_TRACKING_TAB_VIEW,
+  CTV_TRACKING_WORKSPACE_ROOT,
+} from "./affiliate/affiliate-ctv-account-ui-tokens";
+import {
   AFFILIATE_ANALYTICS_TOOLBAR_BTN_PRIMARY,
   AFFILIATE_ANALYTICS_TOOLBAR_BTN_SECONDARY,
 } from "@/lib/affiliate-analytics-ui-tokens";
+import { sanitizeCtvDisplayText } from "./ctv/sanitize-ctv-display-text";
 import {
   useAffiliateTrackingHealth,
   useAffiliateTrackingLogs,
@@ -37,7 +48,6 @@ type SectionKey =
   | "overview"
   | "integrations"
   | "stream"
-  | "attribution"
   | "utm"
   | "links"
   | "health"
@@ -47,7 +57,6 @@ const SECTIONS: { key: SectionKey; label: string }[] = [
   { key: "overview", label: "Tổng quan" },
   { key: "integrations", label: "Pixel integrations" },
   { key: "stream", label: "Event realtime" },
-  { key: "attribution", label: "Attribution" },
   { key: "utm", label: "UTM" },
   { key: "links", label: "Tracking links" },
   { key: "health", label: "Health" },
@@ -85,15 +94,17 @@ const PixelCard = memo(function PixelCardInner(props: {
   onSetup: () => void;
 }): JSX.Element {
   return (
-    <div className="rounded-2xl border border-blue-100/90 bg-white p-4 shadow-[0_1px_2px_rgba(37,99,235,0.06)] ring-1 ring-blue-50 sm:p-5">
-      <div className="flex flex-wrap items-start justify-between gap-2 border-b border-slate-100 pb-3">
-        <div>
-          <h4 className="text-sm font-semibold text-slate-900">{PROVIDER_LABEL[props.provider]}</h4>
+    <div className="flex flex-col rounded-2xl border border-blue-100/90 bg-white p-4 shadow-[0_1px_2px_rgba(37,99,235,0.06)] ring-1 ring-blue-50 sm:p-5 lg:h-auto">
+      <div className="flex shrink-0 flex-wrap items-start justify-between gap-2 border-b border-slate-100 pb-3 lg:min-h-[3.5rem] lg:flex-nowrap lg:items-center lg:gap-3 lg:pb-3.5">
+        <div className="min-w-0 flex-1 pr-1">
+          <h4 className="text-sm font-semibold leading-snug text-slate-900 lg:min-h-[2.5rem] lg:leading-tight">
+            {PROVIDER_LABEL[props.provider]}
+          </h4>
           <p className="mt-0.5 text-[11px] font-medium text-slate-500">{statusVi(props.status)}</p>
         </div>
         <span
           className={clsx(
-            "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+            "shrink-0 self-start rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide lg:self-center",
             props.status === "CONNECTED"
               ? "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200/80"
               : props.status === "PENDING"
@@ -104,24 +115,33 @@ const PixelCard = memo(function PixelCardInner(props: {
           {props.status}
         </span>
       </div>
-      <dl className="mt-3 grid gap-2 text-xs text-slate-600">
-        <div className="flex justify-between gap-2">
-          <dt>Sự kiện gần nhất</dt>
-          <dd className="font-medium text-slate-800">{props.lastEventAt ? new Date(props.lastEventAt).toLocaleString("vi-VN") : "—"}</dd>
-        </div>
-        <div className="flex justify-between gap-2">
-          <dt>Health score</dt>
-          <dd className="font-medium text-slate-800">{props.healthScore != null ? `${props.healthScore}/100` : "—"}</dd>
-        </div>
-      </dl>
-      <button
-        type="button"
-        disabled={props.busy}
-        onClick={props.onSetup}
-        className={clsx(AFFILIATE_ANALYTICS_TOOLBAR_BTN_SECONDARY, "mt-4 w-full py-2 text-xs")}
-      >
-        {props.status === "CONNECTED" ? "Cập nhật / kiểm tra" : "Bắt đầu thiết lập"}
-      </button>
+      <div className="flex flex-col max-lg:contents lg:mt-3.5">
+        <dl className="mt-3 grid shrink-0 gap-2 text-xs text-slate-600 max-lg:flex-1 lg:mt-0 lg:gap-2.5">
+          <div className="flex items-baseline justify-between gap-2 lg:min-h-[1.375rem]">
+            <dt className="shrink-0 text-slate-600">Sự kiện gần nhất</dt>
+            <dd className="min-w-0 text-right font-medium tabular-nums text-slate-800 lg:max-w-[58%] lg:truncate">
+              {props.lastEventAt ? new Date(props.lastEventAt).toLocaleString("vi-VN") : "—"}
+            </dd>
+          </div>
+          <div className="flex items-baseline justify-between gap-2 lg:min-h-[1.375rem]">
+            <dt className="shrink-0 text-slate-600">Health score</dt>
+            <dd className="text-right font-medium tabular-nums text-slate-800">
+              {props.healthScore != null ? `${props.healthScore}/100` : "—"}
+            </dd>
+          </div>
+        </dl>
+        <button
+          type="button"
+          disabled={props.busy}
+          onClick={props.onSetup}
+          className={clsx(
+            AFFILIATE_ANALYTICS_TOOLBAR_BTN_SECONDARY,
+            "mt-4 w-full shrink-0 py-2 text-xs lg:mt-5",
+          )}
+        >
+          {props.status === "CONNECTED" ? "Cập nhật / kiểm tra" : "Bắt đầu thiết lập"}
+        </button>
+      </div>
     </div>
   );
 });
@@ -129,6 +149,14 @@ const PixelCard = memo(function PixelCardInner(props: {
 export default function AffiliateTrackingWorkspace(): JSX.Element {
   const [section, setSection] = useState<SectionKey>("overview");
   const [busyProvider, setBusyProvider] = useState<AffiliatePixelProvider | null>(null);
+  const trackingTabScrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const scroller = trackingTabScrollRef.current;
+    if (!scroller) return;
+    const activeBtn = scroller.querySelector<HTMLButtonElement>(`[data-tracking-tab="${section}"]`);
+    activeBtn?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }, [section]);
 
   const ov = useAffiliateTrackingOverview(true);
   const rt = useAffiliateTrackingRealtime(section === "overview" || section === "stream");
@@ -166,38 +194,48 @@ export default function AffiliateTrackingWorkspace(): JSX.Element {
   }, [ov.data]);
 
   return (
-    <div className="flex w-full flex-col gap-5 sm:gap-6">
-      <div className="overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div
-          className={clsx(
-            AFFILIATE_ANALYTICS_TAB_ROW_SURFACE,
-            "w-max min-w-full flex-nowrap lg:w-full lg:min-w-0 lg:flex-wrap",
-          )}
-        >
-          {SECTIONS.map((s) => (
-            <button
-              key={s.key}
-              type="button"
-              onClick={() => setSection(s.key)}
-              className={section === s.key ? AFFILIATE_ANALYTICS_SUBTAB_ACTIVE : AFFILIATE_ANALYTICS_SUBTAB_INACTIVE}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
+    <div className={CTV_TRACKING_WORKSPACE_ROOT}>
+      <div
+        ref={trackingTabScrollRef}
+        role="tablist"
+        aria-label="Chức năng tracking"
+        className={clsx(CTV_HORIZONTAL_TAB_SCROLL, "shrink-0")}
+      >
+        {SECTIONS.map((s) => (
+          <button
+            key={s.key}
+            type="button"
+            role="tab"
+            aria-selected={section === s.key}
+            data-tracking-tab={s.key}
+            onClick={() => setSection(s.key)}
+            className={
+              section === s.key
+                ? clsx(CTV_SEGMENTED_ITEM_ICON, CTV_SEGMENTED_ITEM_ACTIVE, "ring-blue-300/50")
+                : clsx(CTV_SEGMENTED_ITEM_ICON, CTV_TAB_IDLE_HOVER)
+            }
+          >
+            {s.label}
+          </button>
+        ))}
       </div>
 
+      <div className={CTV_TRACKING_TAB_VIEW}>
       {emptyOnboarding ? (
-        <CreatorSectionShell title="Chưa có luồng tracking đo được" hint="Phase 1 — nền tảng sẵn sàng, cần gắn pixel & phát sự kiện">
-          <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-stretch lg:gap-6">
-            <div className="flex flex-1 flex-col justify-center">
+        <CreatorSectionShell
+          className={CTV_TRACKING_SECTION_SHELL}
+          title="Chưa có luồng tracking đo được"
+          hint="Phase 1 — nền tảng sẵn sàng, cần gắn pixel & phát sự kiện"
+        >
+          <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-5">
+            <div className="flex max-lg:flex-1 flex-col justify-center lg:flex-none">
               <CreatorEmptyState
                 icon={Radio}
                 title="Tracking center"
-                hint="Kết nối pixel và bật conversion API để Zendo ghi nhận đầy đủ hành trình khách — attribution và AI analytics sẽ dùng chính dữ liệu này."
+                hint="Kết nối pixel và bật conversion API để Zendo ghi nhận đầy đủ hành trình khách — thống kê và AI analytics dùng chính dữ liệu này."
               />
             </div>
-            <div className="flex flex-1 flex-col gap-3 rounded-xl border border-dashed border-blue-200/80 bg-blue-50/40 p-4 text-sm text-slate-700">
+            <div className="flex max-lg:flex-1 flex-col gap-3 rounded-xl border border-dashed border-blue-200/80 bg-blue-50/40 p-4 text-sm text-slate-700 lg:flex-none">
               <p className="font-semibold text-slate-900">Checklist nhanh</p>
               <ul className="list-inside list-disc space-y-1.5 text-xs leading-relaxed text-slate-600">
                 <li>Kết nối TikTok Pixel hoặc Meta Pixel</li>
@@ -219,7 +257,7 @@ export default function AffiliateTrackingWorkspace(): JSX.Element {
       ) : null}
 
       {section === "overview" ? (
-        <div className="grid w-full min-w-0 auto-rows-fr items-stretch grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-[repeat(auto-fit,minmax(14rem,1fr))] lg:gap-4 [&>*]:min-h-0 [&>*]:min-w-0">
+        <div className={CTV_TRACKING_METRIC_GRID}>
           <CreatorMetricCard
             icon={Zap}
             label="Active pixels"
@@ -249,7 +287,7 @@ export default function AffiliateTrackingWorkspace(): JSX.Element {
           />
           <CreatorMetricCard
             icon={ShieldCheck}
-            label="Missing attribution"
+            label="Chưa gán ref"
             value={ov.data ? `${ov.data.metrics.missingAttribution}` : "—"}
             loading={ov.loading && !ov.data}
             tone="slate"
@@ -262,7 +300,7 @@ export default function AffiliateTrackingWorkspace(): JSX.Element {
           />
           <CreatorMetricCard
             icon={Link2}
-            label="Click → Order match"
+            label="Khớp click → đơn"
             value={ov.data ? `${ov.data.metrics.clickToOrderMatchPct}%` : "—"}
             loading={ov.loading && !ov.data}
             tone="fuchsia"
@@ -279,69 +317,32 @@ export default function AffiliateTrackingWorkspace(): JSX.Element {
 
       {section === "integrations" ? (
         ov.loading && !ov.data ? (
-          <p className="text-sm text-slate-500">Đang tải integrations…</p>
+          <p className="shrink-0 text-sm text-slate-500">Đang tải integrations…</p>
         ) : ov.data ? (
-          <>
-            <div className="grid w-full min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-4">
-              {ov.data.pixels.map((p) => (
-                <PixelCard
-                  key={p.provider}
-                  provider={p.provider}
-                  status={p.status}
-                  lastEventAt={p.lastEventAt}
-                  healthScore={p.healthScore}
-                  busy={busyProvider === p.provider}
-                  onSetup={() => void setupPixel(p.provider)}
-                />
-              ))}
-            </div>
-            <CreatorSectionShell
-              title="Server-side conversion (CAPI)"
-              hint="Sau attribution MATCHED — TikTok CompletePayment & Meta Purchase. Token: JSON pixel config (tiktokAccessToken / metaAccessToken). Tắt: AFFILIATE_CAPI_DISPATCH=0."
-            >
-              <div className="mt-3 grid gap-3 text-xs text-slate-700 sm:grid-cols-2">
-                <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
-                  <p className="font-semibold text-slate-900">24h — tất cả provider</p>
-                  <ul className="mt-2 space-y-1">
-                    <li>Queued: {ov.data.conversionDispatch.jobs24h.queued}</li>
-                    <li>Sent: {ov.data.conversionDispatch.jobs24h.sent}</li>
-                    <li>Failed: {ov.data.conversionDispatch.jobs24h.failed}</li>
-                    <li>DLQ: {ov.data.conversionDispatch.jobs24h.dlq}</li>
-                    <li>Skipped: {ov.data.conversionDispatch.jobs24h.skipped}</li>
-                  </ul>
-                </div>
-                <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
-                  <p className="font-semibold text-slate-900">Theo nền tảng</p>
-                  <ul className="mt-2 space-y-1">
-                    <li>
-                      TikTok — sent {ov.data.conversionDispatch.byProvider.TIKTOK.sent}, fail{" "}
-                      {ov.data.conversionDispatch.byProvider.TIKTOK.failed}
-                    </li>
-                    <li>
-                      Meta — sent {ov.data.conversionDispatch.byProvider.META.sent}, fail {ov.data.conversionDispatch.byProvider.META.failed}
-                    </li>
-                    <li>
-                      Latency TB (sent):{" "}
-                      {ov.data.conversionDispatch.avgLatencySentMs != null
-                        ? `${ov.data.conversionDispatch.avgLatencySentMs} ms`
-                        : "—"}
-                    </li>
-                  </ul>
-                  <p className="mt-2 text-[11px] text-slate-500">
-                    Replay job DLQ/FAILED:{" "}
-                    <span className="font-mono">POST /api/account/affiliate/conversion-dispatch/replay</span>
-                  </p>
-                </div>
-              </div>
-            </CreatorSectionShell>
-          </>
+          <div className={CTV_TRACKING_PIXEL_GRID}>
+            {ov.data.pixels.map((p) => (
+              <PixelCard
+                key={p.provider}
+                provider={p.provider}
+                status={p.status}
+                lastEventAt={p.lastEventAt}
+                healthScore={p.healthScore}
+                busy={busyProvider === p.provider}
+                onSetup={() => void setupPixel(p.provider)}
+              />
+            ))}
+          </div>
         ) : (
-          <p className="text-sm text-rose-600">{ov.error ?? "Không tải được dữ liệu pixel."}</p>
+          <p className="shrink-0 text-sm text-rose-600">{ov.error ?? "Không tải được dữ liệu pixel."}</p>
         )
       ) : null}
 
       {section === "stream" ? (
-        <CreatorSectionShell title="Luồng sự kiện realtime" hint="Làm mới ~22s · tối đa 30 dòng gần nhất">
+        <CreatorSectionShell
+          className={CTV_TRACKING_SECTION_SHELL}
+          title="Luồng sự kiện realtime"
+          hint="Làm mới ~22s · tối đa 30 dòng gần nhất"
+        >
           {rt.loading && !rt.events.length ? (
             <p className="mt-4 text-sm text-slate-500">Đang tải…</p>
           ) : rt.error ? (
@@ -365,7 +366,7 @@ export default function AffiliateTrackingWorkspace(): JSX.Element {
                       <td className="whitespace-nowrap px-3 py-2 text-xs text-slate-600">
                         {new Date(e.createdAt).toLocaleString("vi-VN")}
                       </td>
-                      <td className="px-3 py-2 font-medium text-slate-900">{e.eventType}</td>
+                      <td className="px-3 py-2 font-medium text-slate-900">{sanitizeCtvDisplayText(e.eventType)}</td>
                       <td className="max-w-[8rem] truncate px-3 py-2 font-mono text-xs text-slate-600">{e.sessionId ?? "—"}</td>
                       <td className="max-w-[14rem] truncate px-3 py-2 text-slate-700">{e.pathname ?? "—"}</td>
                       <td className="px-3 py-2 text-slate-600">{e.device ?? "—"}</td>
@@ -382,17 +383,12 @@ export default function AffiliateTrackingWorkspace(): JSX.Element {
         </CreatorSectionShell>
       ) : null}
 
-      {section === "attribution" ? (
-        <CreatorSectionShell title="Conversion attribution" hint="Phase 1 — hiển thị luật last-click từ Order + TrafficEvent">
-          <p className="mt-4 text-sm leading-relaxed text-slate-600">
-            Đơn affiliate gắn <span className="font-semibold text-slate-900">affiliateProfileId</span> và session tracking. Phase tiếp theo:
-            multi-touch, window attribution, và export cho đối soát TikTok / Meta.
-          </p>
-        </CreatorSectionShell>
-      ) : null}
-
       {section === "utm" ? (
-        <CreatorSectionShell title="UTM tracking" hint="Chuẩn hóa utm_source / subid trên mọi event">
+        <CreatorSectionShell
+          className={CTV_TRACKING_SECTION_SHELL}
+          title="UTM tracking"
+          hint="Chuẩn hóa utm_source / subid trên mọi event"
+        >
           <p className="mt-4 text-sm leading-relaxed text-slate-600">
             Payload ingest đã hỗ trợ <code className="rounded bg-slate-100 px-1 font-mono text-xs">utm_source</code> và{" "}
             <code className="rounded bg-slate-100 px-1 font-mono text-xs">subid</code>. Bảng phân tích UTM chi tiết nằm ở tab{" "}
@@ -405,7 +401,11 @@ export default function AffiliateTrackingWorkspace(): JSX.Element {
       ) : null}
 
       {section === "links" ? (
-        <CreatorSectionShell title="Tracking links" hint="Short link /go + campaign">
+        <CreatorSectionShell
+          className={CTV_TRACKING_SECTION_SHELL}
+          title="Tracking links"
+          hint="Short link /go + campaign"
+        >
           <p className="mt-4 text-sm text-slate-600">
             Quản lý slug, campaign và hiệu suất từng link trong tab{" "}
             <Link className="font-semibold text-blue-700 underline" href="/tai-khoan/affiliate/campaign">
@@ -417,7 +417,11 @@ export default function AffiliateTrackingWorkspace(): JSX.Element {
       ) : null}
 
       {section === "health" ? (
-        <CreatorSectionShell title="Tracking health" hint="Pixel + ingest + session freshness">
+        <CreatorSectionShell
+          className={CTV_TRACKING_SECTION_SHELL}
+          title="Tracking health"
+          hint="Pixel + ingest + session freshness"
+        >
           {hl.loading && !hl.data ? (
             <p className="mt-4 text-sm text-slate-500">Đang tải…</p>
           ) : hl.error ? (
@@ -436,7 +440,11 @@ export default function AffiliateTrackingWorkspace(): JSX.Element {
       ) : null}
 
       {section === "logs" ? (
-        <CreatorSectionShell title="API / Webhook logs" hint="Audit ingest — pagination phase sau">
+        <CreatorSectionShell
+          className={CTV_TRACKING_SECTION_SHELL}
+          title="API / Webhook logs"
+          hint="Audit ingest — pagination phase sau"
+        >
           {lg.loading ? (
             <p className="mt-4 text-sm text-slate-500">Đang tải…</p>
           ) : lg.error ? (
@@ -479,15 +487,7 @@ export default function AffiliateTrackingWorkspace(): JSX.Element {
           )}
         </CreatorSectionShell>
       ) : null}
-
-      <CreatorSectionShell title="API công khai (ingest)" hint="Dùng từ storefront / server partner">
-        <ul className="mt-3 space-y-1.5 font-mono text-[11px] leading-relaxed text-slate-700">
-          <li>POST /api/affiliate/tracking/event — alias ingest (cùng schema /api/affiliate/track)</li>
-          <li>POST /api/affiliate/tracking/session — cookie session analytics</li>
-          <li>GET /api/account/affiliate/tracking/overview | realtime | health | logs</li>
-          <li>POST /api/account/affiliate/conversion-dispatch/replay — replay CAPI job (FAILED/DLQ)</li>
-        </ul>
-      </CreatorSectionShell>
+      </div>
     </div>
   );
 }

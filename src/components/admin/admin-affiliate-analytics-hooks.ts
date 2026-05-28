@@ -6,7 +6,6 @@ import {
   adminAffiliateHealthIntervalMs,
   adminAffiliatePollIntervalMs,
   devManualRefetchDebounceMs,
-  devStabilityLog,
   devVisibilityResumeDelayMs,
 } from "@/lib/next-dev-stability";
 
@@ -52,7 +51,6 @@ function useAdminFetchJson<T>(args: {
       if (refetchTimeoutRef.current) {
         window.clearTimeout(refetchTimeoutRef.current);
         refetchTimeoutRef.current = null;
-        devStabilityLog("[PollingCleanup]", "cleared pending admin affiliate refetch debounce", { key: args.key });
       }
     },
     [args.key],
@@ -69,7 +67,6 @@ function useAdminFetchJson<T>(args: {
     const delay = devVisibilityResumeDelayMs();
     const t = window.setTimeout(() => {
       setTick((n) => n + 1);
-      devStabilityLog("[NextDevStability]", "admin affiliate poll resume after tab visible", { key: args.key, delayMs: delay });
     }, delay);
     return () => window.clearTimeout(t);
   }, [visible, args.enabled, args.key]);
@@ -78,10 +75,8 @@ function useAdminFetchJson<T>(args: {
     if (!args.enabled) return;
     if (!pollMs) return;
     const id = window.setInterval(() => setTick((n) => n + 1), pollMs);
-    devStabilityLog("[HotReloadSafe]", "admin affiliate poll interval start", { key: args.key, pollMs });
     return () => {
       window.clearInterval(id);
-      devStabilityLog("[PollingCleanup]", "admin affiliate poll interval cleared", { key: args.key });
     };
   }, [args.enabled, pollMs, args.key]);
 
@@ -143,10 +138,8 @@ export function useAdminAffiliateHealth(args: { enabled: boolean }) {
     if (!args.enabled) return;
     if (!healthPollMs) return;
     const id = window.setInterval(() => refetchRef.current(), healthPollMs);
-    devStabilityLog("[HotReloadSafe]", "admin affiliate health interval start", { pollMs: healthPollMs });
     return () => {
       window.clearInterval(id);
-      devStabilityLog("[PollingCleanup]", "admin affiliate health interval cleared", {});
     };
   }, [args.enabled, healthPollMs]);
   return r;

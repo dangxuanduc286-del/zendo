@@ -58,6 +58,8 @@ export default memo(function AffiliateOnboardingChecklist(props: { dismissed?: b
         {STEPS.map((s) => (
           <li key={s.id} className="flex items-start gap-2 text-xs text-[#0F172A]">
             <input
+              id={`affiliate-onboarding-${s.id}`}
+              name={`affiliateOnboarding_${s.id}`}
               type="checkbox"
               checked={Boolean(done[s.id])}
               onChange={() => toggle(s.id)}

@@ -151,7 +151,7 @@ function buildSteps(input: AffiliateAdminGuideProps): AffiliateAdminGuideStep[] 
       title: "Quản lý rút tiền CTV",
       summary: "Xử lý yêu cầu rút tiền: duyệt, từ chối hoặc đánh dấu đã thanh toán.",
       purpose: "Kiểm soát luồng rút tiền CTV theo đúng thứ tự trạng thái.",
-      location: "Luồng rút tiền CTV hiện có của module",
+      location: "Tab Rút tiền CTV (/admin/collaborators?tab=rut-tien)",
       checkItems: [
         "Nếu bật rút tiền: xử lý tuần tự theo trạng thái yêu cầu.",
         "Nếu tắt rút tiền: theo dõi lịch sử và bật lại khi cần vận hành.",

@@ -47,30 +47,30 @@ export async function loadAffiliatePayoutLedger(
   tx: Tx,
   affiliateProfileId: string,
 ): Promise<AffiliatePayoutLedger> {
-  const [profile, commissions, withdrawals] = await Promise.all([
+  const [profile, commissionSum, withdrawalsSum] = await Promise.all([
     tx.affiliateProfile.findUnique({
       where: { id: affiliateProfileId },
       select: { revenueRewardWalletBalance: true },
     }),
-    tx.affiliateCommission.findMany({
+    tx.affiliateCommission.aggregate({
       where: {
         affiliateProfileId,
         status: { in: ["AVAILABLE", "APPROVED"] },
       },
-      select: { amount: true },
+      _sum: { amount: true },
     }),
-    tx.affiliateWithdrawalRequest.findMany({
+    tx.affiliateWithdrawalRequest.aggregate({
       where: {
         affiliateProfileId,
         status: { in: ["PENDING", "APPROVED"] },
       },
-      select: { amount: true },
+      _sum: { amount: true },
     }),
   ]);
 
-  const commissionAvailable = commissions.reduce((sum, row) => sum + money(row.amount), 0);
+  const commissionAvailable = money(commissionSum._sum.amount);
   const revenueRewardWalletBalance = money(profile?.revenueRewardWalletBalance);
-  const reservedForWithdrawals = withdrawals.reduce((sum, row) => sum + money(row.amount), 0);
+  const reservedForWithdrawals = money(withdrawalsSum._sum.amount);
   const commissionApprovedPool = commissionAvailable + revenueRewardWalletBalance;
   const withdrawableBalance = Math.max(0, commissionApprovedPool - reservedForWithdrawals);
 

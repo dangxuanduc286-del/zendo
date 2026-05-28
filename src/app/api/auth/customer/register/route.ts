@@ -56,7 +56,7 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     const passwordHash = await hash(password, 10);
-    await db.customer.create({
+    const created = await db.customer.create({
       data: {
         fullName: fullName || null,
         email: isEmail ? lowered : null,
@@ -64,7 +64,16 @@ export async function POST(request: Request): Promise<Response> {
         passwordHash,
         isGuest: false,
       },
+      select: { id: true },
     });
+    void import("@/lib/admin/admin-operational-publish").then(({ notifyAdminCustomerRegistered }) =>
+      notifyAdminCustomerRegistered({
+        customerId: created.id,
+        fullName: fullName || null,
+        email: isEmail ? lowered : null,
+        phone: isEmail ? null : phone,
+      }),
+    );
     return NextResponse.json({ ok: true, message: "Đăng ký thành công. Vui lòng đăng nhập." });
   } catch {
     return NextResponse.json({ ok: false, message: "Không thể đăng ký tài khoản." }, { status: 500 });

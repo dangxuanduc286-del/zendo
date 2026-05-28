@@ -1,14 +1,8 @@
 "use client";
 
-import dynamic from "next/dynamic";
+import AffiliateAnalyticsDashboard from "./affiliate-analytics-dashboard";
 
-const AffiliateAnalyticsDashboard = dynamic(() => import("./affiliate-analytics-dashboard"), {
-  loading: () => (
-    <div className="min-h-[20rem] animate-pulse rounded-2xl bg-[#F1F5F9]/90" aria-busy aria-label="Đang tải analytics" />
-  ),
-  ssr: false,
-});
-
+/** Client boundary cho trang analytics — import tĩnh tránh lệch chunk/manifest khi HMR. */
 export default function AffiliateAnalyticsDashboardClient(props: {
   affiliateRefCode: string;
   initialMenuKey?: string;

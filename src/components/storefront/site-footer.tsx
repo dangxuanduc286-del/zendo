@@ -44,7 +44,7 @@ function FooterTrustBannerImage({
       alt={alt}
       fill
       sizes="(max-width: 768px) 50vw, 320px"
-      quality={90}
+      quality={80}
       fallbackLabel=""
       className={imageClassName}
       style={{ objectPosition: objectPosition || "center center" }}

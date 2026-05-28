@@ -25,6 +25,7 @@ export default function MediaImage({
   alt,
   fallbackLabel,
   quality,
+  decoding,
   ...props
 }: MediaImageProps): JSX.Element {
   const safeQuality = clampNextImageQuality(
@@ -48,6 +49,7 @@ export default function MediaImage({
       src={safeSrc}
       alt={alt}
       quality={safeQuality}
+      decoding={decoding ?? "async"}
       onError={() => setHasError(true)}
     />
   );

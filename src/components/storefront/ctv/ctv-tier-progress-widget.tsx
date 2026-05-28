@@ -2,11 +2,11 @@
 
 import { memo } from "react";
 import type { CtvTierProgressSummary } from "@/lib/ctv/ctv-affiliate-lifecycle";
+import { CtvFormattedValue } from "./ctv-formatted-value";
 import {
-  CTV_HUB_CARD_PAD,
   CTV_HUB_CARD_TITLE,
-  CTV_HUB_INNER_CARD,
   CTV_HUB_PROGRESS_TRACK,
+  CTV_HUB_TIER_SHELL,
   CTV_TIER_PROGRESS_BODY,
   CTV_TIER_PROGRESS_PROGRESS_BLOCK,
   CTV_TIER_PROGRESS_PROGRESS_HEAD,
@@ -18,7 +18,6 @@ import {
   CTV_TIER_PROGRESS_STAT_CELL,
   CTV_TIER_PROGRESS_STAT_GRID,
   CTV_TIER_PROGRESS_STAT_LABEL,
-  CTV_MONEY_VALUE_SM,
   CTV_TIER_PROGRESS_STAT_VALUE,
 } from "./ctv-ui-tokens";
 
@@ -36,7 +35,7 @@ function CtvTierProgressWidgetInner({ progress, loading = false }: CtvTierProgre
 
   return (
     <section
-      className={[CTV_HUB_INNER_CARD, CTV_HUB_CARD_PAD].join(" ")}
+      className={CTV_HUB_TIER_SHELL}
       aria-labelledby="ctv-tier-progress-heading"
     >
       <h2 id="ctv-tier-progress-heading" className={CTV_HUB_CARD_TITLE}>
@@ -63,7 +62,9 @@ function CtvTierProgressWidgetInner({ progress, loading = false }: CtvTierProgre
         <div className={CTV_TIER_PROGRESS_BODY}>
           <div className="min-w-0">
             <p className={CTV_TIER_PROGRESS_REVENUE_LABEL}>Doanh thu 30 ngày gần nhất</p>
-            <p className={CTV_TIER_PROGRESS_REVENUE_VALUE}>{formatMoney(progress.revenue30d)}</p>
+            <div className={CTV_TIER_PROGRESS_REVENUE_VALUE}>
+              <CtvFormattedValue value={formatMoney(progress.revenue30d)} variant="money-lg" />
+            </div>
           </div>
 
           <dl className={CTV_TIER_PROGRESS_STAT_GRID}>
@@ -75,7 +76,9 @@ function CtvTierProgressWidgetInner({ progress, loading = false }: CtvTierProgre
             </div>
             <div className={CTV_TIER_PROGRESS_STAT_CELL}>
               <dt className={CTV_TIER_PROGRESS_STAT_LABEL}>Hoa hồng hiện tại</dt>
-              <dd className={CTV_TIER_PROGRESS_STAT_VALUE}>{progress.currentCommissionPercent}%</dd>
+              <dd className="mt-1 min-w-0">
+                <CtvFormattedValue value={`${progress.currentCommissionPercent}%`} variant="percent" />
+              </dd>
             </div>
             {!progress.isMaxRank && progress.nextTierName ? (
               <>
@@ -87,10 +90,15 @@ function CtvTierProgressWidgetInner({ progress, loading = false }: CtvTierProgre
                 </div>
                 <div className={CTV_TIER_PROGRESS_STAT_CELL}>
                   <dt className={CTV_TIER_PROGRESS_STAT_LABEL}>Thưởng cấp tiếp</dt>
-                  <dd className={[CTV_TIER_PROGRESS_STAT_VALUE, CTV_MONEY_VALUE_SM, "text-emerald-700"].join(" ")}>
-                    {progress.nextTierRewardAmount != null
-                      ? formatMoney(progress.nextTierRewardAmount)
-                      : "—"}
+                  <dd className="mt-1 min-w-0 text-emerald-700">
+                    <CtvFormattedValue
+                      value={
+                        progress.nextTierRewardAmount != null
+                          ? formatMoney(progress.nextTierRewardAmount)
+                          : "—"
+                      }
+                      variant="money-sm"
+                    />
                   </dd>
                 </div>
               </>
@@ -107,9 +115,7 @@ function CtvTierProgressWidgetInner({ progress, loading = false }: CtvTierProgre
           {!progress.isMaxRank && progress.remainingToNext > 0 ? (
             <p className={CTV_TIER_PROGRESS_REMAINING}>
               Còn thiếu{" "}
-              <strong className={[CTV_MONEY_VALUE_SM, "font-bold"].join(" ")}>
-                {formatMoney(progress.remainingToNext)}
-              </strong>{" "}
+              <CtvFormattedValue value={formatMoney(progress.remainingToNext)} variant="money-sm" className="inline font-bold" />{" "}
               để đạt <strong className="text-[#0f172a]">{progress.nextTierName ?? "cấp tiếp theo"}</strong>
               {progress.revenueTargetNext != null ? (
                 <>

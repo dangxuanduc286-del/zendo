@@ -14,6 +14,7 @@ import {
 import { slugify } from "../../lib/slug";
 import AdminImageUploadField from "./admin-image-upload-field";
 import { adminPrimaryButton, adminSecondaryButton } from "../../lib/admin-ui";
+import { HOME_HERO_BANNER_SPECS } from "../../lib/home-hero-banner-specs";
 
 interface AdminBannerFormProps {
   mode: "create" | "edit";
@@ -58,8 +59,8 @@ export default function AdminBannerForm({
   const selectedPosition = watch("position") || "home_main";
   const isMainBanner = selectedPosition === "home_main";
   const positionHelper = isMainBanner
-    ? "Banner chính: khuyến nghị 1376x768px, tỷ lệ 16:9. Hiển thị trên desktop và mobile."
-    : "Banner phụ: khuyến nghị 336x376px. Chỉ hiển thị trên desktop, mobile sẽ ẩn.";
+    ? `Banner chính: khuyến nghị ${HOME_HERO_BANNER_SPECS.main.uploadSize}, tỷ lệ ${HOME_HERO_BANNER_SPECS.main.aspectRatio}. Hiển thị trên desktop và mobile.`
+    : `Banner phụ desktop: dùng chuẩn ${HOME_HERO_BANNER_SPECS.rightPromo.uploadSize} cho banner lợi ích hoặc ${HOME_HERO_BANNER_SPECS.bottomPromo.uploadSize} cho banner danh mục nhỏ. Mobile sẽ ẩn.`;
 
   useEffect(() => {
     if (!autoSlug) return;

@@ -20,12 +20,13 @@ export default function AffiliateCtvSettingsForm({ settings, redirectTo }: Props
       method="POST"
       className="space-y-6"
     >
-      <input type="hidden" name="redirectTo" value={redirectTo} />
+      <input id="affiliate-settings-redirect-to" type="hidden" name="redirectTo" value={redirectTo} />
 
       <div className={sectionCard}>
         <h3 className="text-base font-semibold text-[#0F172A]">Cấu hình chung</h3>
         <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[#E2E8F0] bg-white p-3">
           <input
+            id="affiliate-settings-affiliate-enabled"
             type="checkbox"
             name="affiliateEnabled"
             value="1"
@@ -47,6 +48,7 @@ export default function AffiliateCtvSettingsForm({ settings, redirectTo }: Props
           <label className="space-y-1">
             <span className="text-xs font-medium text-[#64748B]">Tỷ lệ hoa hồng mặc định (%)</span>
             <input
+              id="affiliate-settings-commission-rate"
               type="number"
               name="commissionRate"
               min={0}
@@ -62,6 +64,7 @@ export default function AffiliateCtvSettingsForm({ settings, redirectTo }: Props
           <label className="space-y-1">
             <span className="text-xs font-medium text-[#64748B]">Ngưỡng thanh toán tối thiểu (VNĐ)</span>
             <input
+              id="affiliate-settings-payout-threshold"
               type="number"
               name="payoutThreshold"
               min={0}
@@ -86,6 +89,7 @@ export default function AffiliateCtvSettingsForm({ settings, redirectTo }: Props
           <label className="space-y-1">
             <span className="text-xs font-medium text-[#64748B]">Thời gian cookie giới thiệu (ngày)</span>
             <input
+              id="affiliate-settings-cookie-duration"
               type="number"
               name="cookieDuration"
               min={1}
@@ -100,6 +104,7 @@ export default function AffiliateCtvSettingsForm({ settings, redirectTo }: Props
           <label className="space-y-1">
             <span className="text-xs font-medium text-[#64748B]">Quy tắc attribution</span>
             <select
+              id="affiliate-settings-attribution-rule"
               name="attributionRule"
               defaultValue={settings.attributionRule}
               className={fieldClass}
@@ -119,6 +124,7 @@ export default function AffiliateCtvSettingsForm({ settings, redirectTo }: Props
         <div className="space-y-3">
           <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[#E2E8F0] bg-white p-3">
             <input
+              id="affiliate-settings-reward-point-enabled"
               type="checkbox"
               name="rewardPointEnabled"
               value="1"
@@ -132,6 +138,7 @@ export default function AffiliateCtvSettingsForm({ settings, redirectTo }: Props
           </label>
           <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[#E2E8F0] bg-white p-3">
             <input
+              id="affiliate-settings-withdrawal-enabled"
               type="checkbox"
               name="withdrawalEnabled"
               value="1"
@@ -156,6 +163,7 @@ export default function AffiliateCtvSettingsForm({ settings, redirectTo }: Props
         <div className="mt-3 space-y-3">
           <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[#E2E8F0] bg-white p-3">
             <input
+              id="affiliate-settings-commission-tab-enabled"
               type="checkbox"
               name="commissionTab_tabEnabled"
               value="1"
@@ -166,6 +174,7 @@ export default function AffiliateCtvSettingsForm({ settings, redirectTo }: Props
           </label>
           <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[#E2E8F0] bg-white p-3">
             <input
+              id="affiliate-settings-commission-tab-income-summary"
               type="checkbox"
               name="commissionTab_showIncomeSummary"
               value="1"
@@ -176,6 +185,7 @@ export default function AffiliateCtvSettingsForm({ settings, redirectTo }: Props
           </label>
           <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[#E2E8F0] bg-white p-3">
             <input
+              id="affiliate-settings-commission-tab-pending"
               type="checkbox"
               name="commissionTab_showPendingCommission"
               value="1"
@@ -186,6 +196,7 @@ export default function AffiliateCtvSettingsForm({ settings, redirectTo }: Props
           </label>
           <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[#E2E8F0] bg-white p-3">
             <input
+              id="affiliate-settings-commission-tab-paid"
               type="checkbox"
               name="commissionTab_showPaidCommission"
               value="1"
@@ -196,6 +207,7 @@ export default function AffiliateCtvSettingsForm({ settings, redirectTo }: Props
           </label>
           <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[#E2E8F0] bg-white p-3">
             <input
+              id="affiliate-settings-commission-tab-order-count"
               type="checkbox"
               name="commissionTab_showAffiliateOrderCount"
               value="1"
@@ -206,6 +218,7 @@ export default function AffiliateCtvSettingsForm({ settings, redirectTo }: Props
           </label>
           <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[#E2E8F0] bg-white p-3">
             <input
+              id="affiliate-settings-commission-tab-realtime"
               type="checkbox"
               name="commissionTab_realtimeBadgeEnabled"
               value="1"
@@ -216,6 +229,7 @@ export default function AffiliateCtvSettingsForm({ settings, redirectTo }: Props
           </label>
           <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[#E2E8F0] bg-white p-3">
             <input
+              id="affiliate-settings-commission-tab-sound"
               type="checkbox"
               name="commissionTab_soundEnabled"
               value="1"
@@ -226,6 +240,7 @@ export default function AffiliateCtvSettingsForm({ settings, redirectTo }: Props
           </label>
           <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[#E2E8F0] bg-white p-3">
             <input
+              id="affiliate-settings-commission-tab-group-similar"
               type="checkbox"
               name="commissionTab_groupSimilarEnabled"
               value="1"
@@ -237,6 +252,7 @@ export default function AffiliateCtvSettingsForm({ settings, redirectTo }: Props
           <label className="space-y-1">
             <span className="text-xs font-medium text-[#64748B]">Cửa sổ gộp (giây)</span>
             <input
+              id="affiliate-settings-commission-tab-group-window"
               type="number"
               name="commissionTab_groupWindowSeconds"
               min={30}
@@ -248,6 +264,7 @@ export default function AffiliateCtvSettingsForm({ settings, redirectTo }: Props
           </label>
           <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[#E2E8F0] bg-white p-3">
             <input
+              id="affiliate-settings-commission-tab-preview-product"
               type="checkbox"
               name="commissionTab_previewProductEnabled"
               value="1"
@@ -258,6 +275,7 @@ export default function AffiliateCtvSettingsForm({ settings, redirectTo }: Props
           </label>
           <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[#E2E8F0] bg-white p-3">
             <input
+              id="affiliate-settings-commission-tab-masked-customer"
               type="checkbox"
               name="commissionTab_maskedCustomerEnabled"
               value="1"
@@ -271,7 +289,7 @@ export default function AffiliateCtvSettingsForm({ settings, redirectTo }: Props
           <p className="text-xs font-semibold text-[#0F172A]">Âm thanh thông báo</p>
           <label className="space-y-1">
             <span className="text-xs font-medium text-[#64748B]">Chế độ</span>
-            <select name="commissionTab_soundMode" defaultValue={settings.commissionTab.soundMode} className={fieldClass}>
+            <select id="affiliate-settings-commission-tab-sound-mode" name="commissionTab_soundMode" defaultValue={settings.commissionTab.soundMode} className={fieldClass}>
               <option value="off">Tắt file (chỉ dùng checkbox âm thanh phía trên)</option>
               <option value="default">Âm thanh mặc định hệ thống</option>
               <option value="custom">URL file tùy chỉnh (path nội bộ, ví dụ sau khi upload media)</option>
@@ -280,6 +298,7 @@ export default function AffiliateCtvSettingsForm({ settings, redirectTo }: Props
           <label className="space-y-1">
             <span className="text-xs font-medium text-[#64748B]">URL âm thanh tùy chỉnh</span>
             <input
+              id="affiliate-settings-commission-tab-sound-custom-url"
               type="text"
               name="commissionTab_soundCustomUrl"
               defaultValue={settings.commissionTab.soundCustomUrl}
@@ -296,6 +315,7 @@ export default function AffiliateCtvSettingsForm({ settings, redirectTo }: Props
         <label className="space-y-1">
           <span className="text-xs font-medium text-[#64748B]">Nội dung hiển thị cho CTV (văn bản thuần)</span>
           <textarea
+            id="affiliate-settings-ctv-guide-content"
             name="ctvGuideContent"
             rows={14}
             defaultValue={settings.ctvGuideContent}

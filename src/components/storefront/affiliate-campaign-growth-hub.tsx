@@ -17,14 +17,42 @@ import {
   useAffiliateGrowthInsightsPack,
   useAffiliateLandingGrowth,
 } from "./use-affiliate-analytics-hooks";
-import { CTV_CARD_COMPACT, CTV_CARD_SOFT } from "./affiliate/affiliate-ctv-account-ui-tokens";
+import {
+  CTV_CAMPAIGN_ASSET_TILE,
+  CTV_CAMPAIGN_CHART_GRID,
+  CTV_CAMPAIGN_DETAIL_STACK,
+  CTV_CAMPAIGN_INLINE_GRID,
+  CTV_CAMPAIGN_INSIGHT_TILE_HOT,
+  CTV_CAMPAIGN_INSIGHT_TILE_IDLE,
+  CTV_CAMPAIGN_LANDING_CARD,
+  CTV_CAMPAIGN_LIST_ITEM,
+  CTV_CAMPAIGN_LIST_ITEM_ACTIVE,
+  CTV_CAMPAIGN_METRIC,
+  CTV_CAMPAIGN_ROOT,
+  CTV_CAMPAIGN_CREATE_PANEL,
+  CTV_CAMPAIGN_FORM_ACTIONS,
+  CTV_CAMPAIGN_FORM_FIELD,
+  CTV_CAMPAIGN_FORM_STACK,
+  CTV_CAMPAIGN_PANEL,
+  CTV_CAMPAIGN_SECTION,
+  CTV_CAMPAIGN_SECTION_HINT,
+  CTV_CAMPAIGN_SECTION_TITLE,
+  CTV_CAMPAIGN_SNIPPET_ROW,
+  CTV_CAMPAIGN_SPLIT,
+  CTV_COLOR_ACCENT_SURFACE,
+  CTV_COLOR_BORDER,
+} from "./affiliate/affiliate-ctv-account-ui-tokens";
+import { CtvFormattedValue } from "./ctv/ctv-formatted-value";
+import {
+  CTV_SEGMENTED_ICON,
+  CTV_SEGMENTED_ITEM_ACTIVE,
+  CTV_SEGMENTED_ITEM_ICON,
+  CTV_SEGMENTED_LABEL,
+  CTV_SEGMENTED_WRAP,
+  CTV_TAB_IDLE_HOVER,
+} from "./ctv/ctv-ui-tokens";
 import {
   AFFILIATE_ANALYTICS_CHIP_LINK,
-  AFFILIATE_ANALYTICS_SUBTAB_ACTIVE,
-  AFFILIATE_ANALYTICS_SUBTAB_ICON,
-  AFFILIATE_ANALYTICS_SUBTAB_INACTIVE,
-  AFFILIATE_ANALYTICS_SUBTAB_LABEL,
-  AFFILIATE_ANALYTICS_TAB_ROW_SURFACE,
   AFFILIATE_ANALYTICS_TOOLBAR_BTN_PRIMARY,
 } from "@/lib/affiliate-analytics-ui-tokens";
 
@@ -32,10 +60,6 @@ const AffiliateAnalyticsBarChartLazy = dynamic(() => import("./affiliate-analyti
   loading: () => <div className="h-48 w-full animate-pulse rounded-xl bg-[#F1F5F9]/90" />,
   ssr: false,
 });
-
-function creatorLog(_payload: Record<string, unknown>): void {
-  void _payload;
-}
 
 const SNIPPET_KEY = "zendo_affiliate_snippets_v1";
 
@@ -147,7 +171,6 @@ export default memo(function AffiliateCampaignGrowthHub(props: { range: RangeKey
       });
       const j = (await res.json()) as { ok?: boolean; message?: string };
       if (!res.ok || !j.ok) throw new Error(j.message || "Không tạo được.");
-      creatorLog({ action: "create_campaign", name });
       setCreateName("");
       setCreateSource("");
       setCreateSub("");
@@ -190,7 +213,6 @@ export default memo(function AffiliateCampaignGrowthHub(props: { range: RangeKey
       });
       const j = (await res.json()) as { ok?: boolean; message?: string };
       if (!res.ok || !j.ok) throw new Error(j.message || "Không nhân bản được.");
-      creatorLog({ action: "duplicate_campaign", id });
       void campaigns.refetch();
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "Lỗi.");
@@ -212,7 +234,6 @@ export default memo(function AffiliateCampaignGrowthHub(props: { range: RangeKey
       });
       const j = (await res.json()) as { ok?: boolean; message?: string };
       if (!res.ok || !j.ok) throw new Error(j.message || "Không tạo link.");
-      creatorLog({ action: "quick_short_link", campaignId });
       setQuickTarget("/");
       void detail.refetch();
       void campaigns.refetch();
@@ -225,14 +246,12 @@ export default memo(function AffiliateCampaignGrowthHub(props: { range: RangeKey
 
   const exportCampaign = (id: string) => {
     const u = `/api/account/affiliate/analytics/export?type=campaign-detail&range=${encodeURIComponent(range)}&format=excel&campaignId=${encodeURIComponent(id)}`;
-    creatorLog({ action: "export_campaign", id });
     window.open(u, "_blank", "noopener,noreferrer");
   };
 
-  const copyText = (text: string, label: string) => {
+  const copyText = (text: string) => {
     void navigator.clipboard?.writeText(text).then(
       () => {
-        creatorLog({ action: "copy", label });
         setMsg("Đã copy.");
         window.setTimeout(() => setMsg(""), 1400);
       },
@@ -260,11 +279,11 @@ export default memo(function AffiliateCampaignGrowthHub(props: { range: RangeKey
   }, [campaigns.data?.campaigns, campaignFilter]);
 
   return (
-    <div className="space-y-3 sm:space-y-4">
+    <div className={CTV_CAMPAIGN_ROOT}>
       <div className="sticky top-14 z-20 w-full min-w-0 md:top-0">
         <div
           className={clsx(
-            AFFILIATE_ANALYTICS_TAB_ROW_SURFACE,
+            CTV_SEGMENTED_WRAP,
             "w-full min-w-0 snap-x snap-mandatory flex-nowrap pb-1 touch-pan-x [-ms-overflow-style:none] [scrollbar-width:none] md:flex-wrap md:justify-start md:overflow-visible md:pb-0 [&::-webkit-scrollbar]:hidden",
           )}
         >
@@ -278,10 +297,14 @@ export default memo(function AffiliateCampaignGrowthHub(props: { range: RangeKey
                   setSub(s.key);
                   setMsg("");
                 }}
-                className={sub === s.key ? AFFILIATE_ANALYTICS_SUBTAB_ACTIVE : AFFILIATE_ANALYTICS_SUBTAB_INACTIVE}
+                className={
+                  sub === s.key
+                    ? clsx(CTV_SEGMENTED_ITEM_ICON, CTV_SEGMENTED_ITEM_ACTIVE, "ring-blue-300/50")
+                    : clsx(CTV_SEGMENTED_ITEM_ICON, CTV_TAB_IDLE_HOVER)
+                }
               >
-                <Icon className={AFFILIATE_ANALYTICS_SUBTAB_ICON} strokeWidth={2} aria-hidden />
-                <span className={AFFILIATE_ANALYTICS_SUBTAB_LABEL}>{s.label}</span>
+                <Icon className={CTV_SEGMENTED_ICON} strokeWidth={2} aria-hidden />
+                <span className={CTV_SEGMENTED_LABEL}>{s.label}</span>
               </button>
             );
           })}
@@ -293,65 +316,88 @@ export default memo(function AffiliateCampaignGrowthHub(props: { range: RangeKey
       ) : null}
 
       {sub === "campaigns" ? (
-        <div className="grid w-full min-w-0 gap-4 lg:grid-cols-[repeat(auto-fit,minmax(22rem,1fr))]">
-          <div className={CTV_CARD_COMPACT}>
-            <h3 className="text-sm font-semibold text-[#0F172A]">Tạo campaign nhanh</h3>
-            <p className="mt-1 text-xs text-[#64748B]">Ví dụ: TikTok-Deal-7-7, FB-Reels-NoiChien…</p>
-            <label className="mt-3 block text-xs font-medium text-[#64748B]">Tên</label>
-            <input
-              value={createName}
-              onChange={(e) => setCreateName(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-[#E2E8F0] px-2 py-2 text-sm"
-              placeholder="Tên campaign"
-              maxLength={180}
-            />
-            <label className="mt-2 block text-xs font-medium text-[#64748B]">Nguồn (utm / label)</label>
-            <input
-              value={createSource}
-              onChange={(e) => setCreateSource(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-[#E2E8F0] px-2 py-2 text-sm"
-              placeholder="tiktok, facebook…"
-              maxLength={120}
-            />
-            <label className="mt-2 block text-xs font-medium text-[#64748B]">SubId mặc định</label>
-            <input
-              value={createSub}
-              onChange={(e) => setCreateSub(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-[#E2E8F0] px-2 py-2 text-sm"
-              placeholder="deal77, flash…"
-              maxLength={120}
-            />
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void onCreateCampaign()}
-              className={clsx(AFFILIATE_ANALYTICS_TOOLBAR_BTN_PRIMARY, "mt-3 w-full py-2 text-sm disabled:opacity-60")}
-            >
-              Tạo campaign
-            </button>
-            <div className="mt-3 flex flex-wrap gap-2 border-t border-[#E2E8F0] pt-3">
-              <a
-                className="rounded-lg border border-[#E2E8F0] px-2 py-1 text-xs font-semibold text-[#2563EB]"
-                href={`/api/account/affiliate/analytics/export?type=campaign-summary&range=${encodeURIComponent(range)}&format=excel`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Xuất CSV/Excel tất cả campaign
-              </a>
-              <a
-                className="rounded-lg border border-[#E2E8F0] px-2 py-1 text-xs font-semibold text-[#2563EB]"
-                href={`/api/account/affiliate/analytics/export?type=funnel-report&range=${encodeURIComponent(range)}&format=excel`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Xuất funnel (toàn hồ sơ)
-              </a>
+        <div className={CTV_CAMPAIGN_SPLIT}>
+          <section className={CTV_CAMPAIGN_CREATE_PANEL} aria-labelledby="ctv-campaign-create-heading">
+            <div className="min-w-0 space-y-1">
+              <h3 id="ctv-campaign-create-heading" className={CTV_CAMPAIGN_SECTION_TITLE}>
+                Tạo campaign nhanh
+              </h3>
+              <p className={CTV_CAMPAIGN_SECTION_HINT}>Ví dụ: TikTok-Deal-7-7, FB-Reels-NoiChien…</p>
             </div>
-          </div>
 
-          <div className={CTV_CARD_COMPACT}>
+            <div className={CTV_CAMPAIGN_FORM_STACK}>
+              <div className={CTV_CAMPAIGN_FORM_FIELD}>
+                <label className="text-xs font-medium text-slate-600">Tên</label>
+                <input
+                  id="affiliate-campaign-create-name"
+                  name="createName"
+                  value={createName}
+                  onChange={(e) => setCreateName(e.target.value)}
+                  className={clsx("w-full rounded-lg border px-3 py-2 text-sm", CTV_COLOR_BORDER)}
+                  placeholder="Tên campaign"
+                  maxLength={180}
+                />
+              </div>
+              <div className={CTV_CAMPAIGN_FORM_FIELD}>
+                <label className="text-xs font-medium text-slate-600">Nguồn (utm / label)</label>
+                <input
+                  id="affiliate-campaign-create-source"
+                  name="createSource"
+                  value={createSource}
+                  onChange={(e) => setCreateSource(e.target.value)}
+                  className={clsx("w-full rounded-lg border px-3 py-2 text-sm", CTV_COLOR_BORDER)}
+                  placeholder="tiktok, facebook…"
+                  maxLength={120}
+                />
+              </div>
+              <div className={CTV_CAMPAIGN_FORM_FIELD}>
+                <label className="text-xs font-medium text-slate-600">SubId mặc định</label>
+                <input
+                  id="affiliate-campaign-create-subid"
+                  name="createSubid"
+                  value={createSub}
+                  onChange={(e) => setCreateSub(e.target.value)}
+                  className={clsx("w-full rounded-lg border px-3 py-2 text-sm", CTV_COLOR_BORDER)}
+                  placeholder="deal77, flash…"
+                  maxLength={120}
+                />
+              </div>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void onCreateCampaign()}
+                className={clsx(AFFILIATE_ANALYTICS_TOOLBAR_BTN_PRIMARY, "w-full py-2.5 text-sm disabled:opacity-60")}
+              >
+                Tạo campaign
+              </button>
+            </div>
+
+            <div className={CTV_CAMPAIGN_FORM_ACTIONS}>
+              <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Xuất báo cáo</p>
+              <div className="flex flex-wrap gap-x-4 gap-y-2">
+                <a
+                  className={AFFILIATE_ANALYTICS_CHIP_LINK}
+                  href={`/api/account/affiliate/analytics/export?type=campaign-summary&range=${encodeURIComponent(range)}&format=excel`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Xuất CSV/Excel tất cả campaign
+                </a>
+                <a
+                  className={AFFILIATE_ANALYTICS_CHIP_LINK}
+                  href={`/api/account/affiliate/analytics/export?type=funnel-report&range=${encodeURIComponent(range)}&format=excel`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Xuất funnel (toàn hồ sơ)
+                </a>
+              </div>
+            </div>
+          </section>
+
+          <section className={CTV_CAMPAIGN_PANEL}>
             <div className="flex items-center justify-between gap-2">
-              <h3 className="text-sm font-semibold text-[#0F172A]">Danh sách</h3>
+              <h3 className={CTV_CAMPAIGN_SECTION_TITLE}>Danh sách campaign</h3>
               <button type="button" className="text-xs font-semibold text-[#2563EB]" onClick={() => void campaigns.refetch()}>
                 Tải lại
               </button>
@@ -360,21 +406,31 @@ export default memo(function AffiliateCampaignGrowthHub(props: { range: RangeKey
               <div className="mt-2 space-y-2">
                 <label className="text-[10px] font-semibold uppercase tracking-wide text-[#64748B]">Tìm và chọn campaign</label>
                 <input
+                  id="affiliate-campaign-filter"
+                  name="campaignFilter"
                   type="search"
                   value={campaignFilter}
                   onChange={(e) => setCampaignFilter(e.target.value)}
                   placeholder="Gõ tên hoặc nguồn…"
-                  className="h-9 w-full rounded-lg border border-[#E2E8F0] bg-white px-2.5 text-xs font-medium text-[#0F172A] shadow-sm placeholder:text-[#94A3B8]"
+                  className={clsx(
+                    "h-9 w-full rounded-lg border border-slate-200 bg-slate-50/80 px-2.5 text-xs font-medium text-[#0F172A] placeholder:text-[#94A3B8]",
+                    CTV_COLOR_BORDER,
+                  )}
                   aria-label="Lọc campaign"
                 />
                 <select
+                  id="affiliate-campaign-selected-id"
+                  name="selectedCampaignId"
                   value={selectedId ?? ""}
                   onChange={(e) => {
                     const v = e.target.value.trim();
                     setSelectedId(v || null);
                     setPickLinkId(null);
                   }}
-                  className="h-10 w-full rounded-lg border border-[#E2E8F0] bg-white px-2 text-sm font-semibold text-[#0F172A] shadow-sm"
+                  className={clsx(
+                    "h-10 w-full rounded-lg border border-slate-200 bg-slate-50/80 px-2 text-sm font-semibold text-[#0F172A]",
+                    CTV_COLOR_BORDER,
+                  )}
                   aria-label="Chọn campaign"
                 >
                   <option value="">— Chọn campaign —</option>
@@ -399,11 +455,10 @@ export default memo(function AffiliateCampaignGrowthHub(props: { range: RangeKey
                         setSelectedId(c.id);
                         setPickLinkId(null);
                       }}
-                      className={`flex w-full flex-col rounded-xl border px-2 py-2 text-left text-sm transition active:scale-[0.99] ${
-                        selectedId === c.id
-                          ? "border-[#3B82F6] bg-[#EFF6FF]/90 shadow-sm ring-1 ring-[#DBEAFE]"
-                          : "border-[#E2E8F0]/90 bg-white hover:border-[#CBD5E1] hover:shadow-sm"
-                      }`}
+                      className={clsx(
+                        CTV_CAMPAIGN_LIST_ITEM,
+                        selectedId === c.id ? CTV_CAMPAIGN_LIST_ITEM_ACTIVE : "",
+                      )}
                     >
                       <span className="font-semibold text-[#0F172A]">{c.name}</span>
                       <span className="text-[11px] text-[#64748B]">
@@ -420,18 +475,18 @@ export default memo(function AffiliateCampaignGrowthHub(props: { range: RangeKey
             {campaigns.data?.campaigns?.length && !filteredCampaigns.length ? (
               <p className="mt-2 text-xs font-medium text-amber-700">Không tìm thấy campaign khớp &quot;{campaignFilter}&quot;.</p>
             ) : null}
-          </div>
+          </section>
 
           {selectedId ? (
-            <div className="space-y-3 lg:col-span-2">
-              <div className={CTV_CARD_COMPACT}>
+            <div className={CTV_CAMPAIGN_DETAIL_STACK}>
+              <section className={CTV_CAMPAIGN_SECTION}>
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="text-sm font-semibold text-[#0F172A]">{detail.data?.name ?? "Campaign"}</h3>
+                  <h3 className={CTV_CAMPAIGN_SECTION_TITLE}>{detail.data?.name ?? "Campaign"}</h3>
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
                       disabled={busy}
-                      className="rounded-lg border border-[#E2E8F0] px-2 py-1 text-xs font-semibold"
+                      className={clsx("rounded-lg border px-2 py-1 text-xs font-semibold", CTV_COLOR_BORDER)}
                       onClick={() => exportCampaign(selectedId)}
                     >
                       Export analytics
@@ -439,7 +494,7 @@ export default memo(function AffiliateCampaignGrowthHub(props: { range: RangeKey
                     <button
                       type="button"
                       disabled={busy}
-                      className="rounded-lg border border-[#E2E8F0] px-2 py-1 text-xs font-semibold"
+                      className={clsx("rounded-lg border px-2 py-1 text-xs font-semibold", CTV_COLOR_BORDER)}
                       onClick={() => void onDuplicate(selectedId)}
                     >
                       Nhân bản
@@ -457,7 +512,7 @@ export default memo(function AffiliateCampaignGrowthHub(props: { range: RangeKey
                 {detail.loading && !detail.data ? (
                   <div className="mt-3 h-32 animate-pulse rounded-xl bg-[#F1F5F9]" />
                 ) : detail.data ? (
-                  <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className={CTV_CAMPAIGN_INLINE_GRID}>
                     <Metric label="Click" v={String(detail.data.summary.clicks)} />
                     <Metric label="Visitor" v={String(detail.data.summary.visitors)} />
                     <Metric label="Đơn" v={String(detail.data.summary.orders)} />
@@ -467,11 +522,11 @@ export default memo(function AffiliateCampaignGrowthHub(props: { range: RangeKey
                     <Metric label="EPC" v={fmtVnd(detail.data.summary.epc)} />
                   </div>
                 ) : null}
-              </div>
+              </section>
 
-              <div className="grid w-full min-w-0 gap-3 lg:grid-cols-[repeat(auto-fit,minmax(20rem,1fr))]">
-                <div className={CTV_CARD_COMPACT}>
-                  <h4 className="text-xs font-semibold uppercase text-[#64748B]">Timeline &amp; trend</h4>
+              <div className={CTV_CAMPAIGN_CHART_GRID}>
+                <section className={CTV_CAMPAIGN_SECTION}>
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Timeline &amp; trend</h4>
                   {chartBuckets.length ? (
                     <div className="mt-2">
                       <AffiliateAnalyticsBarChartLazy buckets={chartBuckets} />
@@ -480,24 +535,26 @@ export default memo(function AffiliateCampaignGrowthHub(props: { range: RangeKey
                     <p className="mt-2 text-sm text-[#64748B]">Chưa đủ dữ liệu timeline.</p>
                   )}
                   <p className="mt-2 text-[11px] text-[#64748B]">Conversion trend theo ngày (đơ/click trong bucket).</p>
-                </div>
-                <div className={CTV_CARD_COMPACT}>
-                  <h4 className="text-xs font-semibold uppercase text-[#64748B]">Funnel (theo link campaign)</h4>
+                </section>
+                <section className={CTV_CAMPAIGN_SECTION}>
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Funnel (theo link campaign)</h4>
                   <AffiliateConversionFunnelVisual
                     loading={detail.loading}
                     steps={detail.data?.funnel?.steps ?? []}
                     variant="compact"
                   />
-                </div>
+                </section>
               </div>
 
-              <div className={CTV_CARD_COMPACT}>
-                <h4 className="text-sm font-semibold text-[#0F172A]">Link ngắn trong campaign</h4>
+              <section className={CTV_CAMPAIGN_SECTION}>
+                <h4 className={CTV_CAMPAIGN_SECTION_TITLE}>Link ngắn trong campaign</h4>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <input
+                    id="affiliate-campaign-quick-target"
+                    name="quickTarget"
                     value={quickTarget}
                     onChange={(e) => setQuickTarget(e.target.value)}
-                    className="min-w-[12rem] flex-1 rounded-lg border border-[#E2E8F0] px-2 py-2 text-sm"
+                    className={clsx("min-w-[12rem] flex-1 rounded-lg border px-2 py-2 text-sm", CTV_COLOR_BORDER)}
                     placeholder="/deal-hot hoặc URL path"
                   />
                   <button
@@ -512,7 +569,9 @@ export default memo(function AffiliateCampaignGrowthHub(props: { range: RangeKey
                 {detail.data?.trackingLinks?.length ? (
                   <div className="mt-3 space-y-3">
                     <select
-                      className="w-full rounded-lg border border-[#E2E8F0] px-2 py-2 text-sm"
+                      id="affiliate-campaign-pick-link-id"
+                      name="pickLinkId"
+                      className={clsx("w-full rounded-lg border px-2 py-2 text-sm", CTV_COLOR_BORDER)}
                       value={pickLinkId ?? ""}
                       onChange={(e) => setPickLinkId(e.target.value || null)}
                     >
@@ -539,17 +598,17 @@ export default memo(function AffiliateCampaignGrowthHub(props: { range: RangeKey
                 ) : (
                   <p className="mt-2 text-sm text-[#64748B]">Chưa có link. Thêm link ngắn gắn campaign này.</p>
                 )}
-              </div>
+              </section>
             </div>
           ) : null}
         </div>
       ) : null}
 
       {sub === "landing" ? (
-        <div className={CTV_CARD_SOFT}>
+        <section className={CTV_CAMPAIGN_SECTION}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#EFF6FF]0/10 text-[#2563EB]">
+              <span className={clsx("flex h-8 w-8 items-center justify-center rounded-lg text-[#2563EB]", CTV_COLOR_ACCENT_SURFACE, "bg-blue-50/10")}>
                 <Globe2 className="h-4 w-4" strokeWidth={1.75} aria-hidden />
               </span>
               <div>
@@ -574,7 +633,7 @@ export default memo(function AffiliateCampaignGrowthHub(props: { range: RangeKey
                 {landing.data.rows.slice(0, 14).map((r) => (
                   <div
                     key={r.pathname}
-                    className={`${CTV_CARD_COMPACT} min-w-[220px] max-w-[85vw] shrink-0 snap-start`}
+                    className={CTV_CAMPAIGN_LANDING_CARD}
                   >
                     <p className="line-clamp-2 text-xs font-bold text-[#0F172A]">{r.pathname}</p>
                     <div className="mt-2 grid grid-cols-2 gap-x-2 gap-y-1 text-[10px] text-[#64748B]">
@@ -625,11 +684,11 @@ export default memo(function AffiliateCampaignGrowthHub(props: { range: RangeKey
               />
             </div>
           )}
-        </div>
+        </section>
       ) : null}
 
       {sub === "insights" ? (
-        <div className={CTV_CARD_SOFT}>
+        <section className={CTV_CAMPAIGN_SECTION}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600">
@@ -682,14 +741,7 @@ export default memo(function AffiliateCampaignGrowthHub(props: { range: RangeKey
               return anyHot ? (
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
                   {cards.map((c) => (
-                    <div
-                      key={c.title}
-                      className={`rounded-xl border px-3 py-2.5 transition ${
-                        c.hot
-                          ? "border-emerald-200/90 bg-emerald-50/50 shadow-sm"
-                          : "border-[#F1F5F9] bg-white/80 text-[#64748B]"
-                      }`}
-                    >
+                    <div key={c.title} className={c.hot ? CTV_CAMPAIGN_INSIGHT_TILE_HOT : CTV_CAMPAIGN_INSIGHT_TILE_IDLE}>
                       <p className="text-[10px] font-bold uppercase tracking-wide text-[#64748B]">{c.title}</p>
                       <p className="mt-1 line-clamp-2 text-sm font-bold text-[#0F172A]">{c.value}</p>
                       <p className="mt-0.5 text-[10px] text-[#64748B]">{c.hint}</p>
@@ -716,23 +768,22 @@ export default memo(function AffiliateCampaignGrowthHub(props: { range: RangeKey
           ) : (
             <p className="mt-2 text-sm text-[#64748B]">Chưa tải được insights.</p>
           )}
-        </div>
+        </section>
       ) : null}
 
       {sub === "templates" ? (
-        <div className={CTV_CARD_COMPACT}>
-          <h3 className="text-sm font-semibold text-[#0F172A]">Caption &amp; CTA — copy nhanh</h3>
-          <p className="mt-1 text-xs text-[#64748B]">Lưu trên trình duyệt của bạn (local).</p>
+        <section className={CTV_CAMPAIGN_SECTION}>
+          <h3 className={CTV_CAMPAIGN_SECTION_TITLE}>Caption &amp; CTA — copy nhanh</h3>
+          <p className={CTV_CAMPAIGN_SECTION_HINT}>Lưu trên trình duyệt của bạn (local).</p>
           <ul className="mt-3 space-y-2">
             {snippets.map((s) => (
-              <li key={s.id} className="flex flex-wrap items-start gap-2 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-2">
+              <li key={s.id} className={CTV_CAMPAIGN_SNIPPET_ROW}>
                 <p className="min-w-0 flex-1 text-sm text-[#0F172A]">{s.text}</p>
                 <button
                   type="button"
                   className={clsx(AFFILIATE_ANALYTICS_TOOLBAR_BTN_PRIMARY, "shrink-0 rounded-lg px-2 py-1 text-xs")}
                   onClick={() => {
-                    copyText(s.text, "snippet");
-                    creatorLog({ action: "copy_snippet" });
+                    copyText(s.text);
                   }}
                 >
                   Copy
@@ -749,7 +800,7 @@ export default memo(function AffiliateCampaignGrowthHub(props: { range: RangeKey
           </ul>
           <button
             type="button"
-            className="mt-3 rounded-lg border border-[#E2E8F0] px-3 py-1.5 text-xs font-semibold"
+            className={clsx("mt-3 rounded-lg border px-3 py-1.5 text-xs font-semibold", CTV_COLOR_BORDER)}
             onClick={() => {
               const text = window.prompt("Nội dung mẫu mới?");
               if (!text?.trim()) return;
@@ -758,20 +809,22 @@ export default memo(function AffiliateCampaignGrowthHub(props: { range: RangeKey
           >
             Thêm mẫu
           </button>
-        </div>
+        </section>
       ) : null}
 
       {sub === "assets" ? (
-        <div className={CTV_CARD_COMPACT}>
-          <h3 className="text-sm font-semibold text-[#0F172A]">Kho ảnh / banner</h3>
+        <section className={CTV_CAMPAIGN_PANEL} aria-labelledby="ctv-campaign-assets-heading">
+          <h3 id="ctv-campaign-assets-heading" className={CTV_CAMPAIGN_SECTION_TITLE}>
+            Kho ảnh / banner
+          </h3>
           {assets.loading && !assets.data ? (
             <div className="mt-3 h-40 animate-pulse rounded-xl bg-[#F1F5F9]" />
           ) : assets.data?.items?.length ? (
             <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
               {assets.data.items.map((it) => (
-                <div key={it.id} className="rounded-xl border border-[#E2E8F0] p-2">
+                <div key={it.id} className={CTV_CAMPAIGN_ASSET_TILE}>
                   {it.previewUrl.startsWith("https://") ? (
-                    <div className="relative h-24 w-full overflow-hidden rounded-lg bg-[#F1F5F9]">
+                    <div className="relative h-24 w-full overflow-hidden rounded-lg bg-slate-100 ring-1 ring-slate-200/70">
                       <Image
                         src={it.previewUrl}
                         alt=""
@@ -797,8 +850,8 @@ export default memo(function AffiliateCampaignGrowthHub(props: { range: RangeKey
                     </a>
                     <button
                       type="button"
-                      className="rounded bg-[#EFF6FF] px-2 py-0.5 text-[10px] font-semibold text-[#2563EB]"
-                      onClick={() => copyText(it.url, "asset_url")}
+                      className={clsx("rounded px-2 py-0.5 text-[10px] font-semibold text-[#2563EB]", CTV_COLOR_ACCENT_SURFACE)}
+                      onClick={() => copyText(it.url)}
                     >
                       Copy URL
                     </button>
@@ -809,7 +862,7 @@ export default memo(function AffiliateCampaignGrowthHub(props: { range: RangeKey
           ) : (
             <p className="mt-2 text-sm text-[#64748B]">Chưa có tài nguyên.</p>
           )}
-        </div>
+        </section>
       ) : null}
     </div>
   );
@@ -817,9 +870,9 @@ export default memo(function AffiliateCampaignGrowthHub(props: { range: RangeKey
 
 function Metric(props: { label: string; v: string }): JSX.Element {
   return (
-    <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-2">
+    <div className={CTV_CAMPAIGN_METRIC}>
       <p className="text-[10px] font-semibold uppercase text-[#64748B]">{props.label}</p>
-      <p className="mt-0.5 text-sm font-bold tabular-nums text-[#0F172A]">{props.v}</p>
+      <CtvFormattedValue value={props.v} variant="money" className="mt-0.5" />
     </div>
   );
 }

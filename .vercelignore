@@ -1,0 +1,13 @@
+.next
+.cursor
+.artifacts
+.cleanup-backup*
+node_modules
+*.log
+.vscode
+.git
+coverage
+dist
+tmp
+temp
+.cache

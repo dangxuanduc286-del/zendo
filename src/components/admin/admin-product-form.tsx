@@ -11,6 +11,7 @@ import {
   type ProductAdminDto,
   type ProductFormValues,
 } from "../../lib/admin-product";
+import { getShippingRateRange, SHIPPING_CLASS_OPTIONS } from "../../lib/shipping";
 import { REVIEW_STATUS_LABELS, REVIEW_STATUS_OPTIONS } from "../../lib/admin-review";
 import { slugify } from "../../lib/slug";
 import MediaImage from "../shared/media-image";
@@ -65,6 +66,7 @@ const DEFAULT_VALUES: ProductFormValues = {
   shortDescription: "",
   description: "",
   warrantyInfo: "",
+  shippingClass: "LIGHT",
   colors: [],
   rememberWarrantyAsDefault: false,
   basePrice: 0,
@@ -173,6 +175,7 @@ export default function AdminProductForm({
   const warrantyInfo = watch("warrantyInfo");
   const basePrice = watch("basePrice");
   const salePrice = watch("salePrice");
+  const shippingClass = watch("shippingClass") ?? "LIGHT";
 
   useEffect(() => {
     register("colors");
@@ -258,6 +261,8 @@ export default function AdminProductForm({
     if (!basePrice || !salePrice || basePrice <= 0 || salePrice <= 0 || salePrice >= basePrice) return 0;
     return Math.round(((basePrice - salePrice) / basePrice) * 100);
   }, [basePrice, salePrice]);
+  const selectedShippingClass = SHIPPING_CLASS_OPTIONS.find((option) => option.value === shippingClass) ?? SHIPPING_CLASS_OPTIONS[0];
+  const selectedShippingRange = getShippingRateRange(selectedShippingClass.value);
 
   const addColor = () => {
     const next = colorInput.trim();
@@ -828,6 +833,66 @@ export default function AdminProductForm({
           </label>
         </div>
         {discountPercent > 0 ? <p className="mt-2 text-sm font-semibold text-emerald-700">Giảm giá: {discountPercent}%</p> : null}
+      </section>
+
+      <section className="rounded-2xl border border-[#E2E8F0] bg-white p-4 sm:p-5">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-base font-semibold text-zinc-900">Thông tin vận chuyển</h2>
+          <p className="text-sm text-zinc-600">
+            Chọn hạng vận chuyển để hệ thống ước tính phí từ kho Hà Nội. Dữ liệu này lưu trong thông số sản phẩm, không đổi schema.
+          </p>
+        </div>
+        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+          {SHIPPING_CLASS_OPTIONS.map((option) => (
+            <label
+              key={option.value}
+              className={`cursor-pointer rounded-xl border p-3 transition ${
+                shippingClass === option.value ? "border-[#2563EB] bg-blue-50" : "border-zinc-200 bg-white hover:border-zinc-300"
+              }`}
+            >
+              <input
+                type="radio"
+                value={option.value}
+                {...register("shippingClass")}
+                className="sr-only"
+              />
+              <span className="flex items-start gap-2">
+                <span
+                  className={`mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
+                    shippingClass === option.value ? "border-[#2563EB] bg-[#2563EB]" : "border-zinc-300 bg-white"
+                  }`}
+                  aria-hidden
+                >
+                  {shippingClass === option.value ? <span className="h-1.5 w-1.5 rounded-full bg-white" /> : null}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-bold text-zinc-900">{option.label}</span>
+                  <span className="mt-1 block text-xs font-medium text-zinc-600">{option.description}</span>
+                  <span className="mt-0.5 block text-xs text-zinc-500">{option.examples}</span>
+                </span>
+              </span>
+            </label>
+          ))}
+        </div>
+        <div className="mt-4 rounded-xl border border-dashed border-zinc-200 bg-zinc-50 p-3">
+          <p className="text-sm font-bold text-zinc-900">Ước tính phí vận chuyển từ kho Hà Nội</p>
+          <div className="mt-2 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
+            {SHIPPING_CLASS_OPTIONS.map((option) => {
+              const range = getShippingRateRange(option.value);
+              return (
+                <div key={option.value} className="flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2">
+                  <span className="font-medium text-zinc-700">{option.label.split(" (")[0]}</span>
+                  <span className="font-bold text-zinc-950">
+                    {formatCurrency(range.min)} - {formatCurrency(range.max)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          <p className="mt-2 text-xs font-medium text-zinc-500">
+            Hạng đang chọn: {selectedShippingClass.label} · {formatCurrency(selectedShippingRange.min)} - {formatCurrency(selectedShippingRange.max)}
+          </p>
+        </div>
       </section>
 
       <section className="rounded-2xl border border-[#E2E8F0] bg-white p-4 sm:p-5">

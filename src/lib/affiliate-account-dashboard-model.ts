@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import type { CustomerAccountSettings } from "./settings";
 import { useAffiliateDashboardApi } from "../components/storefront/use-affiliate-dashboard-api";
+import { useCtvAffiliateMetrics } from "./ctv/use-ctv-affiliate-metrics";
+import { conversionPercentFromAnalyticsOverview } from "./ctv/ctv-conversion-month-kpi";
 
 export type AffiliateSubTab =
   | "overview"
@@ -11,6 +13,7 @@ export type AffiliateSubTab =
   | "withdrawal"
   | "links"
   | "revenueRewards"
+  | "history"
   | "guide";
 
 export const AFFILIATE_DASH_SUB_TAB_KEYS = new Set<string>([
@@ -20,6 +23,7 @@ export const AFFILIATE_DASH_SUB_TAB_KEYS = new Set<string>([
   "withdrawal",
   "links",
   "revenueRewards",
+  "history",
   "guide",
 ]);
 
@@ -67,6 +71,11 @@ export function buildAffiliateReferralUrl(
 export function useAffiliateAccountDashboardModel(
   accountSettings: CustomerAccountSettings,
   data: AffiliateAccountDashboardSource,
+  options?: {
+    dashboardEnabled?: boolean;
+    metricsEnabled?: boolean;
+    runDashboardLifecycle?: boolean;
+  },
 ) {
   const [runtimeOrigin, setRuntimeOrigin] = useState("");
   useEffect(() => {
@@ -76,11 +85,15 @@ export function useAffiliateAccountDashboardModel(
   }, []);
   const referralUrl = useMemo(() => buildAffiliateReferralUrl(data, runtimeOrigin), [data, runtimeOrigin]);
 
-  const affDash = useAffiliateDashboardApi(Boolean(data.affiliate.hasProfile));
+  const affDash = useAffiliateDashboardApi(Boolean(data.affiliate.hasProfile && (options?.dashboardEnabled ?? true)), {
+    runLifecycle: options?.runDashboardLifecycle ?? true,
+  });
+  const ctvMetrics = useCtvAffiliateMetrics(
+    Boolean(data.affiliate.hasProfile && data.affiliate.isActive && (options?.metricsEnabled ?? true)),
+  );
   const s = affDash.data?.summary;
-  const approvedCommission = affDash.data?.summary
-    ? (affDash.data.summary.commissionApprovedPool ??
-        (affDash.data.summary.commissionAvailable ?? 0) + (affDash.data.summary.revenueRewardWalletBalance ?? 0))
+  const approvedCommission = s
+    ? (s.commissionApprovedPool ?? (s.commissionAvailable ?? 0) + (s.revenueRewardWalletBalance ?? 0))
     : data.stats.affiliateCommission;
   const pendingCommission = s?.commissionPending ?? 0;
   const waitingReleaseCommission = s?.commissionWaitingRelease ?? 0;
@@ -90,19 +103,18 @@ export function useAffiliateAccountDashboardModel(
   const totalClicksUi = s?.totalClicks ?? data.affiliate.totalClicks;
   const referredOrdersUi = s?.referredOrdersCount ?? data.affiliate.referredOrders;
   const withdrawableBalanceUi = s?.withdrawableBalance ?? 0;
-  const conversionRate =
-    s?.conversionRatePercent ??
-    (data.affiliate.totalClicks > 0
-      ? Math.round((data.affiliate.referredOrders / data.affiliate.totalClicks) * 1000) / 10
-      : 0);
+  const conversionRatePending = ctvMetrics.loading && !ctvMetrics.monthOverview;
+  const conversionRate = conversionPercentFromAnalyticsOverview(ctvMetrics.monthOverview, {
+    pending: conversionRatePending,
+  });
 
-  const isAffiliateDataEmpty = affDash.data
-    ? affDash.data.summary.referredOrdersCount === 0 &&
-      affDash.data.summary.totalClicks === 0 &&
-      affDash.data.summary.commissionPending === 0 &&
-      affDash.data.summary.commissionWaitingRelease === 0 &&
-      affDash.data.summary.commissionAvailable === 0 &&
-      affDash.data.summary.referralRevenue === 0 &&
+  const isAffiliateDataEmpty = s
+    ? s.referredOrdersCount === 0 &&
+      s.totalClicks === 0 &&
+      s.commissionPending === 0 &&
+      s.commissionWaitingRelease === 0 &&
+      s.commissionAvailable === 0 &&
+      s.referralRevenue === 0 &&
       data.stats.rewardPoints === 0
     : data.affiliate.totalClicks === 0 &&
       data.affiliate.referredOrders === 0 &&
@@ -116,6 +128,7 @@ export function useAffiliateAccountDashboardModel(
     { key: "earnings", label: "Hoa hồng" },
     { key: "withdrawal", label: "Rút tiền" },
     { key: "revenueRewards", label: "Thưởng doanh thu" },
+    { key: "history", label: "Lịch sử" },
     { key: "guide", label: "Hướng dẫn" },
   ].filter((row): row is { key: AffiliateSubTab; label: string } => {
     if (!data.affiliate.isActive) return true;

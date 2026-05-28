@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CTV metric typography stress</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      .ctv-value {
+        display: block;
+        min-width: 0;
+        max-width: 100%;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -0.025em;
+        white-space: nowrap;
+        line-height: 1;
+        font-weight: 700;
+        color: #0f172a;
+        font-size: clamp(0.6875rem, calc(0.3rem + 5cqw), 1.25rem);
+      }
+      .ctv-value-len-md {
+        font-size: clamp(0.625rem, calc(0.26rem + 4.25cqw), 1.0625rem) !important;
+      }
+      .ctv-value-len-lg {
+        font-size: clamp(0.5625rem, calc(0.22rem + 3.75cqw), 0.9375rem) !important;
+      }
+      .ctv-value-len-xl {
+        font-size: clamp(0.5rem, calc(0.18rem + 3.25cqw), 0.8125rem) !important;
+      }
+      [data-testid="ctv-money-card"] {
+        container-type: inline-size;
+        container-name: metric;
+      }
+    </style>
+  </head>
+  <body class="bg-slate-100 p-6">
+    <h1 class="mb-2 text-lg font-bold text-slate-900">CTV money stress (Playwright)</h1>
+    <p class="mb-6 text-sm text-slate-600" id="viewport-label"></p>
+    <div
+      id="grid"
+      class="grid w-full max-w-6xl min-w-0 auto-rows-fr grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6"
+      data-testid="ctv-money-stress-grid"
+    >
+      <!-- filled by script -->
+    </div>
+    <script>
+      const amounts = ["999đ", "99.999đ", "999.999đ", "9.999.999đ", "99.999.999đ", "999.999.999đ"];
+      const lenClass = (s) => {
+        const n = s.replace(/\s/g, "").length;
+        if (n >= 15) return "ctv-value-len-xl";
+        if (n >= 12) return "ctv-value-len-lg";
+        if (n >= 10) return "ctv-value-len-md";
+        return "";
+      };
+      const grid = document.getElementById("grid");
+      amounts.forEach((v) => {
+        const card = document.createElement("article");
+        card.className =
+          "flex min-h-[5.5rem] min-w-0 flex-col justify-between overflow-hidden rounded-[18px] border border-slate-200/75 bg-white p-3 shadow-sm";
+        card.setAttribute("data-testid", "ctv-money-card");
+        card.innerHTML = `<p class="text-[13px] font-medium text-slate-600">Doanh thu</p><span class="ctv-value mt-auto ${lenClass(v)}" data-value="${v}">${v}</span>`;
+        grid.appendChild(card);
+      });
+      const label = () => {
+        document.getElementById("viewport-label").textContent =
+          `viewport ${window.innerWidth}×${window.innerHeight} · zoom ${Math.round(window.devicePixelRatio * 100)}%`;
+      };
+      label();
+      window.addEventListener("resize", label);
+    </script>
+  </body>
+</html>

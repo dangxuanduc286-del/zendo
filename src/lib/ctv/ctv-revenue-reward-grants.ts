@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { fetchCtvMembershipTiersFromDb } from "./ctv-membership-tier-repository";
 import { isCtvRevenueRewardAchieved } from "./ctv-membership-tier-logic";
 import type { CtvMembershipTierRecord } from "./ctv-membership-tier-types";
-import { notifyCtvRevenueRewardGranted } from "./ctv-revenue-reward-notifications";
+import { isCtvLifecycleProfiling, profileCtvLifecycleStep } from "./ctv-lifecycle-profile-stats";
 
 type Tx = Omit<
   Prisma.TransactionClient,
@@ -247,29 +247,60 @@ export async function fetchGrantedCtvTierIds(affiliateProfileId: string): Promis
 export async function syncCtvRevenueRewardGrants(
   affiliateProfileId: string,
   totalRevenue30d: number,
-): Promise<{ created: number; skipped: number }> {
-  const tiers = await fetchCtvMembershipTiersFromDb(true);
+  tiersPrefetched?: readonly CtvMembershipTierRecord[],
+): Promise<{ created: number; skipped: number; paidRewardSum: number }> {
+  const tiers = tiersPrefetched ?? (await fetchCtvMembershipTiersFromDb(true));
   let created = 0;
   let skipped = 0;
+  const revenue = money(totalRevenue30d);
+
+  const loadGrantStatus = () =>
+    db.ctvRevenueRewardGrant.findMany({
+      where: { affiliateProfileId },
+      select: { tierId: true, paidAt: true, rewardAmount: true },
+    });
+  const existingGrants = isCtvLifecycleProfiling()
+    ? await profileCtvLifecycleStep("grantStatusPrefetch", loadGrantStatus)
+    : await loadGrantStatus();
+  const paidTierIds = new Set(existingGrants.filter((g) => g.paidAt != null).map((g) => g.tierId));
+  let paidRewardSum = existingGrants
+    .filter((g) => g.paidAt != null)
+    .reduce((sum, g) => sum + money(g.rewardAmount), 0);
 
   for (const tier of tiers) {
-    const result = await payCtvRevenueRewardForTier(affiliateProfileId, tier, totalRevenue30d);
+    if (!isCtvRevenueRewardAchieved(revenue, tier) || money(tier.rewardAmount) <= 0) {
+      skipped += 1;
+      continue;
+    }
+    if (paidTierIds.has(tier.id)) {
+      skipped += 1;
+      continue;
+    }
+
+    const pay = () => payCtvRevenueRewardForTier(affiliateProfileId, tier, totalRevenue30d);
+    const result = isCtvLifecycleProfiling()
+      ? await profileCtvLifecycleStep(`grantPayout:${tier.code}`, pay)
+      : await pay();
     if (result === "paid") {
       created += 1;
-      await notifyCtvRevenueRewardGranted({
-        affiliateProfileId,
-        tierId: tier.id,
-        tierName: tier.name,
-        rewardAmount: money(tier.rewardAmount),
-      }).catch((err) => {
-        console.error("[ctv-revenue-reward] notification", err);
-      });
+      paidRewardSum += money(tier.rewardAmount);
+      if (!isCtvLifecycleProfiling()) {
+        const { notifyCtvRevenueRewardGranted } = await import("./ctv-revenue-reward-notifications");
+        await notifyCtvRevenueRewardGranted({
+          affiliateProfileId,
+          tierId: tier.id,
+          tierName: tier.name,
+          rewardAmount: money(tier.rewardAmount),
+        }).catch((err) => {
+          console.error("[ctv-revenue-reward] notification", err);
+        });
+      }
     } else {
       skipped += 1;
     }
   }
 
-  return { created, skipped };
+  return { created, skipped, paidRewardSum };
 }
 
 /** Tổng thưởng doanh thu đã cộng ví (chỉ grant có paidAt). */

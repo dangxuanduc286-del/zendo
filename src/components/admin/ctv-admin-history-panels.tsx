@@ -24,6 +24,8 @@ export function CtvTierHistoryAdminPanel({
   tierId,
   from,
   to,
+  historyTab = "lich-su",
+  historyHist = "TIER",
 }: {
   rows: CtvTierHistoryRow[];
   total: number;
@@ -32,6 +34,8 @@ export function CtvTierHistoryAdminPanel({
   tierId: string;
   from: string;
   to: string;
+  historyTab?: string;
+  historyHist?: string;
 }): JSX.Element {
   const qs = new URLSearchParams();
   if (query) qs.set("th_q", query);
@@ -44,7 +48,8 @@ export function CtvTierHistoryAdminPanel({
     <AdminHistoryShell
       title="Lịch sử lên / xuống hạng"
       description="CtvTierHistory — mỗi lần đổi cấp ghi một bản ghi."
-      tab="lich-su-cap"
+      tab={historyTab}
+      hist={historyHist}
       exportHref={exportHref}
       total={total}
       rowsShown={rows.length}
@@ -92,24 +97,33 @@ export function CtvRewardTransactionsAdminPanel({
   query,
   from,
   to,
+  tab = "giao-dich-thuong",
+  paymentSection,
 }: {
   rows: CtvRewardTransactionRow[];
   total: number;
   query: string;
   from: string;
   to: string;
+  tab?: string;
+  paymentSection?: string;
 }): JSX.Element {
   const qs = new URLSearchParams();
   if (query) qs.set("tx_q", query);
   if (from) qs.set("tx_from", from);
   if (to) qs.set("tx_to", to);
   const exportHref = `/api/admin/ctv-reward-transactions/export${qs.toString() ? `?${qs}` : ""}`;
+  const resetHref = paymentSection
+    ? `/admin/collaborators?tab=${tab}&payment_section=${paymentSection}`
+    : `/admin/collaborators?tab=${tab}`;
 
   return (
     <AdminHistoryShell
       title="Giao dịch ví thưởng doanh thu"
       description="CtvRevenueRewardTransaction — mỗi lần cộng ví một transaction."
-      tab="giao-dich-thuong"
+      tab={tab}
+      paymentSection={paymentSection}
+      resetHref={resetHref}
       exportHref={exportHref}
       total={total}
       rowsShown={rows.length}
@@ -156,6 +170,8 @@ export function CtvNotificationsAdminPanel({
   type,
   from,
   to,
+  historyTab = "lich-su",
+  historyHist = "NOTIFICATION",
 }: {
   rows: CtvNotificationRow[];
   total: number;
@@ -163,6 +179,8 @@ export function CtvNotificationsAdminPanel({
   type: string;
   from: string;
   to: string;
+  historyTab?: string;
+  historyHist?: string;
 }): JSX.Element {
   const qs = new URLSearchParams();
   if (query) qs.set("nt_q", query);
@@ -175,7 +193,8 @@ export function CtvNotificationsAdminPanel({
     <AdminHistoryShell
       title="Thông báo CTV"
       description="Thông báo thưởng doanh thu và thay đổi cấp bậc (dedupe theo tier / sự kiện)."
-      tab="thong-bao-ctv"
+      tab={historyTab}
+      hist={historyHist}
       exportHref={exportHref}
       total={total}
       rowsShown={rows.length}
@@ -229,6 +248,9 @@ function AdminHistoryShell({
   title,
   description,
   tab,
+  hist,
+  paymentSection,
+  resetHref,
   exportHref,
   total,
   rowsShown,
@@ -238,12 +260,16 @@ function AdminHistoryShell({
   title: string;
   description: string;
   tab: string;
+  hist?: string;
+  paymentSection?: string;
+  resetHref?: string;
   exportHref: string;
   total: number;
   rowsShown: number;
   filters: ReactNode;
   children: ReactNode;
 }): JSX.Element {
+  const defaultResetHref = hist ? `/admin/collaborators?tab=${tab}&hist=${hist}` : `/admin/collaborators?tab=${tab}`;
   return (
     <section className="space-y-4 rounded-2xl border border-[#E2E8F0] bg-white p-4 sm:p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -259,13 +285,15 @@ function AdminHistoryShell({
         </a>
       </div>
       <form className="grid grid-cols-1 gap-3 lg:grid-cols-12" action="/admin/collaborators" method="GET">
-        <input type="hidden" name="tab" value={tab} />
+        <input id={`admin-history-${tab}-tab`} type="hidden" name="tab" value={tab} />
+        {hist ? <input id={`admin-history-${tab}-${hist}-hist`} type="hidden" name="hist" value={hist} /> : null}
+        {paymentSection ? <input id={`admin-history-${tab}-${paymentSection}-payment-section`} type="hidden" name="payment_section" value={paymentSection} /> : null}
         {filters}
         <div className="flex items-end gap-2 lg:col-span-12">
           <button type="submit" className="inline-flex h-10 items-center rounded-2xl bg-[#0F172A] px-4 text-sm font-semibold text-white">
             Lọc
           </button>
-          <Link href={`/admin/collaborators?tab=${tab}`} className="inline-flex h-10 items-center rounded-2xl border px-4 text-sm font-semibold">
+          <Link href={resetHref ?? defaultResetHref} className="inline-flex h-10 items-center rounded-2xl border px-4 text-sm font-semibold">
             Đặt lại
           </Link>
         </div>
@@ -294,6 +322,7 @@ function FilterField({
     <label className="space-y-1 lg:col-span-3">
       <span className="text-xs font-medium text-[#64748B]">{label}</span>
       <input
+        id={`admin-history-${name}`}
         name={name}
         defaultValue={defaultValue}
         placeholder={placeholder}
@@ -308,6 +337,7 @@ function FilterDate({ name, label, defaultValue }: { name: string; label: string
     <label className="space-y-1 lg:col-span-2">
       <span className="text-xs font-medium text-[#64748B]">{label}</span>
       <input
+        id={`admin-history-${name}`}
         type="date"
         name={name}
         defaultValue={defaultValue}
@@ -332,6 +362,7 @@ function FilterSelect({
     <label className="space-y-1 lg:col-span-2">
       <span className="text-xs font-medium text-[#64748B]">{label}</span>
       <select
+        id={`admin-history-${name}`}
         name={name}
         defaultValue={defaultValue}
         className="w-full rounded-2xl border border-[#E2E8F0] px-3 py-2 text-sm outline-none focus:border-[#2563EB]"

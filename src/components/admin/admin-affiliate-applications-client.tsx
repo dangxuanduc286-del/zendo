@@ -91,6 +91,7 @@ export function AdminAffiliateApplicationsClient(props: Props): JSX.Element {
         <label className="space-y-1.5">
           <span className={adminLabel}>Trạng thái</span>
           <select
+            id="admin-affiliate-applications-status"
             name="status"
             defaultValue={statusFilter}
             className={`${adminSelect} h-11 min-h-[2.75rem] min-w-[200px] rounded-2xl`}
@@ -273,12 +274,14 @@ export function AdminAffiliateApplicationsClient(props: Props): JSX.Element {
                   >
                     <p className="text-xs font-semibold text-emerald-900">Duyệt CTV</p>
                     <textarea
+                      id={`admin-affiliate-application-${selected.id}-approve-note`}
                       name="adminNote"
                       rows={2}
                       placeholder="Ghi chú gửi kèm (tùy chọn)"
                       className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-xs text-slate-900 outline-none focus:border-sky-500"
                     />
                     <textarea
+                      id={`admin-affiliate-application-${selected.id}-approve-internal-note`}
                       name="internalQuickNote"
                       rows={2}
                       placeholder="Ghi chú nội bộ — khách không thấy (tùy chọn)"
@@ -299,12 +302,14 @@ export function AdminAffiliateApplicationsClient(props: Props): JSX.Element {
                   >
                     <p className="text-xs font-semibold text-rose-900">Từ chối</p>
                     <textarea
+                      id={`admin-affiliate-application-${selected.id}-reject-note`}
                       name="adminNote"
                       rows={3}
                       placeholder="Lý do từ chối (khách sẽ thấy trong thông báo)"
                       className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-xs text-slate-900 outline-none focus:border-sky-500"
                     />
                     <textarea
+                      id={`admin-affiliate-application-${selected.id}-reject-internal-note`}
                       name="internalQuickNote"
                       rows={2}
                       placeholder="Ghi chú nội bộ — khách không thấy (tùy chọn)"

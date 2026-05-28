@@ -2,10 +2,20 @@ import type { CustomerAccountNotificationCategory } from "@prisma/client";
 import { publishCustomerAccountNotification, sanitizeCustomerNotificationText } from "@/lib/customer-account-notifications";
 
 export const AFFILIATE_PAYOUT_NOTIFICATION_HREF = "/tai-khoan?tab=affiliate&sub=withdrawal#affiliate-payout-account";
+export const AFFILIATE_WITHDRAWAL_NOTIFICATION_HREF = "/tai-khoan?tab=affiliate&sub=withdrawal";
 
 const COMMISSION: CustomerAccountNotificationCategory = "COMMISSION";
 
 const payoutMeta = (): Record<string, unknown> => ({ type: "AFFILIATE_PAYOUT_FLOW" });
+const withdrawalMeta = (status: string, amountVnd: number): Record<string, unknown> => ({
+  type: "AFFILIATE_WITHDRAWAL_FLOW",
+  status,
+  amountVnd,
+});
+
+function formatVnd(amountVnd: number): string {
+  return `${new Intl.NumberFormat("vi-VN").format(Math.max(0, Math.round(amountVnd)))}₫`;
+}
 
 function bodyWithOptionalReason(base: string, rejectionReason?: string | null): string {
   const reason = sanitizeCustomerNotificationText(rejectionReason ?? "", 1200);
@@ -93,4 +103,67 @@ export async function publishAffiliatePayoutChangeRequestRejected(args: {
   });
 }
 
-/** Awaited variant for routes that already use try/finally (still non-throwing). */
+export async function publishAffiliateWithdrawalSubmitted(args: {
+  customerId: string;
+  withdrawalId: string;
+  amountVnd: number;
+}): Promise<void> {
+  await publishCustomerAccountNotification({
+    customerId: args.customerId,
+    category: COMMISSION,
+    dedupeKey: `aff_withdrawal_sub:${args.withdrawalId}`,
+    title: "Yêu cầu rút tiền",
+    body: `Yêu cầu rút ${formatVnd(args.amountVnd)} đã được gửi và đang chờ xử lý.`,
+    actionHref: AFFILIATE_WITHDRAWAL_NOTIFICATION_HREF,
+    metadata: withdrawalMeta("PENDING", args.amountVnd),
+  });
+}
+
+export async function publishAffiliateWithdrawalApproved(args: {
+  customerId: string;
+  withdrawalId: string;
+  amountVnd: number;
+}): Promise<void> {
+  await publishCustomerAccountNotification({
+    customerId: args.customerId,
+    category: COMMISSION,
+    dedupeKey: `aff_withdrawal_appr:${args.withdrawalId}`,
+    title: "Rút tiền đã được duyệt",
+    body: `Yêu cầu rút ${formatVnd(args.amountVnd)} đã được duyệt.`,
+    actionHref: AFFILIATE_WITHDRAWAL_NOTIFICATION_HREF,
+    metadata: withdrawalMeta("APPROVED", args.amountVnd),
+  });
+}
+
+export async function publishAffiliateWithdrawalPaid(args: {
+  customerId: string;
+  withdrawalId: string;
+  amountVnd: number;
+}): Promise<void> {
+  await publishCustomerAccountNotification({
+    customerId: args.customerId,
+    category: COMMISSION,
+    dedupeKey: `aff_withdrawal_paid:${args.withdrawalId}`,
+    title: "Rút tiền đã thanh toán",
+    body: `Yêu cầu rút ${formatVnd(args.amountVnd)} đã được thanh toán.`,
+    actionHref: AFFILIATE_WITHDRAWAL_NOTIFICATION_HREF,
+    metadata: withdrawalMeta("PAID", args.amountVnd),
+  });
+}
+
+export async function publishAffiliateWithdrawalRejected(args: {
+  customerId: string;
+  withdrawalId: string;
+  amountVnd: number;
+  rejectionReason?: string | null;
+}): Promise<void> {
+  await publishCustomerAccountNotification({
+    customerId: args.customerId,
+    category: COMMISSION,
+    dedupeKey: `aff_withdrawal_rej:${args.withdrawalId}`,
+    title: "Rút tiền bị từ chối",
+    body: bodyWithOptionalReason(`Yêu cầu rút ${formatVnd(args.amountVnd)} bị từ chối.`, args.rejectionReason),
+    actionHref: AFFILIATE_WITHDRAWAL_NOTIFICATION_HREF,
+    metadata: withdrawalMeta("REJECTED", args.amountVnd),
+  });
+}

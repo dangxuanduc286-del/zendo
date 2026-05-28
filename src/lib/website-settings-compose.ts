@@ -1,5 +1,6 @@
 import type { FooterTrustBanner, SocialLink } from "./settings";
 import { normalizeMediaUrl } from "./media-url";
+import { normalizeRoleSupportConfig } from "./support-contact-config";
 
 function toStr(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
@@ -315,6 +316,28 @@ function toCustomerAccountSettings(v: unknown): Record<string, unknown> {
     supportPhone: toStr(raw.supportPhone) || "1900 6868",
     supportZaloUrl: toStr(raw.supportZaloUrl),
     supportMessengerUrl: toStr(raw.supportMessengerUrl),
+    supportConfig: normalizeRoleSupportConfig(raw.supportConfig, {
+      guest: {
+        facebook: toStr(raw.supportMessengerUrl),
+        zalo: toStr(raw.supportZaloUrl),
+        hotline: toStr(raw.supportPhone) || "1900 6868",
+      },
+      customer: {
+        facebook: toStr(raw.supportMessengerUrl),
+        zalo: toStr(raw.supportZaloUrl),
+        hotline: toStr(raw.supportPhone) || "1900 6868",
+      },
+      collaborator: {
+        facebook: toStr(raw.supportMessengerUrl),
+        zalo: toStr(raw.supportZaloUrl),
+        hotline: toStr(raw.supportPhone) || "1900 6868",
+      },
+      admin: {
+        facebook: toStr(raw.supportMessengerUrl),
+        zalo: toStr(raw.supportZaloUrl),
+        hotline: toStr(raw.supportPhone) || "1900 6868",
+      },
+    }),
     returnPolicyUrl: toStr(raw.returnPolicyUrl) || "/chinh-sach-doi-tra",
     warrantyPolicyUrl: toStr(raw.warrantyPolicyUrl) || "/chinh-sach-bao-hanh",
     affiliateTitle: toStr(raw.affiliateTitle) || "Trung tâm CTV / Affiliate",
@@ -494,6 +517,12 @@ export function composeWebsiteDbPayload(
   const mapUrl = toStr(base.mapUrl);
   const taxCode = toStr(base.taxCode);
   const defaultProductWarranty = toStr(base.defaultProductWarranty);
+  const shippingPromoEnabled = toBool(base.shippingPromoEnabled, true);
+  const shippingPromoTier1Min = Math.max(0, toNum(base.shippingPromoTier1Min, 999000));
+  const shippingPromoTier1Discount = Math.max(0, toNum(base.shippingPromoTier1Discount, 30000));
+  const shippingPromoTier2Min = Math.max(0, toNum(base.shippingPromoTier2Min, 1499000));
+  const shippingPromoTier2Discount = Math.max(0, toNum(base.shippingPromoTier2Discount, 50000));
+  const shippingPromoFreeMin = Math.max(0, toNum(base.shippingPromoFreeMin, 2999000));
   const analyticsEnabled = toBool(base.analyticsEnabled, true);
   const timezone = toStr(base.timezone) || "Asia/Ho_Chi_Minh";
   const currency = toStr(base.currency) || "VND";
@@ -626,6 +655,12 @@ export function composeWebsiteDbPayload(
     mapUrl,
     taxCode,
     defaultProductWarranty,
+    shippingPromoEnabled,
+    shippingPromoTier1Min,
+    shippingPromoTier1Discount,
+    shippingPromoTier2Min,
+    shippingPromoTier2Discount,
+    shippingPromoFreeMin,
     analyticsEnabled,
     timezone,
     currency,

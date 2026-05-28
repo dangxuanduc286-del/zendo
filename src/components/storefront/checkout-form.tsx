@@ -2,17 +2,35 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import MediaImage from "../shared/media-image";
 import { formatVnd } from "../../lib/currency";
 import { useGuestCart } from "../../hooks/use-guest-cart";
 import { AFFILIATE_REF_STORAGE_KEY, CART_COUPON_STORAGE_KEY } from "../../lib/cart";
+import {
+  computeGuestCoupon,
+  findNextVoucherMilestone,
+  getGuestCouponBadges,
+  GUEST_COUPON_OPTIONS,
+  type GuestCouponOption,
+} from "../../lib/coupon";
 import { guiSuKienAnalyticsClient } from "../../lib/analytics/event-client";
 import { laySessionKey, layVisitorKey } from "../../lib/analytics/visitor-session";
 import { matchLocationCode } from "../../lib/location-utils";
 import type { AddressSelectorValue } from "./address-selector";
-import { buildFullAddress } from "../../lib/vietnam-addresses";
+import { buildFullAddress } from "../../lib/address-format";
+import VoucherProgressCard from "./voucher-progress-card";
+import CartAddonSuggestions from "./cart-addon-suggestions";
+import {
+  DEFAULT_SHIPPING_PROMOTION_CONFIG,
+  getInternalShippingQuote,
+  getNextShippingPromotionProgress,
+  getShippingPromotionDiscount,
+  resolveCartShippingClass,
+  type ShippingPromotionConfig,
+} from "../../lib/shipping";
+import ShippingPromotionProgressCard from "./shipping-promotion-progress";
 
 const AddressSelector = dynamic(() => import("./address-selector"), {
   loading: () => <div className="h-11 w-full rounded-xl border border-zinc-200 bg-zinc-50" />,
@@ -20,6 +38,27 @@ const AddressSelector = dynamic(() => import("./address-selector"), {
 const CtvPurchaseBlockedPanel = dynamic(() => import("./ctv-purchase-blocked-panel"), { ssr: false });
 
 type PaymentMethod = "COD" | "BANK_TRANSFER" | "CREDIT_CARD" | "E_WALLET";
+
+function getVoucherValueLabel(coupon: GuestCouponOption): string {
+  if (coupon.type === "PERCENT") return `Giảm ${coupon.value}%`;
+  if (coupon.type === "FREE_SHIPPING") return `Ưu đãi vận chuyển ${formatVnd(coupon.value)}`;
+  return `Giảm ${formatVnd(coupon.value)}`;
+}
+
+function getVoucherLimitLabel(coupon: GuestCouponOption): string {
+  if (coupon.type === "PERCENT" && coupon.maxDiscountValue && coupon.maxDiscountValue > 0) {
+    return `Tối đa ${formatVnd(coupon.maxDiscountValue)}`;
+  }
+  if (coupon.type === "PERCENT") return "Chưa cấu hình giảm tối đa";
+  return "";
+}
+
+function getVoucherMinOrderLabel(coupon: GuestCouponOption): string {
+  if (coupon.minOrderValue && coupon.minOrderValue > 0) {
+    return `Đơn tối thiểu ${formatVnd(coupon.minOrderValue)}`;
+  }
+  return coupon.conditionLabel;
+}
 
 interface CheckoutState {
   fullName: string;
@@ -68,11 +107,29 @@ export default function CheckoutForm(
   props: {
     checkoutLocked?: boolean;
     checkoutBlockMessage?: string;
+    shippingPromotionConfig?: ShippingPromotionConfig;
+    isAuthenticated?: boolean;
   } = {},
 ): JSX.Element {
-  const { checkoutLocked = false, checkoutBlockMessage = "" } = props;
+  const {
+    checkoutLocked = false,
+    checkoutBlockMessage = "",
+    shippingPromotionConfig = DEFAULT_SHIPPING_PROMOTION_CONFIG,
+    isAuthenticated = false,
+  } = props;
   const router = useRouter();
-  const { items, subtotal, clearCart, getUnitPrice } = useGuestCart();
+  const {
+    items,
+    subtotal,
+    discount,
+    couponCode: cartCouponCode,
+    couponSource,
+    setCouponCode,
+    setQuantity,
+    removeItem,
+    clearCart,
+    getUnitPrice,
+  } = useGuestCart();
   const [formState, setFormState] = useState<CheckoutState>(() => {
     if (typeof window === "undefined") return INITIAL_STATE;
     return {
@@ -87,6 +144,7 @@ export default function CheckoutForm(
   const [isAddressesLoading, setIsAddressesLoading] = useState(false);
   const [isMappingAddress, setIsMappingAddress] = useState(false);
   const [addressMappingWarning, setAddressMappingWarning] = useState("");
+  const [voucherPickerOpen, setVoucherPickerOpen] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<{
     fullName?: string;
     phone?: string;
@@ -120,6 +178,94 @@ export default function CheckoutForm(
       addressLine: nextAddress.addressLine,
     }));
   };
+
+  const clampCheckoutQuantity = (quantity: number, stockQuantity?: number | null): number => {
+    const normalized = Math.max(0, Math.floor(Number.isFinite(quantity) ? quantity : 0));
+    if (typeof stockQuantity === "number" && Number.isFinite(stockQuantity) && stockQuantity > 0) {
+      return Math.min(normalized, stockQuantity);
+    }
+    return normalized;
+  };
+
+  const updateCheckoutQuantity = (itemId: string, quantity: number, stockQuantity?: number | null) => {
+    const nextQuantity = clampCheckoutQuantity(quantity, stockQuantity);
+    if (nextQuantity === 0) {
+      removeItem(itemId);
+      return;
+    }
+    setQuantity(itemId, nextQuantity);
+  };
+
+  const updateCouponCode = useCallback((couponCode: string) => {
+    setFormState((prev) => ({ ...prev, couponCode }));
+    setCouponCode(couponCode);
+    if (couponCode.trim()) {
+      window.localStorage.setItem(CART_COUPON_STORAGE_KEY, couponCode.trim().toUpperCase());
+    } else {
+      window.localStorage.removeItem(CART_COUPON_STORAGE_KEY);
+    }
+  }, [setCouponCode]);
+
+  const voucherOptions = useMemo(
+    () =>
+      GUEST_COUPON_OPTIONS.map((coupon) => {
+        const result = computeGuestCoupon(coupon.code, subtotal);
+        return {
+          coupon,
+          discountAmount: result?.amount ?? 0,
+          available: Boolean(result && result.amount > 0),
+        };
+      }).sort((a, b) => {
+        if (a.available !== b.available) return a.available ? -1 : 1;
+        if (a.discountAmount !== b.discountAmount) return b.discountAmount - a.discountAmount;
+        if (a.coupon.expiresSoon !== b.coupon.expiresSoon) return a.coupon.expiresSoon ? -1 : 1;
+        if (a.coupon.recommended !== b.coupon.recommended) return a.coupon.recommended ? -1 : 1;
+        return (a.coupon.minOrderValue ?? 0) - (b.coupon.minOrderValue ?? 0);
+      }),
+    [subtotal],
+  );
+  const bestVoucherCode = voucherOptions[0]?.available ? voucherOptions[0].coupon.code : "";
+  const selectedVoucher = voucherOptions.find((item) => item.coupon.code === formState.couponCode.trim().toUpperCase()) ?? null;
+  const nextVoucherMilestone = findNextVoucherMilestone(subtotal);
+  const shippingQuote = useMemo(
+    () => getInternalShippingQuote({
+      provinceCode: formState.provinceCode,
+      provinceName: formState.provinceName,
+    }, { shippingClass: resolveCartShippingClass(items) }),
+    [formState.provinceCode, formState.provinceName, items],
+  );
+  const activeCouponCode = formState.couponCode.trim().toUpperCase();
+  const shippingFee = shippingQuote?.fee ?? 0;
+  const manualShippingDiscount = selectedVoucher?.coupon.type === "FREE_SHIPPING"
+    ? Math.min(selectedVoucher.discountAmount, shippingFee)
+    : 0;
+  const autoShippingPromo = activeCouponCode
+    ? null
+    : getShippingPromotionDiscount(subtotal, shippingFee, shippingPromotionConfig);
+  const autoShippingDiscount = autoShippingPromo?.discountAmount ?? 0;
+  const shippingDiscount = Math.max(manualShippingDiscount, autoShippingDiscount);
+  const shippingPromoProgress = activeCouponCode
+    ? null
+    : getNextShippingPromotionProgress(subtotal, shippingPromotionConfig);
+  const payableShippingFee = Math.max(0, shippingFee - shippingDiscount);
+  const checkoutTotal = Math.max(0, subtotal - discount + payableShippingFee);
+  const selectedVoucherSavings = selectedVoucher?.coupon.type === "FREE_SHIPPING" ? shippingDiscount : discount;
+
+  useEffect(() => {
+    if (couponSource === "auto" && cartCouponCode && formState.couponCode !== cartCouponCode) {
+      setFormState((prev) => ({ ...prev, couponCode: cartCouponCode }));
+    }
+  }, [cartCouponCode, couponSource, formState.couponCode]);
+
+  const selectVoucher = useCallback((coupon: GuestCouponOption) => {
+    updateCouponCode(coupon.code);
+    setVoucherPickerOpen(false);
+  }, [updateCouponCode]);
+
+  const clearVoucher = useCallback(() => {
+    updateCouponCode("");
+    setVoucherPickerOpen(false);
+  }, [updateCouponCode]);
 
   const normalizePhone = (rawPhone: string): string => rawPhone.replace(/[^\d+]/g, "");
 
@@ -184,6 +330,12 @@ export default function CheckoutForm(
   }, [applySavedAddressWithLookup]);
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      setSavedAddresses([]);
+      setSelectedSavedAddressId("");
+      setIsAddressesLoading(false);
+      return;
+    }
     let cancelled = false;
     void (async () => {
       setIsAddressesLoading(true);
@@ -210,7 +362,7 @@ export default function CheckoutForm(
     return () => {
       cancelled = true;
     };
-  }, [applySavedAddress]);
+  }, [applySavedAddress, isAuthenticated]);
 
   useEffect(() => {
     if (!items.length || daTrackBeginCheckout.current) return;
@@ -308,17 +460,18 @@ export default function CheckoutForm(
   }
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
+    <div className="grid grid-cols-1 gap-5 pb-28 lg:grid-cols-[1fr_340px] lg:gap-6 lg:pb-0">
       {checkoutLocked && checkoutBlockMessage ? (
         <div className="lg:col-span-2">
           <CtvPurchaseBlockedPanel message={checkoutBlockMessage} />
         </div>
       ) : null}
       <form
+        id="checkout-form"
         onSubmit={onSubmit}
-        className={`space-y-4 rounded-xl border border-zinc-200 bg-white p-4 sm:p-6 ${checkoutLocked ? "pointer-events-none opacity-60" : ""}`}
+        className={`space-y-3 rounded-xl border border-zinc-200 bg-white p-4 sm:space-y-4 sm:p-6 ${checkoutLocked ? "pointer-events-none opacity-60" : ""}`}
       >
-        <h1 className="text-2xl font-bold tracking-tight text-zinc-900">Thanh toán</h1>
+        <h1 className="text-xl font-bold tracking-tight text-zinc-900 sm:text-2xl">Thanh toán</h1>
 
         <section className="rounded-xl border border-zinc-200 bg-zinc-50 p-3 sm:p-4">
           <div className="flex items-center justify-between gap-2">
@@ -471,19 +624,10 @@ export default function CheckoutForm(
             >
               <option value="COD">Thanh toán khi nhận hàng (COD)</option>
               <option value="BANK_TRANSFER">Chuyển khoản ngân hàng</option>
-              <option value="E_WALLET">Ví điện tử</option>
-              <option value="CREDIT_CARD">Thẻ tín dụng</option>
             </select>
           </label>
         </div>
 
-        <button
-          type="submit"
-          disabled={isSubmitting || checkoutLocked}
-          className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-[#2563EB] px-4 text-sm font-semibold text-white transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {checkoutLocked ? "Không thể đặt hàng" : isSubmitting ? "Đang đặt hàng..." : "Đặt hàng"}
-        </button>
         {error ? <p className="text-sm font-medium text-rose-600">{error}</p> : null}
       </form>
 
@@ -492,49 +636,333 @@ export default function CheckoutForm(
       >
         <h2 className="text-base font-semibold text-zinc-900">Đơn hàng của bạn</h2>
         <div className="mt-4 space-y-3">
-          {items.map((item) => (
-            <div key={item.id} className="flex items-center gap-3">
-              <div className="relative h-14 w-14 overflow-hidden rounded-md bg-zinc-100">
-                <MediaImage
-                  src={item.imageUrl}
-                  alt={item.name}
-                  fill
-                  sizes="56px"
-                  fallbackLabel={item.name}
-                  className="object-cover"
-                />
+          {items.map((item) => {
+            const stockLimit =
+              typeof item.stockQuantity === "number" && Number.isFinite(item.stockQuantity) && item.stockQuantity > 0
+                ? item.stockQuantity
+                : null;
+            const canDecrease = item.quantity > 0;
+            const canIncrease = stockLimit == null || item.quantity < stockLimit;
+
+            return (
+              <div key={item.id} className="flex items-start gap-3">
+                <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-md bg-zinc-100">
+                  <MediaImage
+                    src={item.imageUrl}
+                    alt={item.name}
+                    fill
+                    sizes="56px"
+                    fallbackLabel={item.name}
+                    className="object-cover"
+                  />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex min-w-0 items-start justify-between gap-2">
+                    <p className="line-clamp-2 min-w-0 text-sm font-medium text-zinc-900">{item.name}</p>
+                    <div className="shrink-0 text-right">
+                      <p className="text-sm font-semibold text-zinc-900">
+                        {formatVnd(getUnitPrice(item) * item.quantity)}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => removeItem(item.id)}
+                        className="mt-1 text-[11px] font-semibold text-rose-600 transition hover:text-rose-700 hover:underline"
+                      >
+                        Xóa sản phẩm
+                      </button>
+                    </div>
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <div className="inline-flex h-8 items-center overflow-hidden rounded-lg border border-zinc-300 bg-white">
+                      <button
+                        type="button"
+                        onClick={() => updateCheckoutQuantity(item.id, item.quantity - 1, item.stockQuantity)}
+                        disabled={!canDecrease}
+                        className="inline-flex h-8 w-8 items-center justify-center text-sm font-semibold text-zinc-700 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40"
+                        aria-label={`Giảm số lượng ${item.name}`}
+                      >
+                        -
+                      </button>
+                      <input
+                        type="number"
+                        min={0}
+                        max={stockLimit ?? undefined}
+                        value={item.quantity}
+                        onChange={(event) =>
+                          updateCheckoutQuantity(item.id, Number(event.target.value || 0), item.stockQuantity)
+                        }
+                        className="h-8 w-10 border-x border-zinc-300 text-center text-xs font-semibold text-zinc-900 outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        aria-label={`Số lượng ${item.name}`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => updateCheckoutQuantity(item.id, item.quantity + 1, item.stockQuantity)}
+                        disabled={!canIncrease}
+                        className="inline-flex h-8 w-8 items-center justify-center text-sm font-semibold text-zinc-700 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40"
+                        aria-label={`Tăng số lượng ${item.name}`}
+                      >
+                        +
+                      </button>
+                    </div>
+                    {stockLimit != null ? (
+                      <span className="text-[11px] font-medium text-zinc-500">Tồn kho: {stockLimit}</span>
+                    ) : null}
+                  </div>
+                </div>
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="line-clamp-2 text-sm font-medium text-zinc-900">{item.name}</p>
-                <p className="text-xs text-zinc-500">Số lượng: {item.quantity}</p>
-              </div>
-              <p className="text-sm font-semibold text-zinc-900">
-                {formatVnd(getUnitPrice(item) * item.quantity)}
-              </p>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
-        <label className="mt-4 block space-y-1">
-          <span className="text-sm font-medium text-zinc-700">Mã giảm giá</span>
-          <input
-            value={formState.couponCode}
-            onChange={(event) =>
-              setFormState((prev) => ({ ...prev, couponCode: event.target.value }))
-            }
-            placeholder="Nhập mã nếu có"
-            className="h-10 w-full rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-zinc-500"
-          />
-        </label>
+        <section className="relative mt-4">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold text-zinc-900">Voucher</h3>
+            {selectedVoucher?.coupon.code === bestVoucherCode ? (
+              <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                Tiết kiệm tốt nhất
+              </span>
+            ) : null}
+          </div>
+
+          <div className="mt-2 rounded-xl border border-zinc-200 bg-zinc-50 p-3">
+            {selectedVoucher && selectedVoucher.available ? (
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold text-zinc-900">{selectedVoucher.coupon.name}</p>
+                  <p className="mt-0.5 truncate text-xs font-medium text-zinc-500">
+                    {selectedVoucher.coupon.code} · {getVoucherValueLabel(selectedVoucher.coupon)}
+                  </p>
+                  {getVoucherLimitLabel(selectedVoucher.coupon) ? (
+                    <p className="mt-0.5 truncate text-xs font-medium text-zinc-500">
+                      {getVoucherLimitLabel(selectedVoucher.coupon)}
+                    </p>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setVoucherPickerOpen(true)}
+                  className="inline-flex h-8 shrink-0 items-center rounded-lg border border-[#2563EB] bg-white px-2.5 text-xs font-semibold text-[#2563EB] transition hover:bg-blue-50"
+                >
+                  Chọn voucher
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setVoucherPickerOpen(true)}
+                className="inline-flex h-10 w-full items-center justify-between rounded-lg border border-dashed border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 transition hover:border-[#2563EB] hover:text-[#2563EB]"
+              >
+                <span>Chọn voucher</span>
+                <span aria-hidden>›</span>
+              </button>
+            )}
+          </div>
+
+          {nextVoucherMilestone ? <div className="mt-2"><VoucherProgressCard milestone={nextVoucherMilestone} subtotal={subtotal} compact /></div> : null}
+          <div className="mt-2">
+            <ShippingPromotionProgressCard
+              progress={shippingPromoProgress}
+              applied={autoShippingPromo}
+              subtotal={subtotal}
+              compact
+            />
+          </div>
+
+          {voucherPickerOpen ? (
+            <div className="fixed inset-0 z-50 flex items-end bg-black/35 sm:absolute sm:inset-auto sm:right-0 sm:top-[calc(100%+8px)] sm:block sm:w-[360px] sm:bg-transparent">
+              <button
+                type="button"
+                aria-label="Đóng chọn voucher"
+                className="absolute inset-0 sm:hidden"
+                onClick={() => setVoucherPickerOpen(false)}
+              />
+              <div className="relative max-h-[78vh] w-full overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:max-h-[440px] sm:rounded-2xl sm:border sm:border-zinc-200">
+                <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-3">
+                  <div>
+                    <p className="text-sm font-bold text-zinc-900">Chọn voucher</p>
+                    <p className="text-xs text-zinc-500">Chỉ áp dụng 1 mã giảm giá</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setVoucherPickerOpen(false)}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-zinc-100 text-zinc-600 transition hover:bg-zinc-200"
+                    aria-label="Đóng"
+                  >
+                    ×
+                  </button>
+                </div>
+                <div className="max-h-[58vh] space-y-2 overflow-y-auto p-3 sm:max-h-[340px]">
+                  {nextVoucherMilestone ? <VoucherProgressCard milestone={nextVoucherMilestone} subtotal={subtotal} compact /> : null}
+                  <ShippingPromotionProgressCard
+                    progress={shippingPromoProgress}
+                    applied={autoShippingPromo}
+                    subtotal={subtotal}
+                    compact
+                  />
+                  {voucherOptions.map(({ coupon, discountAmount, available }) => {
+                    const selected = activeCouponCode === coupon.code;
+                    const recommended = coupon.code === bestVoucherCode;
+                    const badges = getGuestCouponBadges(coupon, { isBest: recommended });
+                    return (
+                      <button
+                        key={coupon.code}
+                        type="button"
+                        disabled={!available}
+                        onClick={() => selectVoucher(coupon)}
+                        className={`flex w-full items-start gap-2.5 rounded-xl border p-2.5 text-left transition sm:p-3 ${
+                          selected
+                            ? "border-[#2563EB] bg-blue-50"
+                            : "border-zinc-200 bg-white hover:border-[#2563EB]/60 hover:bg-blue-50/30"
+                        } ${available ? "" : "cursor-not-allowed opacity-50"}`}
+                      >
+                        <span
+                          className={`mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
+                            selected ? "border-[#2563EB] bg-[#2563EB]" : "border-zinc-300 bg-white"
+                          }`}
+                          aria-hidden
+                        >
+                          {selected ? <span className="h-1.5 w-1.5 rounded-full bg-white" /> : null}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="flex min-w-0 items-center gap-2">
+                            <span className="truncate text-sm font-bold text-zinc-900">{coupon.name}</span>
+                          </span>
+                          <span className="mt-1 flex flex-wrap gap-1">
+                            {badges.map((badge) => (
+                              <span
+                                key={badge}
+                                className="rounded-full bg-zinc-100 px-1.5 py-0.5 text-[9px] font-bold leading-none text-zinc-700 sm:text-[10px]"
+                              >
+                                {badge}
+                              </span>
+                            ))}
+                          </span>
+                          <span className="mt-1 block text-xs font-semibold text-[#2563EB]">
+                            {coupon.code}
+                          </span>
+                          <span className="mt-1 block text-sm font-bold text-zinc-900">
+                            {getVoucherValueLabel(coupon)}
+                          </span>
+                          {getVoucherLimitLabel(coupon) ? (
+                            <span className="mt-0.5 block text-xs font-medium text-zinc-600">
+                              {getVoucherLimitLabel(coupon)}
+                            </span>
+                          ) : null}
+                          <span className="mt-0.5 block text-xs text-zinc-500">
+                            {getVoucherMinOrderLabel(coupon)} · {available ? `Ước tính tiết kiệm ${formatVnd(discountAmount)}` : "Chưa đủ điều kiện"}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                  {formState.couponCode ? (
+                    <button
+                      type="button"
+                      onClick={clearVoucher}
+                      className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-600 transition hover:border-zinc-300"
+                    >
+                      Không dùng voucher
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </section>
 
         <div className="mt-4 border-t border-zinc-200 pt-4">
           <div className="flex items-center justify-between text-sm text-zinc-600">
             <span>Tạm tính</span>
             <span className="font-medium text-zinc-900">{formatVnd(subtotal)}</span>
           </div>
-          <p className="mt-1 text-xs text-zinc-500">Phí vận chuyển được tính ở bước tiếp theo.</p>
+          <div className="mt-2 flex items-center justify-between text-sm text-zinc-600">
+            <span>Giảm giá</span>
+            <span className="font-medium text-zinc-900">- {formatVnd(discount)}</span>
+          </div>
+          {selectedVoucher && selectedVoucher.available ? (
+            <div className="mt-3 rounded-xl border border-emerald-100 bg-emerald-50 p-3">
+              <p className="text-xs font-bold text-emerald-800">
+                {couponSource === "auto" ? "🔥 Đã tự động áp dụng ưu đãi tốt nhất" : "🎁 Voucher đã áp dụng"}
+              </p>
+              <div className="mt-1 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-extrabold text-emerald-950">{selectedVoucher.coupon.code}</p>
+                  <p className="text-xs font-medium text-emerald-700">{getVoucherValueLabel(selectedVoucher.coupon)}</p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-[11px] font-semibold text-emerald-700">
+                    {selectedVoucher.coupon.type === "FREE_SHIPPING" ? "Vận chuyển" : "Tiết kiệm"}
+                  </p>
+                  <p className="text-sm font-extrabold text-emerald-950">
+                    {selectedVoucher.coupon.type === "FREE_SHIPPING" && !shippingQuote
+                      ? "Tính khi nhập địa chỉ"
+                      : formatVnd(selectedVoucherSavings)}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : null}
+          <div className="mt-3">
+            <CartAddonSuggestions compact />
+          </div>
+          <div className="mt-2 flex items-center justify-between text-sm text-zinc-600">
+            <span>Phí vận chuyển</span>
+            <span className="font-medium text-zinc-900">
+              {shippingQuote ? formatVnd(shippingFee) : "Tính khi nhập địa chỉ"}
+            </span>
+          </div>
+          {shippingDiscount > 0 ? (
+            <div className="mt-2 flex items-center justify-between text-sm text-zinc-600">
+              <span>{autoShippingPromo?.freeShipping ? "🎉 Miễn phí vận chuyển" : "🚚 Ưu đãi vận chuyển"}</span>
+              <span className="font-medium text-emerald-700">- {formatVnd(shippingDiscount)}</span>
+            </div>
+          ) : null}
+          {shippingQuote ? (
+            <div className="mt-2 flex items-center justify-between text-sm text-zinc-600">
+              <span>Phí ship phải trả</span>
+              <span className="font-medium text-zinc-900">{formatVnd(payableShippingFee)}</span>
+            </div>
+          ) : null}
+          {!shippingQuote ? (
+            <div className="mt-2 rounded-xl border border-dashed border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-medium text-zinc-600">
+              Phí vận chuyển sẽ được tính khi nhập địa chỉ giao hàng.
+            </div>
+          ) : null}
+          <div className="mt-3 border-t border-zinc-200 pt-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-zinc-900">Tổng thanh toán</span>
+              <span className="text-lg font-bold text-zinc-900">{formatVnd(checkoutTotal)}</span>
+            </div>
+            <button
+              type="submit"
+              form="checkout-form"
+              disabled={isSubmitting || checkoutLocked}
+              className="mt-3 hidden h-11 w-full items-center justify-center rounded-xl bg-[#2563EB] px-4 text-sm font-semibold text-white transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-60 md:inline-flex"
+            >
+              {checkoutLocked ? "Không thể đặt hàng" : isSubmitting ? "Đang đặt hàng..." : "Đặt hàng"}
+            </button>
+          </div>
         </div>
       </aside>
+      <div
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-200 bg-white/95 px-4 py-3 shadow-[0_-8px_24px_rgba(15,23,42,0.12)] backdrop-blur md:hidden"
+        style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}
+      >
+        <div className="mx-auto max-w-7xl space-y-2">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">Tổng thanh toán</p>
+            <p className="truncate text-lg font-extrabold text-zinc-950">{formatVnd(checkoutTotal)}</p>
+          </div>
+          <button
+            type="submit"
+            form="checkout-form"
+            disabled={isSubmitting || checkoutLocked}
+            className="inline-flex h-10 w-full items-center justify-center rounded-xl bg-[#2563EB] px-5 text-sm font-bold text-white transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {checkoutLocked ? "Không thể đặt" : isSubmitting ? "Đang đặt..." : "Đặt hàng"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

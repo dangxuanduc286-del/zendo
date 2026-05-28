@@ -1,7 +1,6 @@
 import Link from "next/link";
 import MediaImage from "../shared/media-image";
-import AddToCartButton from "./add-to-cart-button";
-import BuyNowButton from "./buy-now-button";
+import ProductCardActions from "./product-card-actions";
 import { formatVnd } from "../../lib/currency";
 import { resolveMediaUrl } from "../../lib/media";
 
@@ -104,7 +103,7 @@ export default function ProductCard({
             src={imageUrl}
             alt={product.name}
             fill
-            sizes="(max-width: 768px) 50vw, (max-width: 1280px) 25vw, 20vw"
+            sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 16vw"
             fallbackLabel={product.name}
             className="h-full w-full object-contain object-center p-2 transition duration-300 group-hover:scale-[1.02]"
           />
@@ -169,7 +168,7 @@ export default function ProductCard({
         ) : null}
 
         <div data-product-card-cta="true" className="flex min-w-0 items-center gap-2 pt-0.5">
-          <AddToCartButton
+          <ProductCardActions
             item={{
               id: product.id,
               productId: product.id,
@@ -181,28 +180,13 @@ export default function ProductCard({
               salePrice,
               stockQuantity: 1,
             }}
-            className={addToCartButtonClass}
-            label={addToCartLabel}
-            ariaLabel={`Thêm ${product.name} vào giỏ hàng`}
-            showIcon
-            addedLabel="Đã thêm"
-          />
-          <BuyNowButton
-            item={{
-              id: product.id,
-              productId: product.id,
-              slug: product.slug,
-              name: product.name,
-              imageUrl,
-              sku: product.slug,
-              basePrice,
-              salePrice,
-              stockQuantity: 1,
-            }}
-            className={buyNowButtonClass}
-            label={buyNowLabel}
-            ariaLabel={`Mua ngay ${product.name}`}
-            style={{
+            addToCartClassName={addToCartButtonClass}
+            buyNowClassName={buyNowButtonClass}
+            addToCartLabel={addToCartLabel}
+            buyNowLabel={buyNowLabel}
+            addToCartAriaLabel={`Thêm ${product.name} vào giỏ hàng`}
+            buyNowAriaLabel={`Mua ngay ${product.name}`}
+            buyNowStyle={{
               backgroundColor: buttonMode === "outline" ? "transparent" : undefined,
               borderColor: buttonMode === "outline" ? primaryColor : undefined,
               color: buttonMode === "outline" ? (outlineAccent ?? primaryColor) : "#ffffff",

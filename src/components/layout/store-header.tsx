@@ -36,6 +36,7 @@ interface StoreHeaderProps {
   showHeaderCartIcon: boolean;
   showHeaderAdminMenu: boolean;
   isAuthenticated: boolean;
+  accountDisplayName?: string;
   /** `getAccountRoute(session)` — mobile icon + menu «Tài khoản của tôi» (khách `/dang-nhap`, admin `/admin`, USER `/tai-khoan`). */
   mobileStorefrontAccountHref: string;
   desktopCategoryLimit: number;
@@ -264,6 +265,7 @@ export default function StoreHeader({
   showHeaderCartIcon,
   showHeaderAdminMenu,
   isAuthenticated,
+  accountDisplayName,
   mobileStorefrontAccountHref,
   desktopCategoryLimit,
   mobileCategoryLimit,
@@ -339,7 +341,13 @@ export default function StoreHeader({
             <TopbarSupportButton className={navItemClass} variant="headerPill" />
             {showHeaderCartIcon ? <CartIcon withLabel className={navItemClass} /> : null}
             {showAdminNav && showHeaderAdminMenu ? (
-              <AccountMenu isAuthenticated={isAuthenticated} isAdmin={isAdmin} myAccountHref={myAccountHref} loginHref="/dang-nhap" />
+              <AccountMenu
+                isAuthenticated={isAuthenticated}
+                isAdmin={isAdmin}
+                displayName={accountDisplayName}
+                myAccountHref={myAccountHref}
+                loginHref="/dang-nhap"
+              />
             ) : null}
           </nav>
         </div>
@@ -374,7 +382,11 @@ export default function StoreHeader({
                   </span>
                 ) : null}
                 {showAdminNav && showHeaderAdminMenu ? (
-                  <MobileAccountHeaderAction href={mobileStorefrontAccountHref} />
+                  <MobileAccountHeaderAction
+                    href={mobileStorefrontAccountHref}
+                    isAuthenticated={isAuthenticated}
+                    displayName={accountDisplayName}
+                  />
                 ) : null}
               </div>
             </div>

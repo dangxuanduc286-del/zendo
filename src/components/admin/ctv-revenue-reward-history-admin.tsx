@@ -14,6 +14,9 @@ type CtvRevenueRewardHistoryAdminProps = {
   tierId: string;
   from: string;
   to: string;
+  /** Tab Lịch sử thống nhất */
+  historyTab?: string;
+  historyHist?: string;
 };
 
 function formatVnd(n: number): string {
@@ -35,6 +38,8 @@ export function CtvRevenueRewardHistoryAdmin({
   tierId,
   from,
   to,
+  historyTab = "lich-su",
+  historyHist = "REVENUE_REWARD",
 }: CtvRevenueRewardHistoryAdminProps): JSX.Element {
   const exportQs = useMemo(() => {
     const p = new URLSearchParams();
@@ -65,10 +70,12 @@ export function CtvRevenueRewardHistoryAdmin({
       </div>
 
       <form className="grid grid-cols-1 gap-3 lg:grid-cols-12" action="/admin/collaborators" method="GET">
-        <input type="hidden" name="tab" value="thuong-doanh-thu" />
+        <input id={`ctv-revenue-reward-history-${historyTab}-tab`} type="hidden" name="tab" value={historyTab} />
+        <input id={`ctv-revenue-reward-history-${historyHist}-hist`} type="hidden" name="hist" value={historyHist} />
         <label className="space-y-1 lg:col-span-3">
           <span className="text-xs font-medium text-[#64748B]">Tìm kiếm</span>
           <input
+            id="ctv-revenue-reward-history-q"
             name="rr_q"
             defaultValue={query}
             placeholder="CTV, ref, tier, transaction…"
@@ -78,6 +85,7 @@ export function CtvRevenueRewardHistoryAdmin({
         <label className="space-y-1 lg:col-span-2">
           <span className="text-xs font-medium text-[#64748B]">Hạng CTV</span>
           <select
+            id="ctv-revenue-reward-history-tier"
             name="rr_tier"
             defaultValue={tierId}
             className="w-full rounded-2xl border border-[#E2E8F0] px-3 py-2 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
@@ -93,6 +101,7 @@ export function CtvRevenueRewardHistoryAdmin({
         <label className="space-y-1 lg:col-span-2">
           <span className="text-xs font-medium text-[#64748B]">Từ ngày</span>
           <input
+            id="ctv-revenue-reward-history-from"
             type="date"
             name="rr_from"
             defaultValue={from}
@@ -102,6 +111,7 @@ export function CtvRevenueRewardHistoryAdmin({
         <label className="space-y-1 lg:col-span-2">
           <span className="text-xs font-medium text-[#64748B]">Đến ngày</span>
           <input
+            id="ctv-revenue-reward-history-to"
             type="date"
             name="rr_to"
             defaultValue={to}
@@ -116,7 +126,7 @@ export function CtvRevenueRewardHistoryAdmin({
             Lọc
           </button>
           <Link
-            href="/admin/collaborators?tab=thuong-doanh-thu"
+            href={`/admin/collaborators?tab=${historyTab}&hist=${historyHist}`}
             className="inline-flex h-10 items-center rounded-2xl border border-[#E2E8F0] px-4 text-sm font-semibold text-[#0F172A] hover:bg-slate-50"
           >
             Đặt lại

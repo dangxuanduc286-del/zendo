@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { resolveCustomerAffiliateProfile } from "@/lib/affiliate-customer-status";
 import AffiliateCampaignDashboardClient from "@/components/storefront/affiliate-campaign-dashboard-client";
 
 export const metadata: Metadata = {
@@ -18,12 +18,8 @@ export default async function AffiliateCampaignPage(): Promise<JSX.Element> {
     redirect("/tai-khoan");
   }
 
-  const customerId = String(session.user.id);
-  const profile = await db.affiliateProfile.findFirst({
-    where: { customerId, status: "ACTIVE" },
-    select: { id: true },
-  });
-  if (!profile) {
+  const profile = await resolveCustomerAffiliateProfile(String(session.user.id));
+  if (!profile.active) {
     redirect("/tai-khoan?tab=affiliate");
   }
 

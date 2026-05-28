@@ -5,7 +5,8 @@ import SectionHeading from "../../../../components/storefront/section-heading";
 import type { ProductCardData } from "../../../../components/storefront/product-card";
 import { resolveMediaUrl } from "../../../../lib/media";
 import { buildBreadcrumbJsonLd, buildDynamicMetadata } from "../../../../lib/seo";
-import { getWebsiteSettings } from "../../../../lib/settings";
+import { getThemeSettings, getWebsiteSettings } from "../../../../lib/settings";
+import { MARKETING_FRAME } from "../../../../lib/storefront-frame";
 
 type StoreProductModel = {
   id: string;
@@ -61,7 +62,11 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function CuaHangPage(): Promise<JSX.Element> {
-  const [websiteSettings, db] = await Promise.all([getWebsiteSettings(), getDbClient()]);
+  const [websiteSettings, themeSettings, db] = await Promise.all([
+    getWebsiteSettings(),
+    getThemeSettings(),
+    getDbClient(),
+  ]);
   const rows = db
     ? await db.product.findMany({
         where: { status: "ACTIVE" },
@@ -78,7 +83,7 @@ export default async function CuaHangPage(): Promise<JSX.Element> {
           images: {
             select: { url: true, isPrimary: true, sortOrder: true },
             orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
-            take: 3,
+            take: 1,
           },
         },
       })
@@ -89,9 +94,18 @@ export default async function CuaHangPage(): Promise<JSX.Element> {
     { name: "Trang chủ", path: "/" },
     { name: "Cửa hàng", path: "/cua-hang" },
   ]);
+  const productSectionClass = "rounded-[18px] border border-[#E2E8F0] bg-white p-3 shadow-sm sm:p-5 lg:p-7";
+  const productGridProps = {
+    buyNowLabel: themeSettings.productDetailPrimaryButtonText?.trim() || "Mua ngay",
+    addToCartLabel: "",
+    buttonMode: themeSettings.productCardButtonMode,
+    primaryColor: themeSettings.primaryColor || "#2563EB",
+    secondaryColor: themeSettings.secondaryColor || "#0F172A",
+    desktopColumns: websiteSettings.productGridColumnsDesktop,
+  } as const;
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+    <div className={`${MARKETING_FRAME} py-6`}>
       <Breadcrumbs
         items={[
           { label: "Trang chủ", href: "/" },
@@ -99,9 +113,9 @@ export default async function CuaHangPage(): Promise<JSX.Element> {
         ]}
       />
 
-      <section>
+      <section className={productSectionClass}>
         <SectionHeading title="Cửa hàng" description={`${products.length} sản phẩm đang mở bán`} />
-        <ProductGrid products={products} desktopColumns={websiteSettings.productGridColumnsDesktop} />
+        <ProductGrid products={products} {...productGridProps} />
       </section>
 
       <script

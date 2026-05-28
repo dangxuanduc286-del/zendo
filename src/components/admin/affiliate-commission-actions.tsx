@@ -33,8 +33,8 @@ function ConfirmForm({
         if (!confirm(message)) e.preventDefault();
       }}
     >
-      <input type="hidden" name="commissionAction" value={action} />
-      <input type="hidden" name="redirectTo" value={redirectTo} />
+      <input id={`affiliate-commission-${commissionId}-${action}-action`} type="hidden" name="commissionAction" value={action} />
+      <input id={`affiliate-commission-${commissionId}-${action}-redirect-to`} type="hidden" name="redirectTo" value={redirectTo} />
       <button type="submit" className={className}>
         {label}
       </button>

@@ -21,6 +21,13 @@ export const CTV_TABLE_TH = "break-words px-2.5 py-2.5 font-semibold max-lg:text
 
 export const CTV_TABLE_TD = "break-words px-2.5 py-2.5 align-middle text-[#1A1A1A] max-lg:text-xs sm:px-4 sm:py-3";
 
+/** Cột nhãn (Chỉ số) — desktop giữ một dòng, mobile vẫn wrap. */
+export const CTV_TABLE_ROW_LABEL = [
+  "break-words px-2.5 py-2.5 align-middle font-medium text-[#6B7280]",
+  "max-lg:text-xs sm:px-4 sm:py-3",
+  "lg:whitespace-nowrap lg:break-normal lg:min-w-[11rem]",
+].join(" ");
+
 export const CTV_TABLE_ROW = `${CTV_MOTION_CLASS.row} border-t border-black/[0.05] first:border-t-0 hover:bg-slate-50/80`;
 
 type CtvDataTableProps = {

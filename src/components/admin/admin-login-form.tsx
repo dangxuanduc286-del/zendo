@@ -105,14 +105,19 @@ export default function AdminLoginForm(): JSX.Element {
   };
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
+    <form onSubmit={onSubmit} autoComplete="on" className="space-y-4">
       <label className="block space-y-1">
         <span className="text-sm font-medium text-zinc-700">Email hoặc số điện thoại</span>
         <input
           type="text"
           autoComplete="username"
           value={formState.identifier}
-          onChange={(event) => setFormState((prev) => ({ ...prev, identifier: event.target.value }))}
+          onChange={(event) => {
+            setFormState((prev) => ({
+              ...prev,
+              identifier: event.target.value,
+            }));
+          }}
           className="h-11 w-full rounded-md border border-zinc-300 px-3 text-sm outline-none transition focus:border-zinc-500"
           placeholder="admin@zendo.vn hoặc 0564162222"
         />
@@ -128,11 +133,12 @@ export default function AdminLoginForm(): JSX.Element {
             type={showPassword ? "text" : "password"}
             autoComplete="current-password"
             value={formState.password}
-            onChange={(event) =>
-              setFormState((prev) => ({ ...prev, password: event.target.value }))
-            }
+            onChange={(event) => {
+              setFormState((prev) => ({ ...prev, password: event.target.value }));
+            }}
             className="h-11 w-full rounded-md border border-zinc-300 px-3 text-sm outline-none transition focus:border-zinc-500"
             placeholder="Nhập mật khẩu"
+            name="zendo-admin-password"
           />
           <button
             type="button"
@@ -161,11 +167,7 @@ export default function AdminLoginForm(): JSX.Element {
         </p>
       ) : null}
 
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className={`${adminPrimaryButton} h-11 w-full`}
-      >
+      <button type="submit" disabled={isSubmitting} className={`${adminPrimaryButton} h-11 w-full`}>
         {isSubmitting ? "Đang đăng nhập..." : "Đăng nhập"}
       </button>
     </form>

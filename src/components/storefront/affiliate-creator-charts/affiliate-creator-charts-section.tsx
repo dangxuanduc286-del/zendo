@@ -1,16 +1,20 @@
 "use client";
 
-import Link from "next/link";
 import { clsx } from "clsx";
-import { useState } from "react";
-import { Megaphone, Share2, Sparkles } from "lucide-react";
-import { CTV_TYPE_BODY, CTV_TYPE_CARD_TITLE } from "../affiliate/affiliate-ctv-account-ui-tokens";
+import { useState, type ReactNode } from "react";
+import { Share2, Sparkles } from "lucide-react";
 import {
-  AFFILIATE_ANALYTICS_SEGMENT_PILL_ACTIVE,
-  AFFILIATE_ANALYTICS_SEGMENT_PILL_INACTIVE,
-  AFFILIATE_ANALYTICS_TOOLBAR_BTN_PRIMARY,
-  AFFILIATE_ANALYTICS_TOOLBAR_BTN_SECONDARY,
-} from "@/lib/affiliate-analytics-ui-tokens";
+  CTV_ANALYTICS_CHART_PAIR_COL,
+  CTV_ANALYTICS_CHART_PAIR_ROW,
+  CTV_ANALYTICS_CHART_ROOT,
+  CTV_ANALYTICS_SECTION_SHELL,
+  CTV_TYPE_BODY,
+  CTV_TYPE_CARD_TITLE,
+} from "../affiliate/affiliate-ctv-account-ui-tokens";
+import {
+  CTV_SEGMENTED_PILL_ITEM,
+  CTV_SEGMENTED_PILL_ITEM_ACTIVE,
+} from "../ctv/ctv-ui-tokens";
 import { CreatorEmptyState, CreatorSectionShell } from "../affiliate-creator-metric-card";
 import CreatorCampaignBarsLazy from "./creator-campaign-bars-lazy";
 import type { CampaignBarRow } from "./creator-campaign-bars-inner";
@@ -34,7 +38,13 @@ type Props = {
   loadingSources: boolean;
   loadingCampaigns: boolean;
   loadingLanding: boolean;
+  /** Hàng 3 — «Traffic theo ngày» (50%), render từ parent. */
+  trafficByDayPanel?: ReactNode;
 };
+
+function ChartPairCol(props: { children: ReactNode; className?: string }): JSX.Element {
+  return <div className={clsx(CTV_ANALYTICS_CHART_PAIR_COL, props.className)}>{props.children}</div>;
+}
 
 export default function AffiliateCreatorChartsSection(props: Props): JSX.Element {
   const [campaignMetric, setCampaignMetric] = useState<"revenue" | "epc" | "clicks">("revenue");
@@ -48,19 +58,21 @@ export default function AffiliateCreatorChartsSection(props: Props): JSX.Element
 
   const empty = !props.loadingTimeline && !props.loadingSources && !props.loadingCampaigns && !props.loadingLanding && !hasAny;
 
+  const showChartRows = !empty || Boolean(props.trafficByDayPanel);
+
   return (
-    <div className="flex w-full max-w-none flex-col gap-3">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600">
-            <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-          </span>
-          <div>
-            <h3 className={CTV_TYPE_CARD_TITLE}>Phân tích trực quan</h3>
-            <p className={`${CTV_TYPE_BODY} text-xs`}>
-              Xu hướng theo ngày · nguồn · campaign · realtime · landing · kỳ {props.rangeLabel}
-            </p>
-          </div>
+    <section className={CTV_ANALYTICS_CHART_ROOT} aria-labelledby="affiliate-charts-heading">
+      <div className="flex min-w-0 items-center gap-2">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600">
+          <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+        </span>
+        <div className="min-w-0">
+          <h2 id="affiliate-charts-heading" className={CTV_TYPE_CARD_TITLE}>
+            Phân tích trực quan
+          </h2>
+          <p className={`${CTV_TYPE_BODY} text-xs`}>
+            Xu hướng theo ngày · nguồn · campaign · realtime · landing · kỳ {props.rangeLabel}
+          </p>
         </div>
       </div>
 
@@ -74,106 +86,118 @@ export default function AffiliateCreatorChartsSection(props: Props): JSX.Element
         </div>
       ) : null}
 
-      <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] lg:grid lg:snap-none lg:grid-cols-[repeat(auto-fit,minmax(22rem,1fr))] lg:gap-4 lg:overflow-visible lg:pb-0 [&::-webkit-scrollbar]:hidden">
-        <div className="min-w-[min(100%,20rem)] shrink-0 snap-start sm:min-w-[22rem] lg:min-w-0">
-          <CreatorSectionShell
-            title="Traffic theo thời gian"
-            hint="Click, đơn trả, conv % — sessions tổng xem thẻ Sessions phía trên."
-          >
-            {props.loadingTimeline ? (
-              <div className="mt-2 h-[12rem] animate-pulse rounded-xl bg-slate-100/90" />
-            ) : (
-              <CreatorTrafficLineLazy buckets={props.timelineBuckets} />
-            )}
-          </CreatorSectionShell>
-        </div>
-        <div className="min-w-[min(100%,18rem)] shrink-0 snap-start sm:min-w-[20rem] lg:min-w-0">
-          <CreatorSectionShell title="Nguồn traffic" hint="% theo click · đơn · conv">
-            {props.loadingSources ? (
-              <div className="mt-2 h-[11.5rem] animate-pulse rounded-xl bg-slate-100/90" />
-            ) : (
-              <CreatorSourceDonutLazy rows={props.sourcesRows} />
-            )}
-          </CreatorSectionShell>
-        </div>
-        <div className="min-w-[min(100%,20rem)] shrink-0 snap-start sm:min-w-[22rem] lg:col-span-2 lg:min-w-0">
-          <CreatorSectionShell title="Campaign mạnh" hint="Top theo tiêu chí sort">
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {(
-                [
-                  { k: "revenue" as const, label: "Doanh thu" },
-                  { k: "epc" as const, label: "EPC" },
-                  { k: "clicks" as const, label: "Click" },
-                ] as const
-              ).map((x) => (
-                <button
-                  key={x.k}
-                  type="button"
-                  onClick={() => setCampaignMetric(x.k)}
-                  className={campaignMetric === x.k ? AFFILIATE_ANALYTICS_SEGMENT_PILL_ACTIVE : AFFILIATE_ANALYTICS_SEGMENT_PILL_INACTIVE}
-                >
-                  {x.label}
-                </button>
-              ))}
-            </div>
-            {props.loadingCampaigns ? (
-              <div className="mt-2 h-[14rem] animate-pulse rounded-xl bg-slate-100/90" />
-            ) : (
-              <div className="mt-2">
-                <CreatorCampaignBarsLazy rows={props.campaignRows} metric={campaignMetric} />
+      {showChartRows ? (
+        <div className="flex w-full min-w-0 flex-col gap-4 sm:gap-5 lg:gap-5">
+          {!empty ? (
+            <>
+              <div className={CTV_ANALYTICS_CHART_PAIR_ROW}>
+                <ChartPairCol>
+                  <CreatorSectionShell
+                    className={CTV_ANALYTICS_SECTION_SHELL}
+                    title="Traffic theo thời gian"
+                    hint="Click, đơn trả, conv % — sessions tổng xem thẻ Sessions phía trên."
+                  >
+                    {props.loadingTimeline ? (
+                      <div className="mt-2 h-[12rem] w-full shrink-0 animate-pulse rounded-xl bg-slate-100/90 sm:h-[13rem]" />
+                    ) : (
+                      <div className="mt-2 w-full min-w-0">
+                        <CreatorTrafficLineLazy buckets={props.timelineBuckets} />
+                      </div>
+                    )}
+                  </CreatorSectionShell>
+                </ChartPairCol>
+                <ChartPairCol>
+                  <CreatorSectionShell className={CTV_ANALYTICS_SECTION_SHELL} title="Nguồn traffic" hint="% theo click · đơn · conv">
+                    {props.loadingSources ? (
+                      <div className="mt-2 h-[11.5rem] w-full shrink-0 animate-pulse rounded-xl bg-slate-100/90" />
+                    ) : (
+                      <div className="mt-2 w-full min-w-0">
+                        <CreatorSourceDonutLazy rows={props.sourcesRows} />
+                      </div>
+                    )}
+                  </CreatorSectionShell>
+                </ChartPairCol>
               </div>
-            )}
-          </CreatorSectionShell>
-        </div>
-        <div className="min-w-[min(100%,18rem)] shrink-0 snap-start sm:min-w-[20rem] lg:min-w-0">
-          <CreatorSectionShell title="Realtime" hint="Không rung layout · theo cửa sổ thời gian">
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {([5, 15, 60] as const).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setRtWindow(m)}
-                  className={rtWindow === m ? AFFILIATE_ANALYTICS_SEGMENT_PILL_ACTIVE : AFFILIATE_ANALYTICS_SEGMENT_PILL_INACTIVE}
-                >
-                  {m === 60 ? "1h" : `${m}p`}
-                </button>
-              ))}
-            </div>
-            <div className="mt-2 min-h-[7.5rem]">
-              <CreatorRealtimeSparklineLazy history={props.rtHistory} windowMinutes={rtWindow} />
-            </div>
-          </CreatorSectionShell>
-        </div>
-        <div className="min-w-[min(100%,20rem)] shrink-0 snap-start sm:min-w-[22rem] lg:col-span-2 lg:min-w-0">
-          <CreatorSectionShell title="Landing & EPC" hint="Theo visits · EPC = HH / click">
-            {props.loadingLanding ? (
-              <div className="mt-2 h-[13rem] animate-pulse rounded-xl bg-slate-100/90" />
-            ) : (
-              <CreatorLandingBarsLazy rows={props.landingRows} />
-            )}
-          </CreatorSectionShell>
-        </div>
-      </div>
 
-      {!empty ? (
-        <div className="flex flex-wrap items-center justify-center gap-2 rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-3 py-2 text-center">
-          <Link
-            href="/tai-khoan?tab=affiliate"
-            className={clsx(AFFILIATE_ANALYTICS_TOOLBAR_BTN_PRIMARY, "gap-1.5 px-3 py-1.5 text-xs")}
-          >
-            <Share2 className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-            Chia sẻ link ref
-          </Link>
-          <Link
-            href="/tai-khoan/affiliate/campaign"
-            prefetch={false}
-            className={clsx(AFFILIATE_ANALYTICS_TOOLBAR_BTN_SECONDARY, "gap-1.5 px-3 py-1.5 text-xs")}
-          >
-            <Megaphone className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-            Tạo campaign
-          </Link>
+              <div className={CTV_ANALYTICS_CHART_PAIR_ROW}>
+                <ChartPairCol>
+                  <CreatorSectionShell className={CTV_ANALYTICS_SECTION_SHELL} title="Campaign mạnh" hint="Top theo tiêu chí sort">
+                    <div className="mt-2 flex shrink-0 flex-wrap gap-1.5">
+                      {(
+                        [
+                          { k: "revenue" as const, label: "Doanh thu" },
+                          { k: "epc" as const, label: "EPC" },
+                          { k: "clicks" as const, label: "Click" },
+                        ] as const
+                      ).map((x) => (
+                        <button
+                          key={x.k}
+                          type="button"
+                          onClick={() => setCampaignMetric(x.k)}
+                          className={campaignMetric === x.k ? CTV_SEGMENTED_PILL_ITEM_ACTIVE : CTV_SEGMENTED_PILL_ITEM}
+                        >
+                          {x.label}
+                        </button>
+                      ))}
+                    </div>
+                    {props.loadingCampaigns ? (
+                      <div className="mt-2 h-[14rem] w-full shrink-0 animate-pulse rounded-xl bg-slate-100/90" />
+                    ) : (
+                      <div className="mt-2 w-full min-w-0">
+                        <CreatorCampaignBarsLazy rows={props.campaignRows} metric={campaignMetric} />
+                      </div>
+                    )}
+                  </CreatorSectionShell>
+                </ChartPairCol>
+                <ChartPairCol>
+                  <CreatorSectionShell
+                    className={CTV_ANALYTICS_SECTION_SHELL}
+                    title="Realtime"
+                    hint="Không rung layout · theo cửa sổ thời gian"
+                  >
+                    <div className="mt-2 flex shrink-0 flex-wrap gap-1.5">
+                      {([5, 15, 60] as const).map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => setRtWindow(m)}
+                          className={rtWindow === m ? CTV_SEGMENTED_PILL_ITEM_ACTIVE : CTV_SEGMENTED_PILL_ITEM}
+                        >
+                          {m === 60 ? "1h" : `${m}p`}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="mt-2 w-full min-w-0">
+                      <CreatorRealtimeSparklineLazy history={props.rtHistory} windowMinutes={rtWindow} />
+                    </div>
+                  </CreatorSectionShell>
+                </ChartPairCol>
+              </div>
+            </>
+          ) : null}
+
+          {props.trafficByDayPanel || !empty ? (
+            <div className={CTV_ANALYTICS_CHART_PAIR_ROW}>
+              {!empty ? (
+                <ChartPairCol>
+                  <CreatorSectionShell className={CTV_ANALYTICS_SECTION_SHELL} title="Landing & EPC" hint="Theo visits · EPC = HH / click">
+                    {props.loadingLanding ? (
+                      <div className="mt-2 h-[13rem] w-full shrink-0 animate-pulse rounded-xl bg-slate-100/90" />
+                    ) : (
+                      <div className="mt-2 w-full min-w-0">
+                        <CreatorLandingBarsLazy rows={props.landingRows} />
+                      </div>
+                    )}
+                  </CreatorSectionShell>
+                </ChartPairCol>
+              ) : null}
+              {props.trafficByDayPanel ? (
+                <ChartPairCol className={!empty ? undefined : "lg:col-span-2"}>{props.trafficByDayPanel}</ChartPairCol>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       ) : null}
-    </div>
+    </section>
   );
 }

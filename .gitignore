@@ -11,3 +11,4 @@ tsconfig.tsbuildinfo
 .cursor/debug_*.log
 .tmp*
 .cleanup-backup/
+.env*.local

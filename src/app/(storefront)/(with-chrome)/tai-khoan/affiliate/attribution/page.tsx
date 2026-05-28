@@ -1,31 +1,21 @@
 import "server-only";
 
-import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
-import { db } from "@/lib/db";
-import AffiliateAttributionDashboard from "@/components/storefront/affiliate-attribution-dashboard";
+import { resolveCustomerAffiliateProfile } from "@/lib/affiliate-customer-status";
 
-export const metadata: Metadata = {
-  title: "Attribution CTV | Zendo.vn",
-  robots: { index: false, follow: false },
-};
-
-export default async function AffiliateAttributionPage(): Promise<JSX.Element> {
+/** Route giữ tương thích bookmark — chuyển về Thống kê hiệu suất. */
+export default async function AffiliateAttributionPage(): Promise<never> {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id || session.user.role !== "USER") {
     redirect("/tai-khoan");
   }
 
-  const customerId = String(session.user.id);
-  const profile = await db.affiliateProfile.findFirst({
-    where: { customerId, status: "ACTIVE" },
-    select: { id: true },
-  });
-  if (!profile) {
+  const profile = await resolveCustomerAffiliateProfile(String(session.user.id));
+  if (!profile.active) {
     redirect("/tai-khoan?tab=affiliate");
   }
 
-  return <AffiliateAttributionDashboard />;
+  redirect("/tai-khoan/affiliate/analytics");
 }

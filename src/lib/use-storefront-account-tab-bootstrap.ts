@@ -1,16 +1,25 @@
 "use client";
 
 import type { Dispatch, SetStateAction } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { startTransition, useCallback, useEffect, useRef } from "react";
 import {
   buildTaiKhoanTabHref,
   consumeAccountLoginOverviewEntry,
   isCtvAffiliateAccount,
   persistAccountTab,
+  resetAccountOverviewScroll,
   resolveBuyerAccountTab,
   resolveCtvAccountTab,
 } from "./account-tab-navigation";
+
+const ACCOUNT_URL_CHANGE_EVENT = "zendo:account-url-change";
+
+function replaceAccountUrlClientSide(href: string): void {
+  if (typeof window === "undefined") return;
+  window.history.replaceState(window.history.state, "", href);
+  window.dispatchEvent(new Event(ACCOUNT_URL_CHANGE_EVENT));
+}
 
 type BootstrapArgs<TTab extends string, TSub extends string> = {
   affiliateActive: boolean;
@@ -21,8 +30,6 @@ type BootstrapArgs<TTab extends string, TSub extends string> = {
   affiliateSubTabKeys: ReadonlySet<TSub>;
   setActiveTab: Dispatch<SetStateAction<TTab>>;
   setActiveSubTab: Dispatch<SetStateAction<TSub>>;
-  /** Element id để scroll khi mobile chọn Tổng quan */
-  overviewScrollTargetId?: string;
 };
 
 export function resolveStorefrontAccountTabInitial<TTab extends string>(
@@ -50,71 +57,80 @@ export function useStorefrontAccountTabBootstrap<TTab extends string, TSub exten
 ): { onSelectTab: (tab: TTab, sub?: TSub) => void } {
   const {
     affiliateActive,
-    initialAccountTab,
-    initialAffiliateSubTab,
     allowedTabs,
     accountTabKeys,
     affiliateSubTabKeys,
     setActiveTab,
     setActiveSubTab,
-    overviewScrollTargetId = "ctv-overview-heading",
   } = args;
 
-  const router = useRouter();
   const searchParams = useSearchParams();
   const bootstrappedRef = useRef(false);
   const isCtv = isCtvAffiliateAccount(affiliateActive);
 
+  const syncStateFromSearchParams = useCallback(
+    (
+      params: Pick<URLSearchParams, "get">,
+      options?: { forceLoginOverview?: boolean; canonicalize?: boolean },
+    ) => {
+      const urlTab = (params.get("tab") ?? "").trim();
+      const urlSub = (params.get("sub") ?? "").trim();
+      const resolved = isCtv
+        ? resolveCtvAccountTab(urlTab, urlSub, {
+            forceLoginOverview: options?.forceLoginOverview,
+          })
+        : { tab: resolveBuyerAccountTab(urlTab, allowedTabs) };
+
+      const tab = resolved.tab;
+      if (accountTabKeys.has(tab as TTab)) {
+        setActiveTab(tab as TTab);
+      }
+      if (resolved.sub && affiliateSubTabKeys.has(resolved.sub as TSub)) {
+        setActiveSubTab(resolved.sub as TSub);
+      } else if (tab !== "affiliate" && affiliateSubTabKeys.has("overview" as TSub)) {
+        setActiveSubTab("overview" as TSub);
+      }
+
+      if (!isCtv || !options?.canonicalize) return;
+
+      const wantSub = resolved.sub ?? "";
+      const href = buildTaiKhoanTabHref(tab, wantSub || undefined);
+      const needsReplace =
+        urlTab !== tab || (tab === "affiliate" && urlSub !== wantSub) || (!urlTab && tab === "overview");
+
+      if (needsReplace) {
+        replaceAccountUrlClientSide(href);
+      }
+
+      if (tab === "overview") {
+        resetAccountOverviewScroll();
+      }
+    },
+    [accountTabKeys, affiliateSubTabKeys, allowedTabs, isCtv, setActiveSubTab, setActiveTab],
+  );
+
   useEffect(() => {
-    if (bootstrappedRef.current) return;
+    const firstRun = !bootstrappedRef.current;
+    const forceLogin = firstRun && isCtv && consumeAccountLoginOverviewEntry();
     bootstrappedRef.current = true;
+    syncStateFromSearchParams(searchParams, {
+      forceLoginOverview: forceLogin,
+      canonicalize: firstRun,
+    });
+  }, [isCtv, searchParams, syncStateFromSearchParams]);
 
-    const forceLogin = isCtv && consumeAccountLoginOverviewEntry();
-    const resolved = isCtv
-      ? resolveCtvAccountTab(initialAccountTab ?? "", initialAffiliateSubTab ?? "", {
-          forceLoginOverview: forceLogin,
-        })
-      : { tab: resolveBuyerAccountTab(initialAccountTab ?? "", allowedTabs) };
-
-    const tab = resolved.tab;
-    if (accountTabKeys.has(tab as TTab)) {
-      setActiveTab(tab as TTab);
-    }
-    if (resolved.sub && affiliateSubTabKeys.has(resolved.sub as TSub)) {
-      setActiveSubTab(resolved.sub as TSub);
-    }
-
-    if (!isCtv) return;
-
-    const urlTab = (searchParams.get("tab") ?? "").trim();
-    const urlSub = (searchParams.get("sub") ?? "").trim();
-    const wantSub = resolved.sub ?? "";
-    const href = buildTaiKhoanTabHref(tab, wantSub || undefined);
-    const needsReplace =
-      urlTab !== tab || (tab === "affiliate" && urlSub !== wantSub) || (!urlTab && tab === "overview");
-
-    if (needsReplace) {
-      router.replace(href, { scroll: false });
-    }
-
-    if (tab === "overview" && overviewScrollTargetId) {
-      requestAnimationFrame(() => {
-        document.getElementById(overviewScrollTargetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
-    }
-  }, [
-    accountTabKeys,
-    affiliateSubTabKeys,
-    allowedTabs,
-    initialAccountTab,
-    initialAffiliateSubTab,
-    isCtv,
-    overviewScrollTargetId,
-    router,
-    searchParams,
-    setActiveSubTab,
-    setActiveTab,
-  ]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const syncFromLocation = () => {
+      syncStateFromSearchParams(new URLSearchParams(window.location.search));
+    };
+    window.addEventListener(ACCOUNT_URL_CHANGE_EVENT, syncFromLocation);
+    window.addEventListener("popstate", syncFromLocation);
+    return () => {
+      window.removeEventListener(ACCOUNT_URL_CHANGE_EVENT, syncFromLocation);
+      window.removeEventListener("popstate", syncFromLocation);
+    };
+  }, [syncStateFromSearchParams]);
 
   const onSelectTab = useCallback(
     (tab: TTab, sub?: TSub) => {
@@ -128,16 +144,11 @@ export function useStorefrontAccountTabBootstrap<TTab extends string, TSub exten
         }
         if (isCtv) {
           const subForHref = tab === "affiliate" && sub ? sub : undefined;
-          router.replace(buildTaiKhoanTabHref(tab, subForHref), { scroll: false });
+          replaceAccountUrlClientSide(buildTaiKhoanTabHref(tab, subForHref));
         }
       });
-      if (tab === "overview" && overviewScrollTargetId) {
-        requestAnimationFrame(() => {
-          document.getElementById(overviewScrollTargetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
-        });
-      }
     },
-    [affiliateSubTabKeys, isCtv, overviewScrollTargetId, router, setActiveSubTab, setActiveTab],
+    [affiliateSubTabKeys, isCtv, setActiveSubTab, setActiveTab],
   );
 
   return { onSelectTab };

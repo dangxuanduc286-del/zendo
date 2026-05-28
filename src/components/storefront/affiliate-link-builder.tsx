@@ -90,8 +90,9 @@ export default function AffiliateLinkBuilder({
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
+      let parsed: unknown = null;
+      if (raw) parsed = JSON.parse(raw) as unknown;
       if (!raw) return;
-      const parsed = JSON.parse(raw) as HistoryItem[];
       if (Array.isArray(parsed)) {
         setHistory(parsed.slice(0, 20));
       }
@@ -106,6 +107,10 @@ export default function AffiliateLinkBuilder({
     } catch {
       // ignore localStorage failures
     }
+  }, [history]);
+
+  const historyForRender = useMemo(() => {
+    return Array.isArray(history) ? history : [];
   }, [history]);
 
   useEffect(() => {
@@ -200,6 +205,8 @@ export default function AffiliateLinkBuilder({
         <label className="space-y-2">
           <span className={labelClass}>Loại link</span>
           <select
+            id="affiliate-link-builder-type"
+            name="linkType"
             value={linkType}
             onChange={(event) => setLinkType(event.target.value as LinkType)}
             className={selectClass}
@@ -213,6 +220,8 @@ export default function AffiliateLinkBuilder({
         <label className="space-y-2">
           <span className={labelClass}>UTM Campaign (tùy chọn)</span>
           <input
+            id="affiliate-link-builder-campaign"
+            name="campaign"
             value={campaign}
             onChange={(event) => setCampaign(event.target.value)}
             placeholder="vd: sale-thang-5"
@@ -223,6 +232,8 @@ export default function AffiliateLinkBuilder({
           <label className="space-y-1 lg:col-span-2">
             <span className="text-xs text-[#64748B]">Tìm sản phẩm</span>
             <input
+              id="affiliate-link-builder-product-query"
+              name="productQuery"
               value={productQuery}
               onChange={(event) => {
                 setProductQuery(event.target.value);
@@ -327,6 +338,8 @@ export default function AffiliateLinkBuilder({
           <label className="space-y-1 lg:col-span-2">
             <span className="text-xs text-[#64748B]">Slug danh mục</span>
             <input
+              id="affiliate-link-builder-category-slug"
+              name="categorySlug"
               value={categorySlug}
               onChange={(event) => setCategorySlug(event.target.value)}
               placeholder="dien-tu"
@@ -338,6 +351,8 @@ export default function AffiliateLinkBuilder({
           <label className="space-y-1 lg:col-span-2">
             <span className="text-xs text-[#64748B]">Path / URL tùy chỉnh</span>
             <input
+              id="affiliate-link-builder-custom-path"
+              name="customPath"
               value={customPath}
               onChange={(event) => setCustomPath(event.target.value)}
               placeholder="/khuyen-mai hoặc https://www.zendo.vn/khuyen-mai"
@@ -361,6 +376,8 @@ export default function AffiliateLinkBuilder({
         <label className="space-y-2">
           <span className={labelClass}>Link đầu ra</span>
           <input
+            id="affiliate-link-builder-output-url"
+            name="outputUrl"
             readOnly
             value={outputUrl}
             className={isCtv ? `${CTV_V2_INPUT_READONLY} text-xs` : `${fieldClass} break-all text-xs`}
@@ -372,9 +389,9 @@ export default function AffiliateLinkBuilder({
       {error ? <p className="mt-2 text-xs font-medium text-rose-700">{error}</p> : null}
       <div className="mt-4">
         <p className="text-xs font-semibold text-[#0F172A]">Lịch sử link gần đây</p>
-        {history.length ? (
+        {historyForRender.length ? (
           <div className="mt-2 space-y-2">
-            {history.map((item, index) => (
+            {historyForRender.map((item, index) => (
               <div key={`${item.url}-${item.createdAt}-${index}`} className="rounded-lg border border-[#E2E8F0] bg-white p-2.5">
                 <p className="text-xs text-[#64748B]">
                   {item.type === "home"

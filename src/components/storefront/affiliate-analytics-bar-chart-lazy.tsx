@@ -13,10 +13,13 @@ export default function AffiliateAnalyticsBarChartLazy(props: {
   /** Taller chart for traffic tab. */
   size?: "default" | "tall";
 }): JSX.Element {
-  const box = props.size === "tall" ? "h-[15rem] min-h-[15rem] sm:h-[17rem]" : "h-[11.5rem] min-h-[11.5rem] sm:h-52";
+  const box =
+    props.size === "tall"
+      ? "h-[15rem] min-h-[14rem] w-full sm:h-[17rem] lg:h-full lg:min-h-0"
+      : "h-[11.5rem] min-h-[11.5rem] w-full sm:h-52";
   return (
-    <div className={`w-full ${box}`}>
-      <Inner data={props.buckets} compact />
+    <div className={box}>
+      <Inner data={props.buckets} compact={props.size !== "tall"} wide={props.size === "tall"} />
     </div>
   );
 }

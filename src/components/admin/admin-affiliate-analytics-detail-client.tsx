@@ -5,6 +5,19 @@ import { useMemo, useState } from "react";
 import { AnalyticsErrorBoundary } from "@/components/analytics/analytics-error-boundary";
 import { SafeProductThumbnail } from "@/components/ui/safe-product-thumbnail";
 import AdminAffiliateAnalyticsChartLazy from "./admin-affiliate-analytics-chart-lazy";
+import {
+  clickLabelForAnalyticsRange,
+  CTV_ANALYTICS_CLICK_PERIOD_HINT,
+} from "@/lib/ctv/ctv-click-display";
+import {
+  conversionLabelForAnalyticsRange,
+  CTV_CONVERSION_FORMULA_HINT,
+} from "@/lib/ctv/ctv-conversion-month-kpi";
+import {
+  CTV_PAID_ORDER_KPI_HINT,
+  paidOrderLabelForAnalyticsRange,
+} from "@/lib/ctv/ctv-order-display";
+import type { RangeKey } from "@/lib/affiliate-analytics";
 import { useAdminAffiliateDetail, useAdminAffiliateRealtime, type AdminRangeKey } from "./admin-affiliate-analytics-hooks";
 
 function fmtVnd(n: number): string {
@@ -85,6 +98,8 @@ export default function AdminAffiliateAnalyticsDetailClient(props: { affiliateId
           </p>
         </div>
         <select
+          id="admin-affiliate-analytics-detail-range"
+          name="range"
           value={range}
           onChange={(e) => setRange(e.target.value as AdminRangeKey)}
           className="h-10 rounded-xl border border-[#E2E8F0] bg-white px-3 text-sm font-medium"
@@ -102,23 +117,30 @@ export default function AdminAffiliateAnalyticsDetailClient(props: { affiliateId
       ) : null}
 
       <div className="sticky top-0 z-10 grid grid-cols-2 gap-2 border-b border-slate-200/80 bg-[#F8FAFC]/95 py-2 backdrop-blur sm:grid-cols-4 lg:static lg:border-0 lg:bg-transparent lg:py-0">
-        <div className="rounded-xl border border-[#E2E8F0] bg-white p-2 shadow-sm">
-          <p className="text-[10px] font-medium uppercase text-[#64748B]">Clicks</p>
+        <div className="rounded-xl border border-[#E2E8F0] bg-white p-2 shadow-sm" title={CTV_ANALYTICS_CLICK_PERIOD_HINT}>
+          <p className="text-[10px] font-medium uppercase text-[#64748B]">
+            {clickLabelForAnalyticsRange(range as RangeKey)}
+          </p>
           <p className="text-lg font-bold tabular-nums">{overview?.totalClicks ?? "—"}</p>
         </div>
         <div className="rounded-xl border border-[#E2E8F0] bg-white p-2 shadow-sm">
           <p className="text-[10px] font-medium uppercase text-[#64748B]">Visitors</p>
           <p className="text-lg font-bold tabular-nums">{overview?.uniqueVisitors ?? "—"}</p>
         </div>
-        <div className="rounded-xl border border-[#E2E8F0] bg-white p-2 shadow-sm">
-          <p className="text-[10px] font-medium uppercase text-[#64748B]">Conv</p>
+        <div className="rounded-xl border border-[#E2E8F0] bg-white p-2 shadow-sm" title={CTV_CONVERSION_FORMULA_HINT}>
+          <p className="text-[10px] font-medium uppercase text-[#64748B]">
+            {conversionLabelForAnalyticsRange(range as RangeKey)}
+          </p>
           <p className="text-lg font-bold tabular-nums text-emerald-800">{overview ? fmtPct(overview.conversionRate) : "—"}</p>
         </div>
-        <div className="rounded-xl border border-[#E2E8F0] bg-white p-2 shadow-sm">
-          <p className="text-[10px] font-medium uppercase text-[#64748B]">Sessions live</p>
-          <p className="text-lg font-bold tabular-nums text-emerald-700">
-            {realtime.loading ? "…" : (realtime.data?.realtime?.activeSessions ?? 0)}
+        <div
+          className="rounded-xl border border-[#E2E8F0] bg-white p-2 shadow-sm"
+          title={CTV_PAID_ORDER_KPI_HINT}
+        >
+          <p className="text-[10px] font-medium uppercase text-[#64748B]">
+            {paidOrderLabelForAnalyticsRange(range as RangeKey)}
           </p>
+          <p className="text-lg font-bold tabular-nums text-emerald-800">{overview?.paidOrders ?? "—"}</p>
         </div>
       </div>
 

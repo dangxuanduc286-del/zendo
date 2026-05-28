@@ -8,17 +8,15 @@ import {
   CTV_METRIC_TILE,
   CTV_METRIC_TILE_ACCENT,
 } from "../../affiliate/affiliate-ctv-account-ui-tokens";
-import {
-  CTV_METRIC_CONTENT,
-  CTV_MOBILE_KPI_HINT,
-  CTV_MOBILE_KPI_LABEL,
-  CTV_MOBILE_KPI_VALUE,
-} from "../ctv-ui-tokens";
+import { CtvFormattedValue } from "../ctv-formatted-value";
+import { CTV_METRIC_CONTENT, CTV_MOBILE_KPI_HINT, CTV_MOBILE_KPI_LABEL } from "../ctv-ui-tokens";
 import { CTV_MOTION_CLASS } from "../ctv-motion-tokens";
 import { CtvMetricTrend, type MetricTrendProps } from "./ctv-metric-trend";
 
 export type CtvMetricCardProps = {
   label: string;
+  /** Tooltip nhãn (vd. công thức conversion). */
+  labelTitle?: string;
   value: string;
   hint?: string;
   Icon?: LucideIcon;
@@ -31,6 +29,7 @@ export type CtvMetricCardProps = {
 
 function CtvMetricCardInner({
   label,
+  labelTitle,
   value,
   hint,
   Icon,
@@ -51,12 +50,14 @@ function CtvMetricCardInner({
     >
       <div className="flex items-start justify-between gap-1.5 sm:gap-2.5">
         <div className={CTV_METRIC_CONTENT}>
-          <p id={labelId} className={`${CTV_MOBILE_KPI_LABEL} break-words`}>
+          <p
+            id={labelId}
+            className={`${CTV_MOBILE_KPI_LABEL} max-lg:break-words lg:whitespace-nowrap lg:break-normal`}
+            title={labelTitle}
+          >
             {label}
           </p>
-          <p className={`${CTV_MOBILE_KPI_VALUE} mt-1 block`} title={value}>
-            {value}
-          </p>
+          <CtvFormattedValue value={value} className="mt-1" />
           {trend ? (
             <div className="mt-1.5">
               <CtvMetricTrend {...trend} />

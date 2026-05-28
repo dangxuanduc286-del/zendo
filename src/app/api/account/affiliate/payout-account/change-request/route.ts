@@ -2,20 +2,13 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { getActiveAffiliateProfileId } from "@/lib/affiliate-customer-status";
 import { db } from "@/lib/db";
 import {
   assertValidChangeDraftObjectKeys,
   payoutBankFieldsDuplicate,
 } from "@/lib/affiliate/payout-account-change-request-validation";
 import { publishAffiliatePayoutChangeRequestSubmitted } from "@/lib/affiliate/customer-payout-notifications";
-
-async function getActiveAffiliateProfileId(customerId: string): Promise<string | null> {
-  const profile = await db.affiliateProfile.findFirst({
-    where: { customerId, status: "ACTIVE" },
-    select: { id: true },
-  });
-  return profile?.id ?? null;
-}
 
 export async function POST(request: Request): Promise<NextResponse> {
   const session = await getServerSession(authOptions);
@@ -131,6 +124,10 @@ export async function POST(request: Request): Promise<NextResponse> {
       customerId,
       changeRequestId: createdId,
     });
+
+    void import("@/lib/admin/admin-operational-publish").then(({ notifyAdminPayoutChangeRequestSubmitted }) =>
+      notifyAdminPayoutChangeRequestSubmitted({ changeRequestId: createdId, customerId }),
+    );
 
     return NextResponse.json({
       ok: true,

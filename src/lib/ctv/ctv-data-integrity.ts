@@ -1,5 +1,3 @@
-import "server-only";
-
 import { db } from "@/lib/db";
 import { resolveCtvMembershipTierForRevenue } from "./ctv-membership-tier-logic";
 import { fetchCtvMembershipTiersFromDb } from "./ctv-membership-tier-repository";
@@ -50,8 +48,10 @@ export type CtvProfileIntegrityReport = {
 /** Đồng bộ ví thưởng từ grant paid nếu lệch (sửa under/over credit do migrate thủ công). */
 export async function reconcileRevenueRewardWalletBalance(
   affiliateProfileId: string,
+  opts?: { paidRewardSum?: number },
 ): Promise<{ before: number; after: number; fixed: boolean }> {
-  const expected = await sumPaidCtvRevenueRewardAmount(affiliateProfileId);
+  const expected =
+    opts?.paidRewardSum != null ? money(opts.paidRewardSum) : await sumPaidCtvRevenueRewardAmount(affiliateProfileId);
   const profile = await db.affiliateProfile.findUnique({
     where: { id: affiliateProfileId },
     select: { revenueRewardWalletBalance: true },

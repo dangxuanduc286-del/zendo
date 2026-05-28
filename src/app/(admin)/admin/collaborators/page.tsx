@@ -9,13 +9,16 @@ import {
   getAffiliateCommissions,
   getAffiliateOrders,
   getAffiliateApplicationsForAdmin,
-  getAffiliateApplicationPendingCountForAdmin,
   type AffiliateApplicationScoreTierFilter,
   getAffiliateProfiles,
   getAffiliateReconciliation,
   getAffiliateRewardPoints,
   getAffiliateSettings,
+  getAffiliateAdminPendingBadgeCounts,
+  getAffiliateWithdrawals,
   type AffiliateApplicationAdminFilter,
+  type AffiliateWithdrawalListSort,
+  type AffiliateWithdrawalListStatusFilter,
   type AffiliateClickOrderLinkFilter,
   type AffiliateClickRangePreset,
   type AffiliateClickSortOrder,
@@ -31,39 +34,55 @@ import {
   type RewardPointListTypeFilter,
 } from "../../../../lib/admin/affiliate";
 import AffiliateCommissionActions from "../../../../components/admin/affiliate-commission-actions";
+import AffiliateWithdrawalsAdminPanel from "../../../../components/admin/affiliate-withdrawals-admin-panel";
 import AffiliateReconciliationPayForm from "../../../../components/admin/affiliate-reconciliation-pay-form";
 import AffiliateAdminGuide from "../../../../components/admin/affiliate-admin-guide";
 import AffiliateCtvSettingsForm from "../../../../components/admin/affiliate-ctv-settings-form";
 import { CtvMembershipTiersAdmin } from "../../../../components/admin/ctv-membership-tiers-admin";
-import { CtvRevenueRewardHistoryAdmin } from "../../../../components/admin/ctv-revenue-reward-history-admin";
-import {
-  CtvNotificationsAdminPanel,
-  CtvRewardTransactionsAdminPanel,
-  CtvTierHistoryAdminPanel,
-} from "../../../../components/admin/ctv-admin-history-panels";
+import { CtvRewardTransactionsAdminPanel } from "../../../../components/admin/ctv-admin-history-panels";
+import AdminPayoutChangeRequestsTable from "../affiliates/payout-accounts/change-requests-table";
+import AdminPayoutAccountsTable from "../affiliates/payout-accounts/table";
 import { getCtvTierHistoryList } from "../../../../lib/admin/ctv-tier-history-admin";
 import { getCtvNotificationList } from "../../../../lib/admin/ctv-notifications-admin";
 import { getCtvRewardTransactionList } from "../../../../lib/admin/ctv-reward-transactions-admin";
 import { getCtvRevenueRewardAuditList } from "../../../../lib/admin/ctv-revenue-reward-audit";
 import { fetchCtvMembershipTiersFromDb } from "../../../../lib/ctv/ctv-membership-tier-repository";
 import AffiliateCopyLinkButton from "../../../../components/admin/affiliate-copy-link-button";
+import AdminUnifiedHistoryPanel from "../../../../components/admin/admin-unified-history-panel";
+import { Suspense } from "react";
 import { adminTabActive, adminTabBase, adminTabInactive } from "../../../../lib/admin-ui";
+
+const CTV_PAYOUT_ACCOUNTS_ADMIN_HREF =
+  "/admin/affiliates/payout-accounts?mode=accounts&status=PENDING";
 
 const CTV_TABS = [
   { id: "danh-sach", label: "Danh sách CTV" },
   { id: "yeu-cau-ctv", label: "Yêu cầu CTV" },
   { id: "hoa-hong", label: "Hoa hồng" },
-  { id: "thuong-doanh-thu", label: "Lịch sử thưởng DT" },
-  { id: "giao-dich-thuong", label: "GD thưởng ví" },
-  { id: "lich-su-cap", label: "Lịch sử cấp" },
-  { id: "thong-bao-ctv", label: "TB CTV" },
-  { id: "diem-thuong", label: "Điểm thưởng CTV" },
   { id: "click-theo-doi", label: "Click / Theo dõi giới thiệu" },
   { id: "don-phat-sinh", label: "Đơn phát sinh" },
   { id: "doi-soat", label: "Đối soát / Thanh toán" },
+  { id: "rut-tien", label: "Rút tiền CTV" },
+  { id: "lich-su", label: "Lịch sử" },
   { id: "huong-dan", label: "Hướng dẫn CTV" },
   { id: "cai-dat", label: "Cài đặt" },
 ] as const;
+const HIDDEN_CTV_TAB_IDS = ["diem-thuong"] as const;
+
+type VisibleCtvTabId = (typeof CTV_TABS)[number]["id"];
+type HiddenCtvTabId = (typeof HIDDEN_CTV_TAB_IDS)[number];
+type CtvActiveTabId = VisibleCtvTabId | HiddenCtvTabId;
+type PayoutStatus = "PENDING" | "APPROVED" | "REJECTED";
+type PayoutMode = "accounts" | "change-requests";
+type RequestSection = "applications" | "payout-account";
+type PaymentSection = "reconciliation" | "reward-transactions";
+
+function isCtvActiveTabId(value: string | undefined): value is CtvActiveTabId {
+  return (
+    CTV_TABS.some((tab) => tab.id === value) ||
+    HIDDEN_CTV_TAB_IDS.some((tab) => tab === value)
+  );
+}
 
 export const metadata: Metadata = {
   title: "Cộng tác viên | Quản trị Zendo.vn",
@@ -120,6 +139,16 @@ type CollaboratorsPageProps = {
     nt_type?: string;
     nt_from?: string;
     nt_to?: string;
+    wd_q?: string;
+    wd_status?: string;
+    wd_sort?: string;
+    withdrawalError?: string;
+    hist?: string;
+    request?: string;
+    payout_mode?: string;
+    payout_status?: string;
+    payout_q?: string;
+    payment_section?: string;
   }>;
 };
 
@@ -132,9 +161,51 @@ export default async function AdminCollaboratorsPage({
   }
 
   const resolvedSearch = searchParams ? await searchParams : {};
-  const activeTab = CTV_TABS.some((tab) => tab.id === resolvedSearch.tab)
-    ? (resolvedSearch.tab as (typeof CTV_TABS)[number]["id"])
-    : "danh-sach";
+  if (resolvedSearch.tab === "tk-nhan-tien-ctv") {
+    const qs = new URLSearchParams();
+    qs.set("tab", "yeu-cau-ctv");
+    qs.set("request", "payout-account");
+    qs.set("payout_mode", resolvedSearch.payout_mode === "change-requests" ? "change-requests" : "accounts");
+    const status = resolvedSearch.payout_status ?? resolvedSearch.status;
+    qs.set("payout_status", status === "APPROVED" || status === "REJECTED" ? status : "PENDING");
+    const payoutQ = (resolvedSearch.payout_q ?? resolvedSearch.q ?? "").trim();
+    if (payoutQ) qs.set("payout_q", payoutQ);
+    redirect(`/admin/collaborators?${qs.toString()}`);
+  }
+  if (resolvedSearch.tab === "giao-dich-thuong") {
+    const qs = new URLSearchParams();
+    qs.set("tab", "doi-soat");
+    qs.set("payment_section", "reward-transactions");
+    const txQ = (resolvedSearch.tx_q ?? "").trim();
+    const txFromVal = (resolvedSearch.tx_from ?? "").trim();
+    const txToVal = (resolvedSearch.tx_to ?? "").trim();
+    if (txQ) qs.set("tx_q", txQ);
+    if (txFromVal) qs.set("tx_from", txFromVal);
+    if (txToVal) qs.set("tx_to", txToVal);
+    redirect(`/admin/collaborators?${qs.toString()}`);
+  }
+  if (resolvedSearch.tab === "thuong-doanh-thu") {
+    redirect("/admin/collaborators?tab=lich-su&hist=REVENUE_REWARD");
+  }
+  if (resolvedSearch.tab === "lich-su-cap") {
+    redirect("/admin/collaborators?tab=lich-su&hist=TIER");
+  }
+  if (resolvedSearch.tab === "thong-bao-ctv") {
+    const histQs = new URLSearchParams();
+    histQs.set("tab", "lich-su");
+    histQs.set("hist", "NOTIFICATION");
+    const ntQ = (resolvedSearch.nt_q ?? "").trim();
+    const ntTypeVal = (resolvedSearch.nt_type ?? "").trim();
+    const ntFromVal = (resolvedSearch.nt_from ?? "").trim();
+    const ntToVal = (resolvedSearch.nt_to ?? "").trim();
+    if (ntQ) histQs.set("nt_q", ntQ);
+    if (ntTypeVal) histQs.set("nt_type", ntTypeVal);
+    if (ntFromVal) histQs.set("nt_from", ntFromVal);
+    if (ntToVal) histQs.set("nt_to", ntToVal);
+    redirect(`/admin/collaborators?${histQs.toString()}`);
+  }
+
+  const activeTab: CtvActiveTabId = isCtvActiveTabId(resolvedSearch.tab) ? resolvedSearch.tab : "danh-sach";
   const query = (resolvedSearch.q ?? "").trim();
   const statusFilter = resolvedSearch.status ?? "ALL";
   const sortFilter = resolvedSearch.sort ?? "newest";
@@ -268,6 +339,16 @@ export default async function AdminCollaboratorsPage({
   const ntFrom = (resolvedSearch.nt_from ?? "").trim();
   const ntTo = (resolvedSearch.nt_to ?? "").trim();
 
+  const requestSection: RequestSection =
+    resolvedSearch.request === "payout-account" ? "payout-account" : "applications";
+  const payoutMode: PayoutMode = resolvedSearch.payout_mode === "change-requests" ? "change-requests" : "accounts";
+  const payoutStatusRaw = resolvedSearch.payout_status ?? "PENDING";
+  const payoutStatus: PayoutStatus =
+    payoutStatusRaw === "APPROVED" || payoutStatusRaw === "REJECTED" ? payoutStatusRaw : "PENDING";
+  const payoutQuery = (resolvedSearch.payout_q ?? "").trim();
+  const paymentSection: PaymentSection =
+    resolvedSearch.payment_section === "reward-transactions" ? "reward-transactions" : "reconciliation";
+
   const appStatusRaw = resolvedSearch.app_status ?? "ALL";
   const appStatusFilter: AffiliateApplicationAdminFilter =
     appStatusRaw === "PENDING" || appStatusRaw === "APPROVED" || appStatusRaw === "REJECTED"
@@ -296,6 +377,27 @@ export default async function AdminCollaboratorsPage({
   if (recSort !== "outstanding_desc") recRedirectQs.set("rec_sort", recSort);
   const reconciliationRedirectTo = `/admin/collaborators?${recRedirectQs.toString()}`;
 
+  const wdQuery = (resolvedSearch.wd_q ?? "").trim();
+  const wdStatusRaw = resolvedSearch.wd_status ?? "ALL";
+  const wdStatus: AffiliateWithdrawalListStatusFilter =
+    wdStatusRaw === "PENDING" ||
+    wdStatusRaw === "APPROVED" ||
+    wdStatusRaw === "PAID" ||
+    wdStatusRaw === "REJECTED"
+      ? wdStatusRaw
+      : "ALL";
+  const wdSortRaw = resolvedSearch.wd_sort ?? "newest";
+  const wdSort: AffiliateWithdrawalListSort =
+    wdSortRaw === "oldest" ? "oldest" : wdSortRaw === "highest_amount" ? "highest_amount" : "newest";
+  const withdrawalError = (resolvedSearch.withdrawalError ?? "").trim();
+
+  const withdrawalRedirectQs = new URLSearchParams();
+  withdrawalRedirectQs.set("tab", "rut-tien");
+  if (wdQuery) withdrawalRedirectQs.set("wd_q", wdQuery);
+  if (wdStatus !== "ALL") withdrawalRedirectQs.set("wd_status", wdStatus);
+  if (wdSort !== "newest") withdrawalRedirectQs.set("wd_sort", wdSort);
+  const withdrawalRedirectTo = `/admin/collaborators?${withdrawalRedirectQs.toString()}`;
+
   const [
     settings,
     profiles,
@@ -305,12 +407,13 @@ export default async function AdminCollaboratorsPage({
     rewardBundle,
     reconciliationBundle,
     affiliateApplicationRows,
-    affiliateApplicationPendingCount,
+    pendingBadgeCounts,
     revenueRewardAuditBundle,
     membershipTiersForAdmin,
     tierHistoryBundle,
     rewardTxBundle,
     ctvNotificationsBundle,
+    withdrawalBundle,
   ] = await Promise.all([
     getAffiliateSettings(),
     activeTab === "danh-sach"
@@ -392,7 +495,7 @@ export default async function AdminCollaboratorsPage({
             cancelledPoints: 0,
           },
         }),
-    activeTab === "doi-soat"
+    activeTab === "doi-soat" && paymentSection === "reconciliation"
       ? getAffiliateReconciliation({
           query: recQuery,
           eligibility: recEligible,
@@ -408,47 +511,83 @@ export default async function AdminCollaboratorsPage({
             payoutThreshold: 0,
           },
         }),
-    activeTab === "yeu-cau-ctv"
+    activeTab === "yeu-cau-ctv" && requestSection === "applications"
       ? getAffiliateApplicationsForAdmin({ status: appStatusFilter, scoreTier: appScoreTierFilter })
       : Promise.resolve([] as Awaited<ReturnType<typeof getAffiliateApplicationsForAdmin>>),
-    getAffiliateApplicationPendingCountForAdmin(),
-    activeTab === "thuong-doanh-thu"
-      ? getCtvRevenueRewardAuditList({
-          query: rrQuery,
-          tierId: rrTier || undefined,
-          from: rrFrom || undefined,
-          to: rrTo || undefined,
-        })
-      : Promise.resolve({ rows: [], total: 0 }),
-    activeTab === "thuong-doanh-thu" ||
-    activeTab === "lich-su-cap" ||
-    activeTab === "giao-dich-thuong" ||
-    activeTab === "thong-bao-ctv"
-      ? fetchCtvMembershipTiersFromDb(false)
-      : Promise.resolve([]),
-    activeTab === "lich-su-cap"
-      ? getCtvTierHistoryList({
-          query: thQuery,
-          tierId: thTier || undefined,
-          from: thFrom || undefined,
-          to: thTo || undefined,
-        })
-      : Promise.resolve({ rows: [], total: 0 }),
-    activeTab === "giao-dich-thuong"
+    getAffiliateAdminPendingBadgeCounts(),
+    (() => {
+      const hist = (resolvedSearch.hist ?? "ALL").trim();
+      const onHistory = activeTab === "lich-su";
+      const needRevenue = onHistory && hist === "REVENUE_REWARD";
+      return needRevenue
+        ? getCtvRevenueRewardAuditList({
+            query: rrQuery,
+            tierId: rrTier || undefined,
+            from: rrFrom || undefined,
+            to: rrTo || undefined,
+          })
+        : Promise.resolve({ rows: [], total: 0 });
+    })(),
+    (() => {
+      const hist = (resolvedSearch.hist ?? "ALL").trim();
+      const onHistory = activeTab === "lich-su";
+      const needRevenue = onHistory && hist === "REVENUE_REWARD";
+      const needTier = onHistory && hist === "TIER";
+      const needHistNt = onHistory && hist === "NOTIFICATION";
+      return needRevenue || needTier || needHistNt
+        ? fetchCtvMembershipTiersFromDb(false)
+        : Promise.resolve([]);
+    })(),
+    (() => {
+      const hist = (resolvedSearch.hist ?? "ALL").trim();
+      const onHistory = activeTab === "lich-su";
+      const needTier = onHistory && hist === "TIER";
+      return needTier
+        ? getCtvTierHistoryList({
+            query: thQuery,
+            tierId: thTier || undefined,
+            from: thFrom || undefined,
+            to: thTo || undefined,
+          })
+        : Promise.resolve({ rows: [], total: 0 });
+    })(),
+    activeTab === "doi-soat" && paymentSection === "reward-transactions"
       ? getCtvRewardTransactionList({
           query: txQuery,
           from: txFrom || undefined,
           to: txTo || undefined,
         })
       : Promise.resolve({ rows: [], total: 0 }),
-    activeTab === "thong-bao-ctv"
-      ? getCtvNotificationList({
-          query: ntQuery,
-          type: ntType || undefined,
-          from: ntFrom || undefined,
-          to: ntTo || undefined,
+    (() => {
+      const hist = (resolvedSearch.hist ?? "ALL").trim();
+      const onHistory = activeTab === "lich-su";
+      const needNt = onHistory && hist === "NOTIFICATION";
+      return needNt
+        ? getCtvNotificationList({
+            query: ntQuery,
+            type: ntType || undefined,
+            from: ntFrom || undefined,
+            to: ntTo || undefined,
+          })
+        : Promise.resolve({ rows: [], total: 0 });
+    })(),
+    activeTab === "rut-tien"
+      ? getAffiliateWithdrawals({
+          query: wdQuery,
+          status: wdStatus,
+          sort: wdSort,
         })
-      : Promise.resolve({ rows: [], total: 0 }),
+      : Promise.resolve({
+          rows: [] as Awaited<ReturnType<typeof getAffiliateWithdrawals>>["rows"],
+          kpis: {
+            totalRequests: 0,
+            pendingCount: 0,
+            approvedCount: 0,
+            paidCount: 0,
+            rejectedCount: 0,
+            pendingAmountTotal: 0,
+          },
+        }),
   ]);
 
   const clickRows = clickBundle.rows;
@@ -461,6 +600,12 @@ export default async function AdminCollaboratorsPage({
   const rewardKpis = rewardBundle.kpis;
   const reconciliationRows = reconciliationBundle.rows;
   const reconciliationKpis = reconciliationBundle.kpis;
+  const withdrawalRows = withdrawalBundle.rows;
+  const withdrawalKpis = withdrawalBundle.kpis;
+  const affiliateApplicationPendingCount = pendingBadgeCounts.applications;
+  const withdrawalPendingCount = pendingBadgeCounts.withdrawals;
+  const payoutAccountPendingCount = pendingBadgeCounts.payoutAccounts;
+  const requestPendingCount = affiliateApplicationPendingCount + payoutAccountPendingCount;
 
   const affiliateEnabled = settings.affiliateEnabled;
   const rewardPointsEnabled = settings.rewardPointEnabled;
@@ -528,6 +673,26 @@ export default async function AdminCollaboratorsPage({
 
   const clickConversionText = `${clickKpis.conversionRate.toFixed(2)}%`;
   const ctvAvgOrderText = formatCurrency(Math.round(ctvOrderKpis.averageOrderValue));
+  const payoutStatusTabs: Array<{ id: PayoutStatus; label: string }> = [
+    { id: "PENDING", label: payoutMode === "accounts" ? "Chờ xác minh" : "Chờ duyệt đổi TK" },
+    { id: "APPROVED", label: payoutMode === "accounts" ? "Đã duyệt TK" : "Đã duyệt yêu cầu" },
+    { id: "REJECTED", label: "Từ chối" },
+  ];
+  const payoutHref = (mode: PayoutMode, status: PayoutStatus = payoutStatus): string => {
+    const qs = new URLSearchParams();
+    qs.set("tab", "yeu-cau-ctv");
+    qs.set("request", "payout-account");
+    qs.set("payout_mode", mode);
+    qs.set("payout_status", status);
+    if (payoutQuery) qs.set("payout_q", payoutQuery);
+    return `/admin/collaborators?${qs.toString()}`;
+  };
+  const paymentHref = (section: PaymentSection): string => {
+    const qs = new URLSearchParams();
+    qs.set("tab", "doi-soat");
+    if (section === "reward-transactions") qs.set("payment_section", "reward-transactions");
+    return `/admin/collaborators?${qs.toString()}`;
+  };
 
   return (
     <main className="w-full min-w-0 max-w-none space-y-5">
@@ -535,7 +700,7 @@ export default async function AdminCollaboratorsPage({
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-[#0F172A] sm:text-3xl">Cộng tác viên</h1>
           <p className="mt-1 text-sm text-[#64748B]">
-            Quản lý toàn bộ chương trình CTV trong một module duy nhất: danh sách, hoa hồng, điểm thưởng và hướng dẫn vận hành.
+            Quản lý toàn bộ chương trình CTV trong một module duy nhất: danh sách, yêu cầu, hoa hồng, thanh toán và lịch sử vận hành.
           </p>
         </div>
       </header>
@@ -554,17 +719,34 @@ export default async function AdminCollaboratorsPage({
               >
                 <span className="min-w-0 truncate">{tab.label}</span>
                 {tab.id === "yeu-cau-ctv" ? (
-                  affiliateApplicationPendingCount > 0 ? (
+                  requestPendingCount > 0 ? (
                     <span
                       className="inline-flex h-5 shrink-0 items-center justify-center rounded-full bg-amber-100 px-1.5 text-[11px] font-bold tabular-nums text-amber-950 ring-1 ring-rose-300/90"
-                      title={`${affiliateApplicationPendingCount} đơn chờ duyệt`}
+                      title={`${affiliateApplicationPendingCount} đơn đăng ký và ${payoutAccountPendingCount} TK nhận tiền chờ xử lý`}
                     >
-                      {affiliateApplicationPendingCount > 99 ? "99+" : affiliateApplicationPendingCount}
+                      {requestPendingCount > 99 ? "99+" : requestPendingCount}
                     </span>
                   ) : (
                     <span
                       className="inline-flex h-5 shrink-0 items-center justify-center rounded-full bg-slate-100/90 px-1.5 text-[10px] font-medium tabular-nums text-slate-500"
-                      title="Không có đơn chờ duyệt"
+                      title="Không có yêu cầu CTV chờ xử lý"
+                    >
+                      0
+                    </span>
+                  )
+                ) : null}
+                {tab.id === "rut-tien" ? (
+                  withdrawalPendingCount > 0 ? (
+                    <span
+                      className="inline-flex h-5 shrink-0 items-center justify-center rounded-full bg-amber-100 px-1.5 text-[11px] font-bold tabular-nums text-amber-950 ring-1 ring-amber-300/90"
+                      title={`${withdrawalPendingCount} yêu cầu rút tiền chờ xử lý`}
+                    >
+                      {withdrawalPendingCount > 99 ? "99+" : withdrawalPendingCount}
+                    </span>
+                  ) : (
+                    <span
+                      className="inline-flex h-5 shrink-0 items-center justify-center rounded-full bg-slate-100/90 px-1.5 text-[10px] font-medium tabular-nums text-slate-500"
+                      title="Không có yêu cầu rút tiền chờ xử lý"
                     >
                       0
                     </span>
@@ -575,51 +757,6 @@ export default async function AdminCollaboratorsPage({
           })}
         </div>
       </nav>
-
-      {activeTab === "lich-su-cap" ? (
-        <CtvTierHistoryAdminPanel
-          rows={tierHistoryBundle.rows}
-          total={tierHistoryBundle.total}
-          tiers={membershipTiersForAdmin.map((t) => ({ id: t.id, name: t.name }))}
-          query={thQuery}
-          tierId={thTier}
-          from={thFrom}
-          to={thTo}
-        />
-      ) : null}
-
-      {activeTab === "giao-dich-thuong" ? (
-        <CtvRewardTransactionsAdminPanel
-          rows={rewardTxBundle.rows}
-          total={rewardTxBundle.total}
-          query={txQuery}
-          from={txFrom}
-          to={txTo}
-        />
-      ) : null}
-
-      {activeTab === "thong-bao-ctv" ? (
-        <CtvNotificationsAdminPanel
-          rows={ctvNotificationsBundle.rows}
-          total={ctvNotificationsBundle.total}
-          query={ntQuery}
-          type={ntType}
-          from={ntFrom}
-          to={ntTo}
-        />
-      ) : null}
-
-      {activeTab === "thuong-doanh-thu" ? (
-        <CtvRevenueRewardHistoryAdmin
-          rows={revenueRewardAuditBundle.rows}
-          total={revenueRewardAuditBundle.total}
-          tiers={membershipTiersForAdmin.map((t) => ({ id: t.id, name: t.name, code: t.code }))}
-          query={rrQuery}
-          tierId={rrTier}
-          from={rrFrom}
-          to={rrTo}
-        />
-      ) : null}
 
       {activeTab === "cai-dat" ? (
         <section className="space-y-4 rounded-2xl border border-[#E2E8F0] bg-white p-4 sm:p-5">
@@ -659,10 +796,11 @@ export default async function AdminCollaboratorsPage({
       {activeTab === "danh-sach" ? (
       <section className="space-y-3 rounded-2xl border border-[#E2E8F0] bg-white p-4">
         <form className="grid grid-cols-1 gap-3 lg:grid-cols-4" action="/admin/collaborators" method="GET">
-          <input type="hidden" name="tab" value="danh-sach" />
+          <input id="admin-collaborators-list-tab" type="hidden" name="tab" value="danh-sach" />
           <label className="space-y-1">
             <span className="text-xs font-medium text-[#64748B]">Tìm kiếm</span>
             <input
+              id="admin-collaborators-q"
               name="q"
               defaultValue={query}
               placeholder="Tên, email, SĐT hoặc mã giới thiệu"
@@ -672,6 +810,7 @@ export default async function AdminCollaboratorsPage({
           <label className="space-y-1">
             <span className="text-xs font-medium text-[#64748B]">Trạng thái</span>
             <select
+              id="admin-collaborators-status"
               name="status"
               defaultValue={statusFilter}
               className="w-full rounded-xl border border-[#E2E8F0] px-3 py-2 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
@@ -685,6 +824,7 @@ export default async function AdminCollaboratorsPage({
           <label className="space-y-1">
             <span className="text-xs font-medium text-[#64748B]">Sắp xếp</span>
             <select
+              id="admin-collaborators-sort"
               name="sort"
               defaultValue={sortFilter}
               className="w-full rounded-xl border border-[#E2E8F0] px-3 py-2 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
@@ -758,16 +898,16 @@ export default async function AdminCollaboratorsPage({
                     </Link>
                     {item.status === "ACTIVE" ? (
                       <form action={`/api/admin/affiliates/${item.id}/status`} method="POST">
-                        <input type="hidden" name="status" value="PAUSED" />
-                        <input type="hidden" name="redirectTo" value={`/admin/collaborators?tab=danh-sach&q=${encodeURIComponent(query)}&status=${statusFilter}&sort=${sortFilter}`} />
+                        <input id={`admin-collaborators-${item.id}-pause-status`} type="hidden" name="status" value="PAUSED" />
+                        <input id={`admin-collaborators-${item.id}-pause-redirect-to`} type="hidden" name="redirectTo" value={`/admin/collaborators?tab=danh-sach&q=${encodeURIComponent(query)}&status=${statusFilter}&sort=${sortFilter}`} />
                         <button className="inline-flex rounded-md border border-[#E2E8F0] px-2 py-1 text-xs font-medium text-[#0F172A] hover:bg-slate-50" type="submit">
                           Tạm dừng
                         </button>
                       </form>
                     ) : (
                       <form action={`/api/admin/affiliates/${item.id}/status`} method="POST">
-                        <input type="hidden" name="status" value="ACTIVE" />
-                        <input type="hidden" name="redirectTo" value={`/admin/collaborators?tab=danh-sach&q=${encodeURIComponent(query)}&status=${statusFilter}&sort=${sortFilter}`} />
+                        <input id={`admin-collaborators-${item.id}-active-status`} type="hidden" name="status" value="ACTIVE" />
+                        <input id={`admin-collaborators-${item.id}-active-redirect-to`} type="hidden" name="redirectTo" value={`/admin/collaborators?tab=danh-sach&q=${encodeURIComponent(query)}&status=${statusFilter}&sort=${sortFilter}`} />
                         <button className="inline-flex rounded-md border border-[#E2E8F0] px-2 py-1 text-xs font-medium text-[#0F172A] hover:bg-slate-50" type="submit">
                           Kích hoạt
                         </button>
@@ -775,8 +915,8 @@ export default async function AdminCollaboratorsPage({
                     )}
                     {item.status !== "LOCKED" ? (
                       <form action={`/api/admin/affiliates/${item.id}/status`} method="POST">
-                        <input type="hidden" name="status" value="LOCKED" />
-                        <input type="hidden" name="redirectTo" value={`/admin/collaborators?tab=danh-sach&q=${encodeURIComponent(query)}&status=${statusFilter}&sort=${sortFilter}`} />
+                        <input id={`admin-collaborators-${item.id}-lock-status`} type="hidden" name="status" value="LOCKED" />
+                        <input id={`admin-collaborators-${item.id}-lock-redirect-to`} type="hidden" name="redirectTo" value={`/admin/collaborators?tab=danh-sach&q=${encodeURIComponent(query)}&status=${statusFilter}&sort=${sortFilter}`} />
                         <button className="inline-flex rounded-md border border-rose-200 px-2 py-1 text-xs font-medium text-rose-700 hover:bg-rose-50" type="submit">
                           Khóa CTV
                         </button>
@@ -822,11 +962,113 @@ export default async function AdminCollaboratorsPage({
             </div>
           ) : null}
 
+          <div className="flex flex-wrap gap-2 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-2">
+            <Link
+              href="/admin/collaborators?tab=yeu-cau-ctv"
+              className={`${adminTabBase} font-semibold ${
+                requestSection === "applications" ? adminTabActive : adminTabInactive
+              }`}
+            >
+              Đăng ký CTV
+              {affiliateApplicationPendingCount > 0 ? (
+                <span className="ml-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-950">
+                  {affiliateApplicationPendingCount > 99 ? "99+" : affiliateApplicationPendingCount}
+                </span>
+              ) : null}
+            </Link>
+            <Link
+              href={payoutHref("accounts", "PENDING")}
+              className={`${adminTabBase} font-semibold ${
+                requestSection === "payout-account" && payoutMode === "accounts" ? adminTabActive : adminTabInactive
+              }`}
+            >
+              TK nhận tiền
+              {payoutAccountPendingCount > 0 ? (
+                <span className="ml-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-950">
+                  {payoutAccountPendingCount > 99 ? "99+" : payoutAccountPendingCount}
+                </span>
+              ) : null}
+            </Link>
+            <Link
+              href={payoutHref("change-requests", "PENDING")}
+              className={`${adminTabBase} font-semibold ${
+                requestSection === "payout-account" && payoutMode === "change-requests"
+                  ? adminTabActive
+                  : adminTabInactive
+              }`}
+            >
+              Đổi TK nhận tiền
+            </Link>
+          </div>
+
+          {requestSection === "payout-account" ? (
+            <div className="space-y-4 rounded-2xl border border-[#E2E8F0] bg-white p-3 sm:p-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h3 className="text-base font-semibold text-[#0F172A]">Tài khoản nhận tiền CTV</h3>
+                  <p className="mt-1 text-sm text-[#64748B]">
+                    Dùng lại luồng duyệt KYC, approve/reject và API hiện có; ảnh CCCD vẫn đi qua media proxy bảo mật.
+                  </p>
+                </div>
+                <Link
+                  href={CTV_PAYOUT_ACCOUNTS_ADMIN_HREF}
+                  className="inline-flex h-10 shrink-0 items-center rounded-2xl border border-[#E2E8F0] px-4 text-sm font-semibold text-[#0F172A] hover:bg-slate-50"
+                >
+                  Mở trang đầy đủ
+                </Link>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {payoutStatusTabs.map((tab) => {
+                  const active = tab.id === payoutStatus;
+                  return (
+                    <Link
+                      key={tab.id}
+                      href={payoutHref(payoutMode, tab.id)}
+                      className={`${adminTabBase} font-semibold ${active ? adminTabActive : adminTabInactive}`}
+                    >
+                      {tab.label}
+                    </Link>
+                  );
+                })}
+              </div>
+
+              <form className="flex flex-col gap-2 sm:flex-row" action="/admin/collaborators" method="GET">
+                <input id="admin-collaborators-payout-tab" type="hidden" name="tab" value="yeu-cau-ctv" />
+                <input id="admin-collaborators-payout-request" type="hidden" name="request" value="payout-account" />
+                <input id="admin-collaborators-payout-mode" type="hidden" name="payout_mode" value={payoutMode} />
+                <input id="admin-collaborators-payout-status" type="hidden" name="payout_status" value={payoutStatus} />
+                <input
+                  id="admin-collaborators-payout-q"
+                  name="payout_q"
+                  defaultValue={payoutQuery}
+                  placeholder={payoutMode === "accounts" ? "Tìm theo tên, email, ngân hàng…" : "Tìm CTV hoặc ngân hàng đề xuất…"}
+                  className="min-h-11 flex-1 rounded-xl border border-[#E2E8F0] px-3 py-2 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
+                />
+                <button
+                  type="submit"
+                  className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#2563EB] px-4 text-sm font-semibold text-white hover:bg-[#1D4ED8]"
+                >
+                  Tìm
+                </button>
+              </form>
+
+              {payoutMode === "accounts" ? (
+                <AdminPayoutAccountsTable status={payoutStatus} query={payoutQuery} />
+              ) : (
+                <AdminPayoutChangeRequestsTable status={payoutStatus} query={payoutQuery} />
+              )}
+            </div>
+          ) : null}
+
+          {requestSection === "applications" ? (
+            <>
           <form className="grid grid-cols-1 gap-3 sm:grid-cols-12" action="/admin/collaborators" method="GET">
-            <input type="hidden" name="tab" value="yeu-cau-ctv" />
+            <input id="admin-collaborators-applications-tab" type="hidden" name="tab" value="yeu-cau-ctv" />
             <label className="space-y-1 sm:col-span-4">
               <span className="text-xs font-medium text-[#64748B]">Trạng thái đơn</span>
               <select
+                id="admin-collaborators-app-status"
                 name="app_status"
                 defaultValue={appStatusFilter}
                 className="w-full min-h-11 rounded-xl border border-[#E2E8F0] px-3 py-2 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
@@ -840,6 +1082,7 @@ export default async function AdminCollaboratorsPage({
             <label className="space-y-1 sm:col-span-4">
               <span className="text-xs font-medium text-[#64748B]">Nhóm điểm hồ sơ</span>
               <select
+                id="admin-collaborators-app-score-tier"
                 name="app_score_tier"
                 defaultValue={appScoreTierFilter}
                 className="w-full min-h-11 rounded-xl border border-[#E2E8F0] px-3 py-2 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
@@ -964,18 +1207,20 @@ export default async function AdminCollaboratorsPage({
                         className="space-y-2 rounded-lg border border-emerald-100 bg-white p-3"
                       >
                         <textarea
+                          id={`admin-collaborators-application-${row.id}-approve-note`}
                           name="adminNote"
                           rows={2}
                           placeholder="Ghi chú gửi kèm đơn (tùy chọn)"
                           className="w-full min-h-11 min-w-0 rounded-md border border-[#E2E8F0] px-2 py-1.5 text-xs text-[#0F172A] outline-none focus:border-[#2563EB]"
                         />
                         <textarea
+                          id={`admin-collaborators-application-${row.id}-approve-internal-note`}
                           name="internalQuickNote"
                           rows={2}
                           placeholder="Ghi chú nội bộ — khách không thấy (tùy chọn)"
                           className="w-full min-h-11 min-w-0 rounded-md border border-[#E2E8F0] px-2 py-1.5 text-xs text-[#0F172A] outline-none focus:border-[#2563EB]"
                         />
-                        <input type="hidden" name="redirectTo" value={affiliateAppRedirectTo} />
+                        <input id={`admin-collaborators-application-${row.id}-approve-redirect-to`} type="hidden" name="redirectTo" value={affiliateAppRedirectTo} />
                         <button
                           type="submit"
                           className="min-h-11 w-full rounded-md bg-emerald-600 py-2 text-xs font-semibold text-white hover:bg-emerald-700"
@@ -989,18 +1234,20 @@ export default async function AdminCollaboratorsPage({
                         className="space-y-2 rounded-lg border border-rose-100 bg-white p-3"
                       >
                         <textarea
+                          id={`admin-collaborators-application-${row.id}-reject-note`}
                           name="adminNote"
                           rows={2}
                           placeholder="Lý do từ chối (tùy chọn, khách có thể xem)"
                           className="w-full min-h-11 min-w-0 rounded-md border border-[#E2E8F0] px-2 py-1.5 text-xs text-[#0F172A] outline-none focus:border-[#2563EB]"
                         />
                         <textarea
+                          id={`admin-collaborators-application-${row.id}-reject-internal-note`}
                           name="internalQuickNote"
                           rows={2}
                           placeholder="Ghi chú nội bộ — khách không thấy (tùy chọn)"
                           className="w-full min-h-11 min-w-0 rounded-md border border-[#E2E8F0] px-2 py-1.5 text-xs text-[#0F172A] outline-none focus:border-[#2563EB]"
                         />
-                        <input type="hidden" name="redirectTo" value={affiliateAppRedirectTo} />
+                        <input id={`admin-collaborators-application-${row.id}-reject-redirect-to`} type="hidden" name="redirectTo" value={affiliateAppRedirectTo} />
                         <button
                           type="submit"
                           className="min-h-11 w-full rounded-md border border-rose-300 py-2 text-xs font-semibold text-rose-800 hover:bg-rose-50"
@@ -1109,18 +1356,20 @@ export default async function AdminCollaboratorsPage({
                               className="space-y-1 rounded-lg border border-emerald-100 bg-emerald-50/40 p-2"
                             >
                               <textarea
+                                id={`admin-collaborators-application-mobile-${row.id}-approve-note`}
                                 name="adminNote"
                                 rows={2}
                                 placeholder="Ghi chú gửi kèm đơn (tùy chọn)"
                                 className="w-full min-h-11 rounded-md border border-[#E2E8F0] px-2 py-1 text-xs text-[#0F172A] outline-none focus:border-[#2563EB]"
                               />
                               <textarea
+                                id={`admin-collaborators-application-mobile-${row.id}-approve-internal-note`}
                                 name="internalQuickNote"
                                 rows={2}
                                 placeholder="Ghi chú nội bộ (khách không thấy)"
                                 className="w-full min-h-11 rounded-md border border-[#E2E8F0] px-2 py-1 text-xs text-[#0F172A] outline-none focus:border-[#2563EB]"
                               />
-                              <input type="hidden" name="redirectTo" value={affiliateAppRedirectTo} />
+                              <input id={`admin-collaborators-application-mobile-${row.id}-approve-redirect-to`} type="hidden" name="redirectTo" value={affiliateAppRedirectTo} />
                               <button
                                 type="submit"
                                 className="min-h-11 w-full rounded-md bg-emerald-600 px-2 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
@@ -1134,18 +1383,20 @@ export default async function AdminCollaboratorsPage({
                               className="space-y-1 rounded-lg border border-rose-100 bg-rose-50/40 p-2"
                             >
                               <textarea
+                                id={`admin-collaborators-application-mobile-${row.id}-reject-note`}
                                 name="adminNote"
                                 rows={2}
                                 placeholder="Lý do từ chối (khách có thể xem)"
                                 className="w-full min-h-11 rounded-md border border-[#E2E8F0] px-2 py-1 text-xs text-[#0F172A] outline-none focus:border-[#2563EB]"
                               />
                               <textarea
+                                id={`admin-collaborators-application-mobile-${row.id}-reject-internal-note`}
                                 name="internalQuickNote"
                                 rows={2}
                                 placeholder="Ghi chú nội bộ (khách không thấy)"
                                 className="w-full min-h-11 rounded-md border border-[#E2E8F0] px-2 py-1 text-xs text-[#0F172A] outline-none focus:border-[#2563EB]"
                               />
-                              <input type="hidden" name="redirectTo" value={affiliateAppRedirectTo} />
+                              <input id={`admin-collaborators-application-mobile-${row.id}-reject-redirect-to`} type="hidden" name="redirectTo" value={affiliateAppRedirectTo} />
                               <button
                                 type="submit"
                                 className="min-h-11 w-full rounded-md border border-rose-300 bg-white px-2 py-1.5 text-xs font-semibold text-rose-800 hover:bg-rose-50"
@@ -1171,6 +1422,8 @@ export default async function AdminCollaboratorsPage({
               </tbody>
             </table>
           </div>
+            </>
+          ) : null}
         </section>
       ) : null}
 
@@ -1205,10 +1458,11 @@ export default async function AdminCollaboratorsPage({
           </div>
 
           <form className="grid grid-cols-1 gap-3 lg:grid-cols-12" action="/admin/collaborators" method="GET">
-            <input type="hidden" name="tab" value="click-theo-doi" />
+            <input id="admin-collaborators-click-tab" type="hidden" name="tab" value="click-theo-doi" />
             <label className="space-y-1 lg:col-span-4">
               <span className="text-xs font-medium text-[#64748B]">Tìm kiếm</span>
               <input
+                id="admin-collaborators-click-q"
                 name="click_q"
                 defaultValue={clickQuery}
                 placeholder="CTV, ref code, landing, nguồn…"
@@ -1218,6 +1472,7 @@ export default async function AdminCollaboratorsPage({
             <label className="space-y-1 lg:col-span-2">
               <span className="text-xs font-medium text-[#64748B]">Trạng thái gắn đơn</span>
               <select
+                id="admin-collaborators-click-order"
                 name="click_order"
                 defaultValue={clickOrder}
                 className="w-full rounded-2xl border border-[#E2E8F0] px-3 py-2 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
@@ -1230,6 +1485,7 @@ export default async function AdminCollaboratorsPage({
             <label className="space-y-1 lg:col-span-3">
               <span className="text-xs font-medium text-[#64748B]">Thời gian</span>
               <select
+                id="admin-collaborators-click-range"
                 name="click_range"
                 defaultValue={clickRange}
                 className="w-full rounded-2xl border border-[#E2E8F0] px-3 py-2 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
@@ -1245,6 +1501,7 @@ export default async function AdminCollaboratorsPage({
             <label className="space-y-1 lg:col-span-2">
               <span className="text-xs font-medium text-[#64748B]">Sắp xếp</span>
               <select
+                id="admin-collaborators-click-sort"
                 name="click_sort"
                 defaultValue={clickSort}
                 className="w-full rounded-2xl border border-[#E2E8F0] px-3 py-2 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
@@ -1384,11 +1641,12 @@ export default async function AdminCollaboratorsPage({
           </div>
 
           <form className="grid grid-cols-1 gap-3 lg:grid-cols-12" action="/admin/collaborators" method="GET">
-            <input type="hidden" name="tab" value="don-phat-sinh" />
-            {refCodeFromUrl ? <input type="hidden" name="refCode" value={refCodeFromUrl} /> : null}
+            <input id="admin-collaborators-order-tab" type="hidden" name="tab" value="don-phat-sinh" />
+            {refCodeFromUrl ? <input id="admin-collaborators-order-ref-code" type="hidden" name="refCode" value={refCodeFromUrl} /> : null}
             <label className="space-y-1 lg:col-span-4">
               <span className="text-xs font-medium text-[#64748B]">Tìm kiếm</span>
               <input
+                id="admin-collaborators-order-q"
                 name="ord_q"
                 defaultValue={ordQuery}
                 placeholder="Mã đơn, khách, CTV, ref…"
@@ -1398,6 +1656,7 @@ export default async function AdminCollaboratorsPage({
             <label className="space-y-1 lg:col-span-3">
               <span className="text-xs font-medium text-[#64748B]">Trạng thái đơn</span>
               <select
+                id="admin-collaborators-order-status"
                 name="ord_status"
                 defaultValue={ordStatus}
                 className="w-full rounded-2xl border border-[#E2E8F0] px-3 py-2 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
@@ -1414,6 +1673,7 @@ export default async function AdminCollaboratorsPage({
             <label className="space-y-1 lg:col-span-2">
               <span className="text-xs font-medium text-[#64748B]">Thời gian</span>
               <select
+                id="admin-collaborators-order-range"
                 name="ord_range"
                 defaultValue={ordRange}
                 className="w-full rounded-2xl border border-[#E2E8F0] px-3 py-2 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
@@ -1429,6 +1689,7 @@ export default async function AdminCollaboratorsPage({
             <label className="space-y-1 lg:col-span-2">
               <span className="text-xs font-medium text-[#64748B]">Sắp xếp</span>
               <select
+                id="admin-collaborators-order-sort"
                 name="ord_sort"
                 defaultValue={ordSort}
                 className="w-full rounded-2xl border border-[#E2E8F0] px-3 py-2 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
@@ -1571,10 +1832,11 @@ export default async function AdminCollaboratorsPage({
           </div>
 
           <form className="grid grid-cols-1 gap-3 lg:grid-cols-12" action="/admin/collaborators" method="GET">
-            <input type="hidden" name="tab" value="hoa-hong" />
+            <input id="admin-collaborators-commission-tab" type="hidden" name="tab" value="hoa-hong" />
             <label className="space-y-1 lg:col-span-4">
               <span className="text-xs font-medium text-[#64748B]">Tìm kiếm</span>
               <input
+                id="admin-collaborators-commission-q"
                 name="hh_q"
                 defaultValue={hhQuery}
                 placeholder="CTV, ref code, mã đơn…"
@@ -1584,6 +1846,7 @@ export default async function AdminCollaboratorsPage({
             <label className="space-y-1 lg:col-span-3">
               <span className="text-xs font-medium text-[#64748B]">Trạng thái hoa hồng</span>
               <select
+                id="admin-collaborators-commission-status"
                 name="hh_status"
                 defaultValue={hhStatus}
                 className="w-full rounded-2xl border border-[#E2E8F0] px-3 py-2 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
@@ -1599,6 +1862,7 @@ export default async function AdminCollaboratorsPage({
             <label className="space-y-1 lg:col-span-2">
               <span className="text-xs font-medium text-[#64748B]">Thời gian</span>
               <select
+                id="admin-collaborators-commission-range"
                 name="hh_range"
                 defaultValue={hhRange}
                 className="w-full rounded-2xl border border-[#E2E8F0] px-3 py-2 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
@@ -1614,6 +1878,7 @@ export default async function AdminCollaboratorsPage({
             <label className="space-y-1 lg:col-span-2">
               <span className="text-xs font-medium text-[#64748B]">Sắp xếp</span>
               <select
+                id="admin-collaborators-commission-sort"
                 name="hh_sort"
                 defaultValue={hhSort}
                 className="w-full rounded-2xl border border-[#E2E8F0] px-3 py-2 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
@@ -1770,10 +2035,11 @@ export default async function AdminCollaboratorsPage({
           </div>
 
           <form className="grid grid-cols-1 gap-3 lg:grid-cols-12" action="/admin/collaborators" method="GET">
-            <input type="hidden" name="tab" value="diem-thuong" />
+            <input id="admin-collaborators-reward-points-tab" type="hidden" name="tab" value="diem-thuong" />
             <label className="space-y-1 lg:col-span-3">
               <span className="text-xs font-medium text-[#64748B]">Tìm kiếm</span>
               <input
+                id="admin-collaborators-reward-points-q"
                 name="rp_q"
                 defaultValue={rpQuery}
                 placeholder="CTV, ref, lý do, mã đơn…"
@@ -1783,6 +2049,7 @@ export default async function AdminCollaboratorsPage({
             <label className="space-y-1 lg:col-span-2">
               <span className="text-xs font-medium text-[#64748B]">Trạng thái</span>
               <select
+                id="admin-collaborators-reward-points-status"
                 name="rp_status"
                 defaultValue={rpStatus}
                 className="w-full rounded-2xl border border-[#E2E8F0] px-3 py-2 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
@@ -1797,6 +2064,7 @@ export default async function AdminCollaboratorsPage({
             <label className="space-y-1 lg:col-span-2">
               <span className="text-xs font-medium text-[#64748B]">Loại</span>
               <select
+                id="admin-collaborators-reward-points-type"
                 name="rp_type"
                 defaultValue={rpType}
                 className="w-full rounded-2xl border border-[#E2E8F0] px-3 py-2 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
@@ -1810,6 +2078,7 @@ export default async function AdminCollaboratorsPage({
             <label className="space-y-1 lg:col-span-2">
               <span className="text-xs font-medium text-[#64748B]">Thời gian</span>
               <select
+                id="admin-collaborators-reward-points-range"
                 name="rp_range"
                 defaultValue={rpRange}
                 className="w-full rounded-2xl border border-[#E2E8F0] px-3 py-2 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
@@ -1825,6 +2094,7 @@ export default async function AdminCollaboratorsPage({
             <label className="space-y-1 lg:col-span-2">
               <span className="text-xs font-medium text-[#64748B]">Sắp xếp</span>
               <select
+                id="admin-collaborators-reward-points-sort"
                 name="rp_sort"
                 defaultValue={rpSort}
                 className="w-full rounded-2xl border border-[#E2E8F0] px-3 py-2 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
@@ -1954,6 +2224,27 @@ export default async function AdminCollaboratorsPage({
             </div>
           ) : null}
 
+          <div className="flex flex-wrap gap-2 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-2">
+            <Link
+              href={paymentHref("reconciliation")}
+              className={`${adminTabBase} font-semibold ${
+                paymentSection === "reconciliation" ? adminTabActive : adminTabInactive
+              }`}
+            >
+              Đối soát
+            </Link>
+            <Link
+              href={paymentHref("reward-transactions")}
+              className={`${adminTabBase} font-semibold ${
+                paymentSection === "reward-transactions" ? adminTabActive : adminTabInactive
+              }`}
+            >
+              GD thưởng ví
+            </Link>
+          </div>
+
+          {paymentSection === "reconciliation" ? (
+            <>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
             <article className="rounded-2xl border border-[#E2E8F0] bg-white p-4">
               <p className="text-xs font-medium text-[#64748B]">Tổng hoa hồng đã duyệt (chờ trả)</p>
@@ -1980,10 +2271,11 @@ export default async function AdminCollaboratorsPage({
           </div>
 
           <form className="grid grid-cols-1 gap-3 lg:grid-cols-12" action="/admin/collaborators" method="GET">
-            <input type="hidden" name="tab" value="doi-soat" />
+            <input id="admin-collaborators-reconciliation-tab" type="hidden" name="tab" value="doi-soat" />
             <label className="space-y-1 lg:col-span-4">
               <span className="text-xs font-medium text-[#64748B]">Tìm kiếm</span>
               <input
+                id="admin-collaborators-reconciliation-q"
                 name="rec_q"
                 defaultValue={recQuery}
                 placeholder="CTV, ref code…"
@@ -1993,6 +2285,7 @@ export default async function AdminCollaboratorsPage({
             <label className="space-y-1 lg:col-span-4">
               <span className="text-xs font-medium text-[#64748B]">Đủ điều kiện thanh toán</span>
               <select
+                id="admin-collaborators-reconciliation-eligible"
                 name="rec_eligible"
                 defaultValue={recEligible}
                 className="w-full rounded-2xl border border-[#E2E8F0] px-3 py-2 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
@@ -2005,6 +2298,7 @@ export default async function AdminCollaboratorsPage({
             <label className="space-y-1 lg:col-span-3">
               <span className="text-xs font-medium text-[#64748B]">Sắp xếp</span>
               <select
+                id="admin-collaborators-reconciliation-sort"
                 name="rec_sort"
                 defaultValue={recSort}
                 className="w-full rounded-2xl border border-[#E2E8F0] px-3 py-2 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
@@ -2110,7 +2404,71 @@ export default async function AdminCollaboratorsPage({
               </tbody>
             </table>
           </div>
+            </>
+          ) : null}
+
+          {paymentSection === "reward-transactions" ? (
+            <CtvRewardTransactionsAdminPanel
+              rows={rewardTxBundle.rows}
+              total={rewardTxBundle.total}
+              query={txQuery}
+              from={txFrom}
+              to={txTo}
+              tab="doi-soat"
+              paymentSection="reward-transactions"
+            />
+          ) : null}
         </section>
+      ) : null}
+
+      {activeTab === "rut-tien" ? (
+        <AffiliateWithdrawalsAdminPanel
+          rows={withdrawalRows}
+          kpis={withdrawalKpis}
+          query={wdQuery}
+          statusFilter={wdStatus}
+          sort={wdSort}
+          redirectTo={withdrawalRedirectTo}
+          withdrawalError={withdrawalError}
+          formatCurrency={formatCurrency}
+          truncateText={truncateText}
+        />
+      ) : null}
+
+      {activeTab === "lich-su" ? (
+        <Suspense
+          fallback={
+            <p className="rounded-2xl border border-[#E2E8F0] bg-white px-4 py-10 text-center text-sm text-slate-500">
+              Đang tải lịch sử…
+            </p>
+          }
+        >
+          <AdminUnifiedHistoryPanel
+            revenueRows={revenueRewardAuditBundle.rows}
+            revenueTotal={revenueRewardAuditBundle.total}
+            tierRows={tierHistoryBundle.rows}
+            tierTotal={tierHistoryBundle.total}
+            notificationRows={ctvNotificationsBundle.rows}
+            notificationTotal={ctvNotificationsBundle.total}
+            tiersForFilter={membershipTiersForAdmin.map((t) => ({
+              id: t.id,
+              name: t.name,
+              code: t.code,
+            }))}
+            revenueQuery={rrQuery}
+            revenueTierId={rrTier}
+            revenueFrom={rrFrom}
+            revenueTo={rrTo}
+            tierQuery={thQuery}
+            tierFilterId={thTier}
+            tierFrom={thFrom}
+            tierTo={thTo}
+            notificationQuery={ntQuery}
+            notificationType={ntType}
+            notificationFrom={ntFrom}
+            notificationTo={ntTo}
+          />
+        </Suspense>
       ) : null}
 
       {activeTab === "huong-dan" ? (

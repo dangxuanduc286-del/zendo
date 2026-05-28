@@ -112,9 +112,10 @@ export default async function AdminAffiliatePayoutAccountsPage({
               action="/admin/affiliates/payout-accounts"
               method="GET"
             >
-              <input type="hidden" name="status" value={status} />
-              <input type="hidden" name="mode" value={mode} />
+              <input id="admin-affiliate-payout-accounts-status" type="hidden" name="status" value={status} />
+              <input id="admin-affiliate-payout-accounts-mode" type="hidden" name="mode" value={mode} />
               <input
+                id="admin-affiliate-payout-accounts-q"
                 name="q"
                 defaultValue={q}
                 placeholder={

@@ -5,6 +5,13 @@ import type { PaymentMethod, PaymentStatus } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { calcSubtotal, getUnitPrice, normalizeCartItem } from "../../../lib/cart";
 import { computeGuestCoupon } from "../../../lib/coupon";
+import {
+  buildShippingPromotionConfig,
+  getInternalShippingQuote,
+  getShippingPromotionDiscount,
+  normalizeShippingClass,
+  resolveCartShippingClass,
+} from "../../../lib/shipping";
 import { ghiSuKienAnalytics } from "../../../lib/analytics/event-service";
 import { authOptions } from "../../../lib/auth";
 import { effectiveAffiliateBlockMessage, isCustomerBuyer } from "../../../lib/account-role";
@@ -213,6 +220,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         name: true,
         slug: true,
         sku: true,
+        specifications: true,
         basePrice: true,
         salePrice: true,
       },
@@ -228,6 +236,10 @@ export async function POST(request: Request): Promise<NextResponse> {
           ? salePrice
           : (basePrice ?? getUnitPrice(item))
         : getUnitPrice(item);
+      const specifications =
+        product?.specifications && typeof product.specifications === "object" && !Array.isArray(product.specifications)
+          ? (product.specifications as Record<string, unknown>)
+          : {};
 
       return {
         ...item,
@@ -235,6 +247,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         productSlug: product?.slug ?? item.slug,
         sku: product?.sku ?? item.sku ?? `SKU-${item.id}`,
         productId: product?.id ?? null,
+        shippingClass: normalizeShippingClass(specifications.shippingClass ?? item.shippingClass),
         unitPrice: serverUnitPrice,
         totalPrice: serverUnitPrice * item.quantity,
       };
@@ -248,8 +261,17 @@ export async function POST(request: Request): Promise<NextResponse> {
       })),
     );
 
-    let discountAmount = 0;
+    let productDiscountAmount = 0;
+    let shippingDiscountAmount = 0;
     let couponId: string | null = null;
+    const shippingClass = resolveCartShippingClass(pricedItems);
+    const shippingQuote = getInternalShippingQuote({ provinceCode, provinceName }, { shippingClass });
+    const shippingFee = shippingQuote?.fee ?? 0;
+    const autoShippingPromo = getShippingPromotionDiscount(
+      subtotal,
+      shippingFee,
+      buildShippingPromotionConfig(websiteSettings),
+    );
 
     if (couponCode) {
       const now = new Date();
@@ -262,27 +284,42 @@ export async function POST(request: Request): Promise<NextResponse> {
         },
       });
 
-      if (coupon && (!coupon.minOrderAmount || subtotal >= Number(coupon.minOrderAmount))) {
+      const percentCouponIsCapped = coupon?.type !== "PERCENT" || (
+        Boolean(coupon.maxDiscountAmount && Number(coupon.maxDiscountAmount) > 0) &&
+        Boolean(coupon.minOrderAmount && Number(coupon.minOrderAmount) > 0)
+      );
+
+      if (coupon && percentCouponIsCapped && (!coupon.minOrderAmount || subtotal >= Number(coupon.minOrderAmount))) {
         if (!coupon.usageLimit || coupon.usedCount < coupon.usageLimit) {
           if (coupon.type === "PERCENT") {
             const percentage = Number(coupon.value);
-            discountAmount = Math.floor((subtotal * percentage) / 100);
-            if (coupon.maxDiscountAmount) {
-              discountAmount = Math.min(discountAmount, Number(coupon.maxDiscountAmount));
-            }
+            productDiscountAmount = Math.floor((subtotal * percentage) / 100);
+            productDiscountAmount = Math.min(productDiscountAmount, Number(coupon.maxDiscountAmount));
           } else if (coupon.type === "FIXED_AMOUNT") {
-            discountAmount = Number(coupon.value);
+            productDiscountAmount = Number(coupon.value);
+          } else if (coupon.type === "FREE_SHIPPING") {
+            shippingDiscountAmount = Math.min(Number(coupon.value), shippingFee);
           }
           couponId = coupon.id;
         }
       } else {
         const localCoupon = computeGuestCoupon(couponCode, subtotal);
-        discountAmount = localCoupon?.amount ?? 0;
+        if (localCoupon?.type === "FREE_SHIPPING") {
+          shippingDiscountAmount = Math.min(localCoupon.amount, shippingFee);
+        } else {
+          productDiscountAmount = localCoupon?.amount ?? 0;
+        }
       }
     }
 
-    discountAmount = Math.min(Math.max(0, discountAmount), subtotal);
-    const shippingFee = 0;
+    productDiscountAmount = Math.min(Math.max(0, productDiscountAmount), subtotal);
+    const hasAppliedCoupon = Boolean(couponId) || productDiscountAmount > 0 || shippingDiscountAmount > 0;
+    const autoShippingDiscountAmount = hasAppliedCoupon ? 0 : autoShippingPromo?.discountAmount ?? 0;
+    shippingDiscountAmount = Math.max(
+      Math.min(Math.max(0, shippingDiscountAmount), shippingFee),
+      autoShippingDiscountAmount,
+    );
+    const discountAmount = productDiscountAmount + shippingDiscountAmount;
     const totalAmount = subtotal - discountAmount + shippingFee;
     const orderCode = await generateOrderCode();
 
@@ -431,6 +468,16 @@ export async function POST(request: Request): Promise<NextResponse> {
     } catch {
       /* không chặn checkout */
     }
+
+    void import("../../../lib/admin/admin-operational-publish").then(({ notifyAdminOrderCreated }) =>
+      notifyAdminOrderCreated({
+        orderId: order.id,
+        orderCode: order.code,
+        customerId: customer.id,
+        customerName: fullName,
+        totalAmount: Number(order.totalAmount),
+      }),
+    );
 
     if (checkoutPaymentStatus === "PAID") {
       try {

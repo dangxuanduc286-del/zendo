@@ -1,0 +1,1 @@
+vercel env add REDIS_URL

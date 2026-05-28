@@ -2,7 +2,6 @@
 
 import { memo, type ReactNode } from "react";
 import { AlertCircle, Inbox, Loader2 } from "lucide-react";
-import { CTV_V2_LABEL } from "../ctv-ui-tokens";
 import { CTV_MOTION_CLASS } from "../ctv-motion-tokens";
 
 type CtvDataStateProps = {
@@ -15,7 +14,7 @@ type CtvDataStateProps = {
 function wrap(className: string, children: ReactNode): JSX.Element {
   return (
     <div
-      className={`flex flex-col items-center justify-center rounded-[20px] border border-black/[0.04] bg-gradient-to-br from-slate-50/90 to-white px-6 py-12 text-center shadow-[0_6px_20px_rgba(0,0,0,0.03)] ${className}`}
+      className={`flex flex-col items-center justify-center rounded-2xl border border-black/[0.04] bg-gradient-to-br from-slate-50/90 to-white px-6 py-12 text-center shadow-[0_6px_20px_rgba(0,0,0,0.03)] ${className}`}
       role="status"
     >
       {children}
@@ -59,11 +58,6 @@ function CtvDataErrorInner({ title, description, action, className = "" }: CtvDa
   ));
 }
 
-function CtvDataSectionLabelInner({ children }: { children: ReactNode }): JSX.Element {
-  return <p className={CTV_V2_LABEL}>{children}</p>;
-}
-
 export const CtvDataLoading = memo(CtvDataLoadingInner);
 export const CtvDataEmpty = memo(CtvDataEmptyInner);
 export const CtvDataError = memo(CtvDataErrorInner);
-export const CtvDataSectionLabel = memo(CtvDataSectionLabelInner);

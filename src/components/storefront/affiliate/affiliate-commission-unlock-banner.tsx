@@ -38,7 +38,7 @@ export function AffiliateCommissionUnlockBanner({
 
   return (
     <div
-      className="rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50/80 px-4 py-3 shadow-sm"
+      className="rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50/80 px-4 py-3 shadow-sm"
       role="status"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">

@@ -37,16 +37,25 @@ function resolveStatus(item: CouponAdminDto): { label: string; className: string
 function discountTypeLabel(item: CouponAdminDto): string {
   if (item.discountType === "PERCENT") return "Giảm theo %";
   if (item.discountType === "FIXED_AMOUNT") return "Giảm số tiền";
-  return "Miễn phí vận chuyển";
+  return "Ưu đãi vận chuyển";
 }
 
 function discountValueLabel(item: CouponAdminDto): string {
   if (item.discountType === "PERCENT") {
-    const max = item.maxDiscountValue ? ` (toi da ${formatAmount(item.maxDiscountValue)} ${item.currency})` : "";
+    const max = item.maxDiscountValue ? ` (tối đa ${formatAmount(item.maxDiscountValue)} ${item.currency})` : "";
     return `${item.discountValue}%${max}`;
   }
-  if (item.discountType === "FREE_SHIPPING") return "Mien phi van chuyen";
+  if (item.discountType === "FREE_SHIPPING") return "Ưu đãi vận chuyển";
   return `${formatAmount(item.discountValue)} ${item.currency}`;
+}
+
+function needsPercentMaxWarning(item: CouponAdminDto): boolean {
+  return item.discountType === "PERCENT" && (
+    !item.maxDiscountValue ||
+    item.maxDiscountValue <= 0 ||
+    !item.minOrderValue ||
+    item.minOrderValue <= 0
+  );
 }
 
 export default function AdminCouponsTable(): JSX.Element {
@@ -140,12 +149,18 @@ export default function AdminCouponsTable(): JSX.Element {
             <tbody>
               {sorted.map((item) => {
                 const status = resolveStatus(item);
+                const missingPercentMax = needsPercentMaxWarning(item);
                 return (
                 <tr key={item.id} className="border-b border-zinc-100 last:border-none">
                   <td className="px-4 py-3 font-semibold text-zinc-900">{item.code}</td>
                   <td className="px-4 py-3 text-zinc-700">
                     <p className="font-medium text-zinc-900">{item.name}</p>
                     {item.description ? <p className="text-xs text-zinc-500">{item.description}</p> : null}
+                    {missingPercentMax ? (
+                      <p className="mt-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">
+                        Cần cập nhật Đơn tối thiểu và Giảm tối đa cho mã %
+                      </p>
+                    ) : null}
                   </td>
                   <td className="px-4 py-3 text-zinc-700">{discountTypeLabel(item)}</td>
                   <td className="px-4 py-3 text-zinc-700">{discountValueLabel(item)}</td>
@@ -185,12 +200,18 @@ export default function AdminCouponsTable(): JSX.Element {
         <div className="space-y-3 p-3 md:hidden">
           {sorted.map((item) => {
             const status = resolveStatus(item);
+            const missingPercentMax = needsPercentMaxWarning(item);
             return (
             <article key={item.id} className="rounded-lg border border-zinc-200 bg-white p-3">
               <h3 className="text-sm font-semibold text-zinc-900">{item.code} - {item.name}</h3>
               <p className="mt-1 text-xs text-zinc-600">
                 {discountTypeLabel(item)} - {discountValueLabel(item)}
               </p>
+              {missingPercentMax ? (
+                <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">
+                  Cần cập nhật Đơn tối thiểu và Giảm tối đa cho mã %
+                </p>
+              ) : null}
               <p className="text-xs text-zinc-500">Thời gian: {formatDateRange(item.startAt, item.endAt)}</p>
               <p className="text-xs text-zinc-500">
                 Đã dùng / Giới hạn: {item.usedCount} / {item.usageLimit ?? "Khong gioi han"}

@@ -344,6 +344,8 @@ export default function AdminPayoutChangeRequestsTable({ status, query }: { stat
                         <div className="flex-1">
                           <label className="text-xs font-medium text-[#64748B]">Reject reason</label>
                           <textarea
+                            id={`admin-affiliate-payout-change-${detail.id}-reject-reason`}
+                            name="rejectReason"
                             value={rejectReason}
                             onChange={(e) => setRejectReason(e.target.value)}
                             rows={2}

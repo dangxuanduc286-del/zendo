@@ -1,25 +1,29 @@
 "use client";
 
 import Link from "next/link";
+import { CircleUser } from "lucide-react";
 
-export function MobileAccountHeaderAction({ href }: { href: string }): JSX.Element {
+export function MobileAccountHeaderAction({
+  href,
+  isAuthenticated,
+  displayName,
+}: {
+  href: string;
+  isAuthenticated: boolean;
+  displayName?: string;
+}): JSX.Element {
+  const label = isAuthenticated ? displayName?.trim() || "Tài khoản" : "Đăng nhập";
+
   return (
     <Link
       href={href}
       prefetch
-      aria-label="Tài khoản"
+      aria-label={isAuthenticated ? `Tài khoản của ${label}` : "Đăng nhập tài khoản"}
       data-mobile-account-action="account"
-      className="relative z-10 inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[#E2E8F0] bg-white text-[#0F172A] shadow-sm transition hover:bg-[#F8FAFC] active:bg-[#F1F5F9] pointer-events-auto"
+      className="pointer-events-auto relative z-10 inline-flex h-10 min-w-10 max-w-[104px] cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-white px-2 text-[#0F172A] shadow-sm transition hover:border-[#2563EB] hover:bg-[#EFF6FF] hover:text-[#1D4ED8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/30 active:bg-[#DBEAFE]"
     >
-      <svg viewBox="0 0 24 24" fill="none" className="h-[19px] w-[19px] shrink-0 text-[#64748B]" aria-hidden>
-        <circle cx="12" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.65" />
-        <path
-          d="M5 20v-1.2C5 16.3 7.9 15 12 15s7 1.3 7 3.8V20"
-          stroke="currentColor"
-          strokeWidth="1.65"
-          strokeLinecap="round"
-        />
-      </svg>
+      <CircleUser className="h-[22px] w-[22px] shrink-0 text-current" strokeWidth={2} aria-hidden />
+      <span className="min-w-0 truncate text-[11px] font-semibold leading-none text-current">{label}</span>
     </Link>
   );
 }

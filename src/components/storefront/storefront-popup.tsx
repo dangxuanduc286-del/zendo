@@ -47,10 +47,6 @@ export default function StorefrontPopup({
   }, [enabled, safeDelay, safeFrequencyHours]);
 
   useEffect(() => {
-    if (!enabled) return;
-  }, [enabled, safeDelay, safeFrequencyHours, normalizedImage, link]);
-
-  useEffect(() => {
     setGlobalOverlayOpen(Boolean(enabled && open));
   }, [enabled, open]);
 

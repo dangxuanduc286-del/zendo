@@ -29,6 +29,7 @@ import {
   UI_OVERFLOW_CLIP,
 } from "../../lib/ui-layout-stability";
 import { resolveCtvAccountTab } from "../../lib/account-tab-navigation";
+import { useAccountOverviewScrollReset } from "../../lib/use-account-overview-scroll-reset";
 import { useStorefrontAccountTabBootstrap } from "../../lib/use-storefront-account-tab-bootstrap";
 import { useCustomerNotificationsPoll } from "../../lib/use-customer-notifications-poll";
 import { useStorefrontSupportUnreadTotal } from "../../lib/use-storefront-support-unread-total";
@@ -43,6 +44,7 @@ import {
 import type { PolicyHubCard } from "../../lib/site-policy-public";
 import { PurchaseHistoryOrderThumb } from "./purchase-history-order-thumb";
 import { AccountTabKeepAlive } from "./account-tab-keep-alive";
+import { AccountPageContentStart, AccountPageHeader } from "./account-page-header";
 import { prefetchStorefrontAccountTabsIdle } from "../../lib/account-tab-prefetch";
 
 const PurchaseHistoryPanel = dynamic(() => import("./purchase-history-panel"), {
@@ -398,7 +400,10 @@ export default function CustomerBuyerAccountView({
     }
     return "overview";
   });
-  const [activeSubTab, setActiveSubTab] = useState<AffiliateSubTab>("overview");
+  const [activeSubTab, setActiveSubTab] = useState<AffiliateSubTab>(() => {
+    const resolved = resolveCtvAccountTab(initialAccountTab ?? "", initialAffiliateSubTab ?? "");
+    return AFFILIATE_DASH_SUB_TAB_KEYS.has(resolved.sub ?? "") ? (resolved.sub as AffiliateSubTab) : "overview";
+  });
   const [orderStatusFilter, setOrderStatusFilter] = useState("all");
   const [orderSearch, setOrderSearch] = useState("");
   const [expandedOrderIds, setExpandedOrderIds] = useState<string[]>([]);
@@ -587,8 +592,9 @@ export default function CustomerBuyerAccountView({
     affiliateSubTabKeys: AFFILIATE_DASH_SUB_TAB_KEYS,
     setActiveTab,
     setActiveSubTab,
-    overviewScrollTargetId: "ctv-account-card-heading",
   });
+
+  useAccountOverviewScrollReset(activeTab);
 
   const selectAccountTab = useCallback(
     (tab: TabKey) => {
@@ -596,6 +602,12 @@ export default function CustomerBuyerAccountView({
       if (tab !== "affiliate") {
         setActiveSubTab("overview");
       }
+    },
+    [navigateAccountTab],
+  );
+  const selectAffiliateSubTab = useCallback(
+    (sub: AffiliateSubTab) => {
+      navigateAccountTab("affiliate", sub);
     },
     [navigateAccountTab],
   );
@@ -1418,10 +1430,14 @@ export default function CustomerBuyerAccountView({
             <section
               className={`w-full min-w-0 rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 ${MOBILE_PANEL_FLAT} lg:rounded-[32px] lg:border-slate-200/90 lg:p-7 lg:shadow-[0_8px_30px_rgba(15,23,42,0.04)]`}
             >
-              <h3 className="text-base font-semibold leading-tight tracking-[-0.02em] text-[#0F172A] lg:text-2xl lg:font-black lg:leading-tight lg:tracking-[-0.03em]">
-                Tổng quan tài khoản
-              </h3>
-              <div className="mt-2.5 grid grid-cols-1 gap-2 max-lg:gap-2 lg:mt-5 lg:grid-cols-2 lg:gap-5">
+              <AccountPageHeader
+                id="tong-quan"
+                title="Tổng quan tài khoản"
+                bordered={false}
+                headingLevel="h2"
+              />
+              <AccountPageContentStart>
+              <div className="grid grid-cols-1 gap-2 max-lg:gap-2 lg:grid-cols-2 lg:gap-5">
                 {buyerShortcutStatsOk ? (
                   <article className={`rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3 transition-all ${MOBILE_OVERVIEW_TILE} lg:rounded-[26px] lg:border-slate-200/90 lg:bg-slate-50/60 lg:p-6 lg:hover:bg-white lg:hover:shadow-sm`}>
                     <p className="text-sm font-semibold leading-tight tracking-[-0.02em] text-[#0F172A] lg:text-base lg:font-bold lg:tracking-[-0.03em]">
@@ -1526,6 +1542,7 @@ export default function CustomerBuyerAccountView({
                   </div>
                 </article>
               </div>
+              </AccountPageContentStart>
             </section>
           ) : null}
 
@@ -1822,8 +1839,14 @@ export default function CustomerBuyerAccountView({
           {accountSettings.showProfile ? (
             <AccountTabKeepAlive tabKey="profile" activeTab={activeTab}>
             <section id="thong-tin-ca-nhan" className={`${TAB_PANEL_CLASS} lg:p-6`}>
-              <h3 className="text-base font-semibold text-[#0F172A]">Thông tin cá nhân</h3>
-              <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+              <AccountPageHeader
+                id="thong-tin-ca-nhan"
+                title="Thông tin cá nhân"
+                bordered={false}
+                headingLevel="h2"
+              />
+              <AccountPageContentStart>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <label className="space-y-1">
                   <span className="text-xs text-[#64748B]">Họ tên</span>
                   <input
@@ -1873,6 +1896,7 @@ export default function CustomerBuyerAccountView({
               </button>
               {profileMessage ? <p className="mt-2 text-sm text-emerald-700">{profileMessage}</p> : null}
               {profileError ? <p className="mt-2 text-sm text-rose-700">{profileError}</p> : null}
+              </AccountPageContentStart>
             </section>
             </AccountTabKeepAlive>
           ) : null}
@@ -2152,7 +2176,7 @@ export default function CustomerBuyerAccountView({
               shoppingHomeHref={shoppingHomeHref}
               highlightOrderCode={highlightOrderCode}
               activeSubTab={activeSubTab}
-              onSelectSubTab={setActiveSubTab}
+              onSelectSubTab={selectAffiliateSubTab}
               panelClassName={TAB_PANEL_CLASS}
               showGrowthToolkit
             />
@@ -2162,9 +2186,15 @@ export default function CustomerBuyerAccountView({
           {accountSettings.showSecurity ? (
             <AccountTabKeepAlive tabKey="security" activeTab={activeTab}>
             <section id="bao-mat" className={`${TAB_PANEL_CLASS} lg:p-6`}>
-              <h3 className="text-base font-semibold text-[#0F172A]">Bảo mật tài khoản</h3>
-              <p className="mt-2 text-sm text-[#64748B]">Quản lý mật khẩu và phiên đăng nhập của bạn.</p>
-              <div className="mt-3 max-w-3xl space-y-3">
+              <AccountPageHeader
+                id="bao-mat"
+                title="Bảo mật tài khoản"
+                description="Quản lý mật khẩu và phiên đăng nhập của bạn."
+                bordered={false}
+                headingLevel="h2"
+              />
+              <AccountPageContentStart>
+              <div className="max-w-3xl space-y-3">
                 <ChangePasswordForm />
                 <button
                   type="button"
@@ -2174,6 +2204,7 @@ export default function CustomerBuyerAccountView({
                   Đăng xuất
                 </button>
               </div>
+              </AccountPageContentStart>
             </section>
             </AccountTabKeepAlive>
           ) : null}

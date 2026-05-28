@@ -124,6 +124,8 @@ export function CtvMembershipTiersAdmin(): JSX.Element {
                 <label className="text-xs font-medium text-slate-600">
                   Mã (code)
                   <input
+                    id={`ctv-tier-${tier.id}-code`}
+                    name={`ctvTier_${tier.id}_code`}
                     className="mt-1 w-full rounded-lg border px-2 py-1.5 text-sm"
                     value={form.code}
                     onChange={(e) => updateField(tier.id, "code", e.target.value)}
@@ -132,6 +134,8 @@ export function CtvMembershipTiersAdmin(): JSX.Element {
                 <label className="text-xs font-medium text-slate-600">
                   Tên hiển thị
                   <input
+                    id={`ctv-tier-${tier.id}-name`}
+                    name={`ctvTier_${tier.id}_name`}
                     className="mt-1 w-full rounded-lg border px-2 py-1.5 text-sm"
                     value={form.name}
                     onChange={(e) => updateField(tier.id, "name", e.target.value)}
@@ -140,6 +144,8 @@ export function CtvMembershipTiersAdmin(): JSX.Element {
                 <label className="text-xs font-medium text-slate-600">
                   % Hoa hồng
                   <input
+                    id={`ctv-tier-${tier.id}-commission-percent`}
+                    name={`ctvTier_${tier.id}_commissionPercent`}
                     className="mt-1 w-full rounded-lg border px-2 py-1.5 text-sm"
                     value={form.commissionPercent}
                     onChange={(e) => updateField(tier.id, "commissionPercent", e.target.value)}
@@ -148,6 +154,8 @@ export function CtvMembershipTiersAdmin(): JSX.Element {
                 <label className="text-xs font-medium text-slate-600">
                   Doanh thu từ (₫)
                   <input
+                    id={`ctv-tier-${tier.id}-revenue-from`}
+                    name={`ctvTier_${tier.id}_revenueFrom`}
                     className="mt-1 w-full rounded-lg border px-2 py-1.5 text-sm"
                     value={form.revenueFrom}
                     onChange={(e) => updateField(tier.id, "revenueFrom", e.target.value)}
@@ -156,6 +164,8 @@ export function CtvMembershipTiersAdmin(): JSX.Element {
                 <label className="text-xs font-medium text-slate-600">
                   Doanh thu đến (₫)
                   <input
+                    id={`ctv-tier-${tier.id}-revenue-to`}
+                    name={`ctvTier_${tier.id}_revenueTo`}
                     className="mt-1 w-full rounded-lg border px-2 py-1.5 text-sm"
                     value={form.revenueTo}
                     onChange={(e) => updateField(tier.id, "revenueTo", e.target.value)}
@@ -164,6 +174,8 @@ export function CtvMembershipTiersAdmin(): JSX.Element {
                 <label className="text-xs font-medium text-slate-600">
                   Ngưỡng thưởng (₫)
                   <input
+                    id={`ctv-tier-${tier.id}-reward-threshold`}
+                    name={`ctvTier_${tier.id}_rewardThreshold`}
                     className="mt-1 w-full rounded-lg border px-2 py-1.5 text-sm"
                     value={form.rewardThreshold}
                     onChange={(e) => updateField(tier.id, "rewardThreshold", e.target.value)}
@@ -172,6 +184,8 @@ export function CtvMembershipTiersAdmin(): JSX.Element {
                 <label className="text-xs font-medium text-slate-600">
                   Tiền thưởng (₫)
                   <input
+                    id={`ctv-tier-${tier.id}-reward-amount`}
+                    name={`ctvTier_${tier.id}_rewardAmount`}
                     className="mt-1 w-full rounded-lg border px-2 py-1.5 text-sm"
                     value={form.rewardAmount}
                     onChange={(e) => updateField(tier.id, "rewardAmount", e.target.value)}
@@ -180,6 +194,8 @@ export function CtvMembershipTiersAdmin(): JSX.Element {
                 <label className="text-xs font-medium text-slate-600">
                   Thứ tự
                   <input
+                    id={`ctv-tier-${tier.id}-sort-order`}
+                    name={`ctvTier_${tier.id}_sortOrder`}
                     className="mt-1 w-full rounded-lg border px-2 py-1.5 text-sm"
                     value={form.sortOrder}
                     onChange={(e) => updateField(tier.id, "sortOrder", e.target.value)}
@@ -188,6 +204,8 @@ export function CtvMembershipTiersAdmin(): JSX.Element {
                 <label className="text-xs font-medium text-slate-600">
                   Icon (medal, crown, gem…)
                   <input
+                    id={`ctv-tier-${tier.id}-icon`}
+                    name={`ctvTier_${tier.id}_icon`}
                     className="mt-1 w-full rounded-lg border px-2 py-1.5 text-sm"
                     value={form.icon}
                     onChange={(e) => updateField(tier.id, "icon", e.target.value)}
@@ -195,6 +213,8 @@ export function CtvMembershipTiersAdmin(): JSX.Element {
                 </label>
                 <label className="flex items-center gap-2 text-xs font-medium text-slate-600 sm:col-span-2">
                   <input
+                    id={`ctv-tier-${tier.id}-is-active`}
+                    name={`ctvTier_${tier.id}_isActive`}
                     type="checkbox"
                     checked={form.isActive}
                     onChange={(e) => updateField(tier.id, "isActive", e.target.checked)}
@@ -205,6 +225,8 @@ export function CtvMembershipTiersAdmin(): JSX.Element {
               <label className="mt-3 block text-xs font-medium text-slate-600">
                 Theme JSON (badgeColor)
                 <textarea
+                  id={`ctv-tier-${tier.id}-badge-color-json`}
+                  name={`ctvTier_${tier.id}_badgeColorJson`}
                   className="mt-1 w-full rounded-lg border px-2 py-1.5 font-mono text-xs"
                   rows={4}
                   value={form.badgeColorJson}

@@ -1,3 +1,9 @@
+import {
+  DEFAULT_ROLE_SUPPORT_CONFIG,
+  normalizeRoleSupportConfig,
+  type RoleSupportConfig,
+} from "./support-contact-config";
+
 export type TrustBarItem = {
   title: string;
   description: string;
@@ -221,6 +227,7 @@ export type CustomerAccountSettings = {
   supportPhone: string;
   supportZaloUrl: string;
   supportMessengerUrl: string;
+  supportConfig: RoleSupportConfig;
   returnPolicyUrl: string;
   warrantyPolicyUrl: string;
   affiliateTitle: string;
@@ -374,6 +381,12 @@ export type WebsiteSettings = {
   mapUrl: string;
   taxCode: string;
   defaultProductWarranty: string;
+  shippingPromoEnabled: boolean;
+  shippingPromoTier1Min: number;
+  shippingPromoTier1Discount: number;
+  shippingPromoTier2Min: number;
+  shippingPromoTier2Discount: number;
+  shippingPromoFreeMin: number;
   analyticsEnabled: boolean;
   timezone: string;
   currency: string;
@@ -833,6 +846,7 @@ const FALLBACK_WEBSITE_SETTINGS: WebsiteSettings = {
     supportPhone: "1900 6868",
     supportZaloUrl: "",
     supportMessengerUrl: "",
+    supportConfig: DEFAULT_ROLE_SUPPORT_CONFIG,
     returnPolicyUrl: "/chinh-sach-doi-tra",
     warrantyPolicyUrl: "/chinh-sach-bao-hanh",
     affiliateTitle: "Trung tâm CTV / Affiliate",
@@ -923,6 +937,12 @@ const FALLBACK_WEBSITE_SETTINGS: WebsiteSettings = {
   mapUrl: "",
   taxCode: "",
   defaultProductWarranty: "",
+  shippingPromoEnabled: true,
+  shippingPromoTier1Min: 999000,
+  shippingPromoTier1Discount: 30000,
+  shippingPromoTier2Min: 1499000,
+  shippingPromoTier2Discount: 50000,
+  shippingPromoFreeMin: 2999000,
   analyticsEnabled: true,
   timezone: "Asia/Ho_Chi_Minh",
   currency: "VND",
@@ -1313,6 +1333,35 @@ export async function normalizeWebsiteSettings(
   const productDetailRaw = toSafeObject(raw.productDetailSettings);
   const accountBannerRaw = toSafeObject(accountRaw?.banner);
   const accountAffiliateBannerRaw = toSafeObject(accountRaw?.affiliateBanner);
+  const accountSupportPhone =
+    toSafeString(accountRaw?.supportPhone) || FALLBACK_WEBSITE_SETTINGS.customerAccountSettings.supportPhone;
+  const accountSupportZalo = toSafeString(accountRaw?.supportZaloUrl);
+  const accountSupportMessenger = toSafeString(accountRaw?.supportMessengerUrl);
+  const supportFacebookFallback = accountSupportMessenger || toSafeString(raw.footerFacebookUrl);
+  const supportZaloFallback = accountSupportZalo || toSafeString(raw.footerZaloUrl) || toSafeString(raw.zalo);
+  const supportHotlineFallback = accountSupportPhone || toSafeString(raw.hotline);
+  const roleSupportConfig = normalizeRoleSupportConfig(accountRaw?.supportConfig, {
+    guest: {
+      facebook: supportFacebookFallback,
+      zalo: supportZaloFallback,
+      hotline: supportHotlineFallback,
+    },
+    customer: {
+      facebook: supportFacebookFallback,
+      zalo: supportZaloFallback,
+      hotline: supportHotlineFallback,
+    },
+    collaborator: {
+      facebook: supportFacebookFallback,
+      zalo: supportZaloFallback,
+      hotline: supportHotlineFallback,
+    },
+    admin: {
+      facebook: supportFacebookFallback,
+      zalo: supportZaloFallback,
+      hotline: supportHotlineFallback,
+    },
+  });
   const customerAccountSettings: CustomerAccountSettings = {
     showOverview: toSafeBoolean(accountRaw?.showOverview, FALLBACK_WEBSITE_SETTINGS.customerAccountSettings.showOverview),
     showOrders: toSafeBoolean(accountRaw?.showOrders, FALLBACK_WEBSITE_SETTINGS.customerAccountSettings.showOrders),
@@ -1382,9 +1431,10 @@ export async function normalizeWebsiteSettings(
     returnRequestTitle: toSafeString(accountRaw?.returnRequestTitle) || FALLBACK_WEBSITE_SETTINGS.customerAccountSettings.returnRequestTitle,
     continueShoppingUrl: toSafeString(accountRaw?.continueShoppingUrl) || FALLBACK_WEBSITE_SETTINGS.customerAccountSettings.continueShoppingUrl,
     orderLookupUrl: toSafeString(accountRaw?.orderLookupUrl) || FALLBACK_WEBSITE_SETTINGS.customerAccountSettings.orderLookupUrl,
-    supportPhone: toSafeString(accountRaw?.supportPhone) || FALLBACK_WEBSITE_SETTINGS.customerAccountSettings.supportPhone,
-    supportZaloUrl: toSafeString(accountRaw?.supportZaloUrl) || FALLBACK_WEBSITE_SETTINGS.customerAccountSettings.supportZaloUrl,
-    supportMessengerUrl: toSafeString(accountRaw?.supportMessengerUrl) || FALLBACK_WEBSITE_SETTINGS.customerAccountSettings.supportMessengerUrl,
+    supportPhone: accountSupportPhone,
+    supportZaloUrl: accountSupportZalo || FALLBACK_WEBSITE_SETTINGS.customerAccountSettings.supportZaloUrl,
+    supportMessengerUrl: accountSupportMessenger || FALLBACK_WEBSITE_SETTINGS.customerAccountSettings.supportMessengerUrl,
+    supportConfig: roleSupportConfig,
     returnPolicyUrl: toSafeString(accountRaw?.returnPolicyUrl) || FALLBACK_WEBSITE_SETTINGS.customerAccountSettings.returnPolicyUrl,
     warrantyPolicyUrl: toSafeString(accountRaw?.warrantyPolicyUrl) || FALLBACK_WEBSITE_SETTINGS.customerAccountSettings.warrantyPolicyUrl,
     affiliateTitle: toSafeString(accountRaw?.affiliateTitle) || FALLBACK_WEBSITE_SETTINGS.customerAccountSettings.affiliateTitle,
@@ -1696,6 +1746,12 @@ export async function normalizeWebsiteSettings(
     mapUrl: toSafeString(raw.mapUrl),
     taxCode: toSafeString(raw.taxCode),
     defaultProductWarranty: toSafeString(raw.defaultProductWarranty),
+    shippingPromoEnabled: toSafeBoolean(raw.shippingPromoEnabled, FALLBACK_WEBSITE_SETTINGS.shippingPromoEnabled),
+    shippingPromoTier1Min: Math.max(0, toSafeNumber(raw.shippingPromoTier1Min, FALLBACK_WEBSITE_SETTINGS.shippingPromoTier1Min)),
+    shippingPromoTier1Discount: Math.max(0, toSafeNumber(raw.shippingPromoTier1Discount, FALLBACK_WEBSITE_SETTINGS.shippingPromoTier1Discount)),
+    shippingPromoTier2Min: Math.max(0, toSafeNumber(raw.shippingPromoTier2Min, FALLBACK_WEBSITE_SETTINGS.shippingPromoTier2Min)),
+    shippingPromoTier2Discount: Math.max(0, toSafeNumber(raw.shippingPromoTier2Discount, FALLBACK_WEBSITE_SETTINGS.shippingPromoTier2Discount)),
+    shippingPromoFreeMin: Math.max(0, toSafeNumber(raw.shippingPromoFreeMin, FALLBACK_WEBSITE_SETTINGS.shippingPromoFreeMin)),
     analyticsEnabled: toSafeBoolean(
       raw.analyticsEnabled,
       FALLBACK_WEBSITE_SETTINGS.analyticsEnabled,

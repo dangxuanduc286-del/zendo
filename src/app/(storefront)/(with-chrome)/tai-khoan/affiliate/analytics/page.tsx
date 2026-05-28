@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { resolveCustomerAffiliateProfile } from "@/lib/affiliate-customer-status";
 import AffiliateAnalyticsDashboardClient from "@/components/storefront/affiliate-analytics-dashboard-client";
 
 export const metadata: Metadata = {
@@ -22,12 +22,8 @@ export default async function AffiliateAnalyticsPage({
     redirect("/tai-khoan");
   }
 
-  const customerId = String(session.user.id);
-  const profile = await db.affiliateProfile.findFirst({
-    where: { customerId, status: "ACTIVE" },
-    select: { id: true, refCode: true },
-  });
-  if (!profile) {
+  const profile = await resolveCustomerAffiliateProfile(String(session.user.id));
+  if (!profile.active) {
     redirect("/tai-khoan?tab=affiliate");
   }
 
@@ -37,6 +33,11 @@ export default async function AffiliateAnalyticsPage({
   }
   const initialMenuKey = typeof sp.tab === "string" ? sp.tab : undefined;
 
-  return <AffiliateAnalyticsDashboardClient affiliateRefCode={profile.refCode} initialMenuKey={initialMenuKey} />;
+  return (
+    <AffiliateAnalyticsDashboardClient
+      affiliateRefCode={profile.refCode ?? ""}
+      initialMenuKey={initialMenuKey}
+    />
+  );
 }
 

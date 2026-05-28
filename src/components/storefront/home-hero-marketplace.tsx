@@ -6,6 +6,7 @@ import HomeHeroMobileCarousel from "./home-hero-mobile-carousel";
 import BannerSlider from "./banner-slider";
 import MediaImage from "../shared/media-image";
 import HomeHeroCategoriesSidebar from "./home-hero-categories-sidebar";
+import { HOME_HERO_LAYOUT_CONFIG } from "../../lib/home-hero-banner-specs";
 
 interface HomeHeroCategory {
   id: string;
@@ -60,8 +61,8 @@ function HomeBottomBannerImage({
       src={imageUrl}
       alt={alt}
       fill
-      sizes="(max-width: 768px) 50vw, 245px"
-      quality={90}
+      sizes={HOME_HERO_LAYOUT_CONFIG.bottomPromoImageSizes}
+      quality={80}
       fallbackLabel={fallbackLabel}
       className={imageClassName}
       style={{ objectPosition: objectPosition || "center center" }}
@@ -268,22 +269,22 @@ export default function HomeHeroMarketplace({
 
       {/* Desktop */}
       <div className="hidden lg:block">
-        <div
-          className={`grid gap-4 xl:gap-5 ${
-            hasVisibleCategories
-              ? "items-stretch grid-cols-[minmax(210px,230px)_minmax(0,1fr)_minmax(280px,320px)]"
-              : "items-stretch grid-cols-[minmax(0,1fr)_minmax(280px,320px)]"
-          }`}
-        >
+        <div className={HOME_HERO_LAYOUT_CONFIG.desktopGridClassName}>
           {/* Left: danh mục sản phẩm */}
           {hasVisibleCategories ? (
-            <div className="h-full min-h-0">
+            <div className={HOME_HERO_LAYOUT_CONFIG.categoryColumnClassName}>
               <HomeHeroCategoriesSidebar categories={visibleCategories} />
             </div>
           ) : null}
 
           {/* Center: banner chính carousel */}
-          <div className="h-full min-h-0">
+          <div
+            className={
+              hasVisibleCategories
+                ? HOME_HERO_LAYOUT_CONFIG.mainColumnClassName
+                : HOME_HERO_LAYOUT_CONFIG.mainWithoutCategoryColumnClassName
+            }
+          >
             <BannerSlider
               banners={desktopMainBanners.map((b) => ({
                 id: b.id,
@@ -297,9 +298,9 @@ export default function HomeHeroMarketplace({
             />
           </div>
 
-          {/* Right: 4 card/banner phụ dọc */}
-          <div className="h-full min-h-0">
-            <div className="grid h-full min-h-0 grid-rows-4 gap-[1px]">
+          {/* Right: 4 card/banner phụ trong cụm 2x2 */}
+          <div className={HOME_HERO_LAYOUT_CONFIG.rightColumnClassName}>
+            <div className={HOME_HERO_LAYOUT_CONFIG.rightPromoGridClassName}>
               {rightCards.map((card, index) => {
                 const href = card.link || "";
                 const title = (card.title || "").trim();
@@ -314,20 +315,20 @@ export default function HomeHeroMarketplace({
                       src={resolvedImg}
                       alt={altText}
                       fill
-                      sizes="(max-width: 768px) 100vw, 320px"
-                      quality={90}
+                      sizes={HOME_HERO_LAYOUT_CONFIG.rightPromoImageSizes}
+                      quality={80}
                       fallbackLabel={title}
                       className="absolute inset-0 h-full w-full object-cover object-center"
                       style={{ objectPosition: "center center" }}
                     />
                   </div>
                 ) : (
-                  <div className="flex h-full items-center gap-3 rounded-xl border border-slate-200 bg-white/95 px-3 py-2 shadow-sm transition hover:border-[#2563EB]/30 hover:shadow-md">
-                    <span className="flex h-11 w-11 flex-none items-center justify-center rounded-2xl border border-[#BFDBFE] bg-[#EFF6FF]">
+                  <div className="flex h-full flex-col items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white/95 px-2 py-2 text-center shadow-sm transition hover:border-[#2563EB]/30 hover:shadow-md">
+                    <span className="flex h-9 w-9 flex-none items-center justify-center rounded-2xl border border-[#BFDBFE] bg-[#EFF6FF]">
                       <FallbackCategoryIcon index={index} />
                     </span>
                     <div className="min-w-0">
-                      <div className="truncate text-[13px] font-semibold text-slate-900">{title}</div>
+                      <div className="line-clamp-2 text-[12px] font-semibold leading-4 text-slate-900">{title}</div>
                       {description ? (
                         <div className="line-clamp-1 text-xs leading-4 text-slate-600">{description}</div>
                       ) : null}
@@ -350,7 +351,7 @@ export default function HomeHeroMarketplace({
         {/* Bottom: 5 cards */}
         {bottomCards.length ? (
           <div className="mt-4">
-            <div className="grid w-full grid-cols-5 gap-2.5 xl:gap-3">
+            <div className={HOME_HERO_LAYOUT_CONFIG.bottomGridClassName}>
               {bottomCards.map((card, index) => {
                 const title = (card.title || "").trim();
                 const altText = card.altText?.trim() || title || BOTTOM_BANNER_DEFAULT_ALTS[index] || `Banner dưới ${index + 1}`;

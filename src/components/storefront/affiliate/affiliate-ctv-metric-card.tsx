@@ -1,6 +1,7 @@
 "use client";
 
 import type { LucideIcon } from "lucide-react";
+import { CtvFormattedValue } from "../ctv/ctv-formatted-value";
 import {
   CTV_METRIC_ICON,
   CTV_METRIC_ICON_ACCENT,
@@ -8,11 +9,11 @@ import {
   CTV_METRIC_TILE_ACCENT,
   CTV_TYPE_METRIC_HINT,
   CTV_TYPE_METRIC_LABEL,
-  CTV_TYPE_METRIC_VALUE,
 } from "./affiliate-ctv-account-ui-tokens";
 
 type AffiliateCtvMetricCardProps = {
   label: string;
+  labelTitle?: string;
   value: string;
   hint?: string;
   Icon: LucideIcon;
@@ -21,6 +22,7 @@ type AffiliateCtvMetricCardProps = {
 
 export function AffiliateCtvMetricCard({
   label,
+  labelTitle,
   value,
   hint,
   Icon,
@@ -32,10 +34,10 @@ export function AffiliateCtvMetricCard({
     <article className={`${shell} flex h-full min-h-[5.5rem] min-w-0 max-w-full flex-col justify-between overflow-hidden`}>
       <div className="flex h-full min-h-0 items-start justify-between gap-1.5 sm:gap-2.5">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <p className={`${CTV_TYPE_METRIC_LABEL} break-words`}>{label}</p>
-          <p className={`${CTV_TYPE_METRIC_VALUE} min-w-0 max-w-full truncate`} title={value}>
-            {value}
+          <p className={`${CTV_TYPE_METRIC_LABEL} break-words`} title={labelTitle}>
+            {label}
           </p>
+          <CtvFormattedValue value={value} className="mt-1.5" />
           {hint ? (
             <p className={`${CTV_TYPE_METRIC_HINT} break-words`}>{hint}</p>
           ) : (

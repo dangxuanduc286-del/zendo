@@ -8,10 +8,11 @@ import dynamic from "next/dynamic";
 import { AFFILIATE_DASH_SUB_TAB_KEYS } from "../../lib/affiliate-account-dashboard-model";
 import type { AffiliateSubTab } from "../../lib/affiliate-account-dashboard-model";
 import { CtvAccountTabPanel } from "./ctv/ctv-account-tab-panel";
-import { AffiliateCtvAccountShell } from "./affiliate/affiliate-ctv-account-shell";
+import { AccountPageMainChrome } from "./account-page-main-chrome";
 import type { AffiliateCommissionTabSettings } from "../../lib/affiliate-commission-tab-settings";
 import type { CustomerAccountSettings } from "../../lib/settings";
 import { resolveCtvAccountTab } from "../../lib/account-tab-navigation";
+import { useAccountOverviewScrollReset } from "../../lib/use-account-overview-scroll-reset";
 import { useStorefrontAccountTabBootstrap } from "../../lib/use-storefront-account-tab-bootstrap";
 import { useCustomerNotificationsPoll } from "../../lib/use-customer-notifications-poll";
 import { useAccountMobileMenuStore } from "../../stores/accountMobileMenuStore";
@@ -31,12 +32,7 @@ import { AccountOrderItemThumbnail } from "./account-order-item-thumbnail";
 import { AffiliateCtvAccountSidebar } from "./affiliate-ctv-account-sidebar";
 import { buildAffiliateCtvNavEntriesFromDashboard } from "@/lib/storefront-affiliate-ctv-nav-build";
 import { flattenEnabledMenuItems } from "./affiliate-ctv-account-menu-config";
-import {
-  getDistrictsByProvince,
-  getProvinces,
-  getWardsByDistrict,
-  normalizeAddressKeyword,
-} from "../../lib/vietnam-addresses";
+type VietnamAddressesApi = typeof import("../../lib/vietnam-addresses");
 import type { PolicyHubCard } from "../../lib/site-policy-public";
 import { AccountTabKeepAlive } from "./account-tab-keep-alive";
 import { prefetchStorefrontAccountTabsIdle } from "../../lib/account-tab-prefetch";
@@ -311,7 +307,10 @@ export default function AffiliateOnlyAccountView({
     const resolved = resolveCtvAccountTab(initialAccountTab ?? "", initialAffiliateSubTab ?? "");
     return ACCOUNT_TAB_KEYS.has(resolved.tab as TabKey) ? (resolved.tab as TabKey) : "overview";
   });
-  const [activeSubTab, setActiveSubTab] = useState<AffiliateSubTab>("overview");
+  const [activeSubTab, setActiveSubTab] = useState<AffiliateSubTab>(() => {
+    const resolved = resolveCtvAccountTab(initialAccountTab ?? "", initialAffiliateSubTab ?? "");
+    return AFFILIATE_DASH_SUB_TAB_KEYS.has(resolved.sub ?? "") ? (resolved.sub as AffiliateSubTab) : "overview";
+  });
   const [orderStatusFilter, setOrderStatusFilter] = useState("all");
   const [orderSearch, setOrderSearch] = useState("");
   const [expandedOrderIds, setExpandedOrderIds] = useState<string[]>([]);
@@ -359,9 +358,27 @@ export default function AffiliateOnlyAccountView({
     ),
   );
 
-  const provinceOptions = getProvinces("legacy");
-  const districtOptions = getDistrictsByProvince(addressProvinceCode, "legacy");
-  const wardOptions = getWardsByDistrict(addressDistrictCode, addressProvinceCode, "legacy");
+  const [vietnamAddressesApi, setVietnamAddressesApi] = useState<VietnamAddressesApi | null>(null);
+
+  useEffect(() => {
+    if (activeTab !== "addresses" && !addressOpen) return;
+    if (vietnamAddressesApi) return;
+    let cancelled = false;
+    void import("../../lib/vietnam-addresses").then((mod) => {
+      if (!cancelled) setVietnamAddressesApi(mod);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, addressOpen, vietnamAddressesApi]);
+
+  const provinceOptions = vietnamAddressesApi ? vietnamAddressesApi.getProvinces("legacy") : [];
+  const districtOptions = vietnamAddressesApi
+    ? vietnamAddressesApi.getDistrictsByProvince(addressProvinceCode, "legacy")
+    : [];
+  const wardOptions = vietnamAddressesApi
+    ? vietnamAddressesApi.getWardsByDistrict(addressDistrictCode, addressProvinceCode, "legacy")
+    : [];
 
   const supportHref = (() => {
     const z = accountSettings.supportZaloUrl?.trim() ?? "";
@@ -456,8 +473,9 @@ export default function AffiliateOnlyAccountView({
     affiliateSubTabKeys: AFFILIATE_DASH_SUB_TAB_KEYS,
     setActiveTab,
     setActiveSubTab,
-    overviewScrollTargetId: "ctv-account-card-heading",
   });
+
+  useAccountOverviewScrollReset(activeTab);
 
   const selectTab = useCallback(
     (tab: TabKey) => {
@@ -635,30 +653,38 @@ export default function AffiliateOnlyAccountView({
     setAddressOpen(true);
   };
 
-  const openEditAddressForm = (item: AddressItem) => {
+  const openEditAddressForm = async (item: AddressItem) => {
     setAddressMessage("");
     setAddressError("");
+    const addrApi =
+      vietnamAddressesApi ??
+      (await import("../../lib/vietnam-addresses").then((mod) => {
+        setVietnamAddressesApi(mod);
+        return mod;
+      }));
     setAddressEditingId(item.id);
     setAddressReceiverName(item.receiverName);
     setAddressPhone(item.phone);
     setAddressProvince(item.province);
     setAddressDistrict(item.district);
     setAddressWard(item.ward);
-    const provinceMatch = provinceOptions.find(
-      (province) => normalizeAddressKeyword(province.name) === normalizeAddressKeyword(item.province),
+    const provinceMatch = addrApi.getProvinces("legacy").find(
+      (province) =>
+        addrApi.normalizeAddressKeyword(province.name) === addrApi.normalizeAddressKeyword(item.province),
     );
     const matchedProvinceCode = provinceMatch?.code ?? "";
-    const districtList = matchedProvinceCode ? getDistrictsByProvince(matchedProvinceCode, "legacy") : [];
+    const districtList = matchedProvinceCode ? addrApi.getDistrictsByProvince(matchedProvinceCode, "legacy") : [];
     const districtMatch = districtList.find(
-      (district) => normalizeAddressKeyword(district.name) === normalizeAddressKeyword(item.district),
+      (district) =>
+        addrApi.normalizeAddressKeyword(district.name) === addrApi.normalizeAddressKeyword(item.district),
     );
     const matchedDistrictCode = districtMatch?.code ?? "";
     const wardList =
       matchedDistrictCode && matchedProvinceCode
-        ? getWardsByDistrict(matchedDistrictCode, matchedProvinceCode, "legacy")
+        ? addrApi.getWardsByDistrict(matchedDistrictCode, matchedProvinceCode, "legacy")
         : [];
     const wardMatch = wardList.find(
-      (ward) => normalizeAddressKeyword(ward.name) === normalizeAddressKeyword(item.ward),
+      (ward) => addrApi.normalizeAddressKeyword(ward.name) === addrApi.normalizeAddressKeyword(item.ward),
     );
     setAddressProvinceCode(matchedProvinceCode);
     setAddressDistrictCode(matchedDistrictCode);
@@ -998,8 +1024,17 @@ export default function AffiliateOnlyAccountView({
     data.affiliate.isActive && affiliateProgramEnabled && affiliateCommissionTab.tabEnabled,
   );
 
+  const commissionBannerSlot = commissionNotifyUiEnabled ? (
+    <AffiliateCommissionUnlockBanner notifications={liveNotifications} enabled={commissionNotifyUiEnabled} />
+  ) : null;
+
   return (
-    <div className="w-full min-w-0 max-w-none space-y-4 overflow-x-hidden bg-gradient-to-b from-[#f8fafc] to-[#f1f5f9] px-0 py-1 sm:space-y-5 lg:px-2 lg:py-2">
+    <AccountPageMainChrome
+      contentId="tai-khoan-ctv-content"
+      sidebar={desktopSidebar}
+      topSlot={commissionBannerSlot}
+      drawer={
+        <>
       <AffiliateCommissionNotificationToast
         notifications={liveNotifications}
         enabled={commissionNotifyUiEnabled}
@@ -1036,12 +1071,9 @@ export default function AffiliateOnlyAccountView({
           signOut({ callbackUrl: "/" }).catch(() => {});
         }}
       />
-      <AffiliateCtvAccountShell contentId="tai-khoan-ctv-content" sidebar={desktopSidebar}>
-        {(activeTab === "overview" || activeTab === "affiliate") && commissionNotifyUiEnabled ? (
-          <div className="mb-4 min-w-0">
-            <AffiliateCommissionUnlockBanner notifications={liveNotifications} enabled={commissionNotifyUiEnabled} />
-          </div>
-        ) : null}
+        </>
+      }
+    >
         {accountSettings.showOverview && accountSettings.showAffiliate ? (
           <AccountTabKeepAlive tabKey="overview" activeTab={activeTab}>
             <CtvOverviewDashboard {...overviewDashboardProps} />
@@ -1222,6 +1254,8 @@ export default function AffiliateOnlyAccountView({
                 <label className="flex h-11 items-center gap-2 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3">
                   <span className="text-[#64748B]">🔎</span>
                   <input
+                    id="affiliate-account-order-search"
+                    name="orderSearch"
                     type="text"
                     value={orderSearch}
                     onChange={(event) => setOrderSearch(event.target.value)}
@@ -1483,12 +1517,13 @@ export default function AffiliateOnlyAccountView({
 
           {accountSettings.showProfile ? (
             <AccountTabKeepAlive tabKey="profile" activeTab={activeTab}>
-            <section id="thong-tin-ca-nhan" className="w-full min-w-0 rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
-              <h3 className="text-base font-semibold text-[#0F172A]">Thông tin cá nhân</h3>
-              <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+            <CtvAccountTabPanel id="thong-tin-ca-nhan" title="Thông tin cá nhân">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <label className="space-y-1">
                   <span className="text-xs text-[#64748B]">Họ tên</span>
                   <input
+                    id="affiliate-account-profile-name"
+                    name="profileName"
                     value={profileName}
                     onChange={(event) => setProfileName(event.target.value)}
                     className="h-10 w-full rounded-lg border border-[#E2E8F0] px-3 text-sm outline-none focus:border-[#2563EB]"
@@ -1497,6 +1532,8 @@ export default function AffiliateOnlyAccountView({
                 <label className="space-y-1">
                   <span className="text-xs text-[#64748B]">Email / Số điện thoại</span>
                   <input
+                    id="affiliate-account-profile-contact"
+                    name="profileContact"
                     value={profileContact}
                     onChange={(event) => setProfileContact(event.target.value)}
                     className="h-10 w-full rounded-lg border border-[#E2E8F0] px-3 text-sm outline-none focus:border-[#2563EB]"
@@ -1505,6 +1542,8 @@ export default function AffiliateOnlyAccountView({
                 <label className="space-y-1">
                   <span className="text-xs text-[#64748B]">Ngày sinh</span>
                   <input
+                    id="affiliate-account-profile-birth-date"
+                    name="profileBirthDate"
                     type="date"
                     value={profileBirthDate}
                     onChange={(event) => setProfileBirthDate(event.target.value)}
@@ -1514,6 +1553,8 @@ export default function AffiliateOnlyAccountView({
                 <label className="space-y-1">
                   <span className="text-xs text-[#64748B]">Giới tính</span>
                   <select
+                    id="affiliate-account-profile-gender"
+                    name="profileGender"
                     value={profileGender}
                     onChange={(event) => setProfileGender(event.target.value)}
                     className="h-10 w-full rounded-lg border border-[#E2E8F0] px-3 text-sm outline-none focus:border-[#2563EB]"
@@ -1535,7 +1576,7 @@ export default function AffiliateOnlyAccountView({
               </button>
               {profileMessage ? <p className="mt-2 text-sm text-emerald-700">{profileMessage}</p> : null}
               {profileError ? <p className="mt-2 text-sm text-rose-700">{profileError}</p> : null}
-            </section>
+            </CtvAccountTabPanel>
             </AccountTabKeepAlive>
           ) : null}
 
@@ -1562,6 +1603,8 @@ export default function AffiliateOnlyAccountView({
                     <label className="space-y-1">
                       <span className="text-xs text-[#64748B]">Họ tên người nhận</span>
                       <input
+                        id="affiliate-account-address-receiver-name"
+                        name="addressReceiverName"
                         value={addressReceiverName}
                         onChange={(event) => setAddressReceiverName(event.target.value)}
                         className="h-10 w-full rounded-lg border border-[#E2E8F0] px-3 text-sm outline-none focus:border-[#2563EB]"
@@ -1570,6 +1613,8 @@ export default function AffiliateOnlyAccountView({
                     <label className="space-y-1">
                       <span className="text-xs text-[#64748B]">Số điện thoại</span>
                       <input
+                        id="affiliate-account-address-phone"
+                        name="addressPhone"
                         value={addressPhone}
                         onChange={(event) => setAddressPhone(event.target.value)}
                         className="h-10 w-full rounded-lg border border-[#E2E8F0] px-3 text-sm outline-none focus:border-[#2563EB]"
@@ -1578,6 +1623,8 @@ export default function AffiliateOnlyAccountView({
                     <label className="space-y-1">
                       <span className="text-xs text-[#64748B]">Tỉnh/Thành phố</span>
                       <select
+                        id="affiliate-account-address-province"
+                        name="addressProvinceCode"
                         value={addressProvinceCode}
                         onChange={(event) => onProvinceChange(event.target.value)}
                         className="h-11 w-full rounded-lg border border-[#E2E8F0] bg-white px-3 text-sm outline-none focus:border-[#2563EB]"
@@ -1593,6 +1640,8 @@ export default function AffiliateOnlyAccountView({
                     <label className="space-y-1">
                       <span className="text-xs text-[#64748B]">Quận/Huyện</span>
                       <select
+                        id="affiliate-account-address-district"
+                        name="addressDistrictCode"
                         value={addressDistrictCode}
                         onChange={(event) => onDistrictChange(event.target.value)}
                         disabled={!addressProvinceCode}
@@ -1609,6 +1658,8 @@ export default function AffiliateOnlyAccountView({
                     <label className="space-y-1">
                       <span className="text-xs text-[#64748B]">Phường/Xã</span>
                       <select
+                        id="affiliate-account-address-ward"
+                        name="addressWardCode"
                         value={addressWardCode}
                         onChange={(event) => onWardChange(event.target.value)}
                         disabled={!addressDistrictCode}
@@ -1640,6 +1691,8 @@ export default function AffiliateOnlyAccountView({
                     <label className="space-y-1 md:col-span-2">
                       <span className="text-xs text-[#64748B]">Địa chỉ chi tiết</span>
                       <input
+                        id="affiliate-account-address-detail"
+                        name="addressDetail"
                         value={addressDetail}
                         onChange={(event) => setAddressDetail(event.target.value)}
                         className="h-10 w-full rounded-lg border border-[#E2E8F0] px-3 text-sm outline-none focus:border-[#2563EB]"
@@ -1648,6 +1701,8 @@ export default function AffiliateOnlyAccountView({
                   </div>
                   <label className="mt-3 inline-flex items-center gap-2 text-sm text-[#334155]">
                     <input
+                      id="affiliate-account-address-is-default"
+                      name="addressIsDefault"
                       type="checkbox"
                       checked={addressIsDefault}
                       onChange={(event) => setAddressIsDefault(event.target.checked)}
@@ -1825,7 +1880,6 @@ export default function AffiliateOnlyAccountView({
             </CtvAccountTabPanel>
             </AccountTabKeepAlive>
           ) : null}
-      </AffiliateCtvAccountShell>
-    </div>
+    </AccountPageMainChrome>
   );
 }

@@ -10,6 +10,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { CTV_PAID_ORDER_KPI_BASE } from "@/lib/ctv/ctv-order-display";
 import type { AdminAffiliateChartBucket } from "./admin-affiliate-analytics-chart-lazy";
 
 export default function AdminAffiliateAnalyticsChartInner(props: {
@@ -27,7 +28,7 @@ export default function AdminAffiliateAnalyticsChartInner(props: {
           <Tooltip />
           <Legend />
           <Bar dataKey="clicks" name="Click" fill="#2563EB" radius={[4, 4, 0, 0]} />
-          <Bar dataKey="orders" name="Đơn trả" fill="#10B981" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="orders" name={CTV_PAID_ORDER_KPI_BASE} fill="#10B981" radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>

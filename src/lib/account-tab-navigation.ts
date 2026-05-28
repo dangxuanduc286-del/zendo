@@ -48,6 +48,21 @@ export function isCtvAffiliateAccount(affiliateActive: boolean): boolean {
   return affiliateActive;
 }
 
+/** Đưa viewport về đầu trang tài khoản khi mở tab Tổng quan (không scrollIntoView section giữa trang). */
+export function resetAccountOverviewScroll(): void {
+  if (typeof window === "undefined") return;
+
+  const apply = () => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  };
+
+  apply();
+  requestAnimationFrame(() => {
+    apply();
+    requestAnimationFrame(apply);
+  });
+}
+
 /**
  * Tab khởi tạo cho CTV:
  * - Không có `?tab=` → Tổng quan
@@ -101,11 +116,11 @@ export function resolveBuyerAccountTab(initialTab: string, allowedTabs: readonly
   return allowedTabs.includes("overview") ? "overview" : allowedTabs[0] ?? "overview";
 }
 
-/** Sau đăng nhập: `/tai-khoan` không tab → thêm `tab=overview`. */
+/** Sau đăng nhập: mặc định Home; `/tai-khoan` không tab → thêm `tab=overview`. */
 export function resolveCustomerLoginCallbackUrl(callbackUrl: string | null | undefined): string {
   const value = (callbackUrl ?? "").trim();
   if (!value.startsWith("/") || value.startsWith("//")) {
-    return "/tai-khoan?tab=overview";
+    return "/";
   }
   if (value.startsWith("/admin") || value.startsWith("/account") || value.startsWith("/me") || value.startsWith("/profile")) {
     return value;

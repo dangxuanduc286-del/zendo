@@ -93,6 +93,20 @@ export async function POST(request: Request): Promise<NextResponse> {
       paymentMethod: "BANK",
       paymentInfo: paymentPayload,
     });
+    void import("@/lib/admin/admin-operational-publish").then(({ notifyAdminWithdrawalSubmitted }) =>
+      notifyAdminWithdrawalSubmitted({
+        withdrawalId: created.id,
+        affiliateProfileId: snapshot.profileId,
+        amountVnd: roundVnd,
+      }),
+    );
+    const { publishAffiliateWithdrawalSubmitted } = await import("@/lib/affiliate/customer-payout-notifications");
+    await publishAffiliateWithdrawalSubmitted({
+      customerId: session.user.id,
+      withdrawalId: created.id,
+      amountVnd: roundVnd,
+    });
+
     return NextResponse.json({
       ok: true,
       message: "Đã nhận yêu cầu rút tiền.",

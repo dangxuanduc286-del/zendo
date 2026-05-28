@@ -296,6 +296,8 @@ export function AffiliateCtvAccountApplyGate(props: Props): JSX.Element {
               <label className="block text-xs font-medium text-[#0F172A]">
                 Họ và tên *
                 <input
+                  id="ctv-apply-full-name"
+                  name="fullName"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   className="mt-1 w-full rounded-lg border border-[#E2E8F0] px-3 py-2 text-sm outline-none focus:border-[#2563EB]"
@@ -305,6 +307,8 @@ export function AffiliateCtvAccountApplyGate(props: Props): JSX.Element {
               <label className="block text-xs font-medium text-[#0F172A]">
                 Số điện thoại *
                 <input
+                  id="ctv-apply-phone"
+                  name="phone"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   inputMode="tel"
@@ -319,6 +323,7 @@ export function AffiliateCtvAccountApplyGate(props: Props): JSX.Element {
                 {hasSessionEmail ? (
                   <input
                     id="ctv-apply-email"
+                    name="email"
                     readOnly
                     value={sessionEmailRaw}
                     className="mt-1 w-full cursor-not-allowed rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-3 py-2 text-sm text-[#64748B] outline-none"
@@ -327,6 +332,7 @@ export function AffiliateCtvAccountApplyGate(props: Props): JSX.Element {
                 ) : (
                   <input
                     id="ctv-apply-email"
+                    name="email"
                     type="email"
                     value={emailContact}
                     onChange={(e) => {
@@ -346,6 +352,8 @@ export function AffiliateCtvAccountApplyGate(props: Props): JSX.Element {
               <label className="block text-xs font-medium text-[#0F172A]">
                 Link Facebook / TikTok (tuỳ chọn)
                 <input
+                  id="ctv-apply-social-link"
+                  name="socialLink"
                   value={socialLink}
                   onChange={(e) => setSocialLink(e.target.value)}
                   placeholder="https://..."
@@ -355,6 +363,8 @@ export function AffiliateCtvAccountApplyGate(props: Props): JSX.Element {
               <label className="block text-xs font-medium text-[#0F172A]">
                 Kinh nghiệm bán hàng
                 <textarea
+                  id="ctv-apply-experience"
+                  name="experience"
                   value={experience}
                   onChange={(e) => setExperience(e.target.value)}
                   rows={3}
@@ -365,6 +375,8 @@ export function AffiliateCtvAccountApplyGate(props: Props): JSX.Element {
               <label className="block text-xs font-medium text-[#0F172A]">
                 Nguồn traffic chính
                 <input
+                  id="ctv-apply-traffic-source"
+                  name="trafficSource"
                   value={trafficSource}
                   onChange={(e) => setTrafficSource(e.target.value)}
                   className="mt-1 w-full rounded-lg border border-[#E2E8F0] px-3 py-2 text-sm outline-none focus:border-[#2563EB]"
@@ -374,6 +386,8 @@ export function AffiliateCtvAccountApplyGate(props: Props): JSX.Element {
               <label className="block text-xs font-medium text-[#0F172A]">
                 Ghi chú thêm
                 <textarea
+                  id="ctv-apply-note"
+                  name="note"
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   rows={2}

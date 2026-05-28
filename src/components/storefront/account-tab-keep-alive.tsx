@@ -1,6 +1,7 @@
 "use client";
 
-import { memo, type ReactNode } from "react";
+import { memo, useEffect, useState, type ReactNode } from "react";
+import { AccountTabPanelVisibilityProvider } from "@/lib/account-tab-panel-visibility";
 
 export type AccountTabKeepAliveProps = {
   tabKey: string;
@@ -12,8 +13,8 @@ export type AccountTabKeepAliveProps = {
 };
 
 /**
- * Renders tab panel only while active. Inactive tabs unmount (no hidden/inert keep-alive)
- * so dynamic client-only trees (e.g. CTV dashboards) do not leave stale DOM for React reconciliation.
+ * Keep-alive tab panel: mount on first visit, then hide inactive tabs (no unmount).
+ * Preserves React state and client-fetched data when switching account tabs.
  */
 function AccountTabKeepAliveInner({
   tabKey,
@@ -23,12 +24,25 @@ function AccountTabKeepAliveInner({
   className = "",
 }: AccountTabKeepAliveProps): ReactNode {
   const isActive = activeTab === tabKey;
+  const [hasMounted, setHasMounted] = useState(isActive);
 
-  if (!enabled || !isActive) return null;
+  useEffect(() => {
+    if (isActive) setHasMounted(true);
+  }, [isActive]);
+
+  if (!enabled) return null;
+  if (!hasMounted) return null;
 
   return (
-    <div className={className} data-account-tab={tabKey} data-account-tab-active="1">
-      {children}
+    <div
+      className={className}
+      hidden={!isActive}
+      inert={!isActive}
+      aria-hidden={!isActive}
+      data-account-tab={tabKey}
+      {...(isActive ? { "data-account-tab-active": "1" as const } : {})}
+    >
+      <AccountTabPanelVisibilityProvider active={isActive}>{children}</AccountTabPanelVisibilityProvider>
     </div>
   );
 }

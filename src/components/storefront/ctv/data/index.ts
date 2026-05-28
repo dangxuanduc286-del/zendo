@@ -1,8 +1,7 @@
 export { CtvMetricCard, type CtvMetricCardProps } from "./ctv-metric-card";
 export { CtvMetricTrend, type MetricTrendProps, type MetricTrendDirection } from "./ctv-metric-trend";
 export { CtvMetricStrip, type CtvMetricStripItem } from "./ctv-metric-strip";
-export { CtvKpiInline } from "./ctv-kpi-inline";
-export { CtvDataLoading, CtvDataEmpty, CtvDataError, CtvDataSectionLabel } from "./ctv-data-states";
+export { CtvDataLoading, CtvDataEmpty, CtvDataError } from "./ctv-data-states";
 export {
   CtvMetricCardSkeleton,
   CtvMetricGridSkeleton,

@@ -418,6 +418,14 @@ export async function POST(request: Request): Promise<NextResponse> {
       /* audit không chặn luồng đăng ký */
     }
 
+    void import("@/lib/admin/admin-operational-publish").then(({ notifyAdminAffiliateApplicationSubmitted }) =>
+      notifyAdminAffiliateApplicationSubmitted({
+        applicationId: created.id,
+        customerId,
+        applicantName: fullNameRaw,
+      }),
+    );
+
     return NextResponse.json(
       {
         ok: true,

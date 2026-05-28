@@ -6,6 +6,12 @@ import type { ThemeSettingsFormValues } from "../../lib/admin-settings";
 import { themeSettingsToFormValues } from "../../lib/admin-theme-form-values";
 import AdminImageUploadField from "./admin-image-upload-field";
 import { adminPrimaryButton } from "../../lib/admin-ui";
+import {
+  HOME_HERO_BANNER_SPEC_LIST,
+  HOME_HERO_BANNER_SPECS,
+  HOME_HERO_LAYOUT_CONFIG,
+} from "../../lib/home-hero-banner-specs";
+import AdminHomeHeroBannerSizeMeasure from "./admin-home-hero-banner-size-measure";
 
 type BannerEditorStatus = "idle" | "saving";
 
@@ -190,12 +196,69 @@ export default function AdminHomeBannersEditor({
         </p>
       ) : null}
 
+      <div className="space-y-3 rounded-2xl border border-sky-200 bg-sky-50 p-4 sm:p-5">
+        <div>
+          <h2 className="text-lg font-semibold text-sky-950">Thông số chuẩn Hero Banner</h2>
+          <p className="mt-1 text-sm leading-6 text-sky-800">
+            5 banner nhỏ phía dưới là source of truth cho grid. Hero desktop dùng tỷ lệ cột {HOME_HERO_LAYOUT_CONFIG.categoryColSpan}:{HOME_HERO_LAYOUT_CONFIG.mainBannerColSpan}:{HOME_HERO_LAYOUT_CONFIG.rightBannerColSpan}; laptop 1366 co giãn nhẹ theo cùng tỷ lệ.
+          </p>
+        </div>
+        <dl className="grid gap-2 rounded-xl border border-sky-100 bg-white p-3 text-xs text-slate-600 sm:grid-cols-2 lg:grid-cols-5">
+          <div>
+            <dt className="font-medium text-slate-500">bannerGap</dt>
+            <dd className="mt-0.5 font-semibold text-slate-900">{HOME_HERO_LAYOUT_CONFIG.bannerGap.desktopPx}px</dd>
+          </div>
+          <div>
+            <dt className="font-medium text-slate-500">smallBannerWidth</dt>
+            <dd className="mt-0.5 font-semibold text-slate-900">{HOME_HERO_LAYOUT_CONFIG.smallBannerWidth}px</dd>
+          </div>
+          <div>
+            <dt className="font-medium text-slate-500">smallBannerHeight</dt>
+            <dd className="mt-0.5 font-semibold text-slate-900">{HOME_HERO_LAYOUT_CONFIG.smallBannerHeight}px</dd>
+          </div>
+          <div>
+            <dt className="font-medium text-slate-500">mainBannerColSpan</dt>
+            <dd className="mt-0.5 font-semibold text-slate-900">{HOME_HERO_LAYOUT_CONFIG.mainBannerColSpan}</dd>
+          </div>
+          <div>
+            <dt className="font-medium text-slate-500">category/right span</dt>
+            <dd className="mt-0.5 font-semibold text-slate-900">
+              {HOME_HERO_LAYOUT_CONFIG.categoryColSpan} / {HOME_HERO_LAYOUT_CONFIG.rightBannerColSpan}
+            </dd>
+          </div>
+        </dl>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {HOME_HERO_BANNER_SPEC_LIST.map((spec) => (
+            <article key={spec.label} className="rounded-xl border border-sky-100 bg-white p-3 shadow-sm">
+              <p className="text-sm font-semibold text-slate-950">{spec.label}</p>
+              <dl className="mt-2 space-y-1 text-xs leading-5 text-slate-600">
+                <div className="flex justify-between gap-3">
+                  <dt>Khung render</dt>
+                  <dd className="font-semibold text-slate-900">{spec.renderedSize}</dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt>Aspect ratio</dt>
+                  <dd className="font-semibold text-slate-900">{spec.aspectRatio}</dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt>Ảnh upload</dt>
+                  <dd className="text-right font-semibold text-slate-900">{spec.uploadSize}</dd>
+                </div>
+              </dl>
+              <p className="mt-2 text-xs leading-5 text-slate-500">{spec.note}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+
+      <AdminHomeHeroBannerSizeMeasure />
+
       {/* A. Main banner */}
       <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
         <div className="space-y-1">
           <h2 className="text-lg font-semibold text-[#0F172A]">Banner chính homepage</h2>
           <p className="text-sm text-[#64748B]">
-            Tối đa {MAIN_MAX} ảnh; desktop carousel, mobile cùng khung 1644×658. Khung chuẩn 2.498:1 — nếu ảnh khác tỷ lệ: chọn{" "}
+            Tối đa {MAIN_MAX} ảnh; desktop carousel, mobile cùng khung {HOME_HERO_BANNER_SPECS.main.uploadSize}. Khung chuẩn {HOME_HERO_BANNER_SPECS.main.aspectRatio} — nếu ảnh khác tỷ lệ: chọn{" "}
             <strong>Phủ kín khung</strong> (cover) để không hở viền (có thể cắt mép, cần safe-zone trong ảnh), hoặc{" "}
             <strong>Hiển thị đủ ảnh</strong> (contain) để không cắt nội dung (sẽ có hở viền trong khung — đó là hành vi đúng, không phải lỗi crop).
           </p>
@@ -238,7 +301,7 @@ export default function AdminHomeBannersEditor({
 
               <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <AdminImageUploadField
-                  label={`Ảnh desktop ${index + 1} (1644×658)`}
+                  label={`Ảnh desktop ${index + 1} (${HOME_HERO_BANNER_SPECS.main.uploadSize})`}
                   value={slot.imageUrl}
                   kind="banner"
                   previewClassName="aspect-[1644/658] w-full"
@@ -250,7 +313,7 @@ export default function AdminHomeBannersEditor({
                   }}
                   previewSizes="(max-width: 768px) 100vw, 720px"
                   quality={90}
-                  hint="Khuyến nghị 1644×658 px (2.498:1). Cover = phủ kín khung; contain = đủ ảnh, có thể hở viền nếu ảnh lệch tỷ lệ."
+                  hint={`Khuyến nghị ${HOME_HERO_BANNER_SPECS.main.uploadSize} (${HOME_HERO_BANNER_SPECS.main.aspectRatio}). Cover = phủ kín khung; contain = đủ ảnh, có thể hở viền nếu ảnh lệch tỷ lệ.`}
                   onChange={(nextUrl) =>
                     setMainDrafts((prev) => prev.map((item, i) => (i === index ? { ...item, imageUrl: nextUrl } : item)))
                   }
@@ -268,7 +331,7 @@ export default function AdminHomeBannersEditor({
                   }}
                   previewSizes="(max-width: 768px) 100vw, 720px"
                   quality={90}
-                  hint="Trống = dùng ảnh desktop. Cùng khung 1644×658 như storefront; chọn cover/contain bên dưới giống bản mobile thật."
+                  hint={`Trống = dùng ảnh desktop. Cùng khung ${HOME_HERO_BANNER_SPECS.main.uploadSize} như storefront; chọn cover/contain bên dưới giống bản mobile thật.`}
                   onChange={(nextUrl) =>
                     setMainDrafts((prev) => prev.map((item, i) => (i === index ? { ...item, mobileImageUrl: nextUrl } : item)))
                   }
@@ -387,7 +450,7 @@ export default function AdminHomeBannersEditor({
         </div>
 
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm font-medium leading-relaxed text-amber-950">
-          Kích thước khuyến nghị: 1280 × 280 px. Tỷ lệ 4.57:1. Khung hiển thị desktop khoảng 320 × 70 px. Có ảnh thì storefront chỉ hiển thị ảnh full khung, không hiện chữ/icon đè lên. Hãy thiết kế sẵn chữ trong ảnh.
+          Kích thước khuyến nghị: {HOME_HERO_BANNER_SPECS.rightPromo.uploadSize}. Tỷ lệ {HOME_HERO_BANNER_SPECS.rightPromo.aspectRatio}. Khung hiển thị desktop khoảng {HOME_HERO_BANNER_SPECS.rightPromo.renderedSize}. Có ảnh thì storefront chỉ hiển thị ảnh full khung, không hiện chữ/icon đè lên. Hãy thiết kế sẵn chữ trong ảnh.
         </div>
 
         <div className="space-y-4">
@@ -432,8 +495,8 @@ export default function AdminHomeBannersEditor({
                   label={`Banner phải ${index + 1}`}
                   value={slot.imageUrl}
                   kind="banner"
-                  hint="Nên dùng ảnh 1280 × 280 px, tỷ lệ 4.57:1, nội dung chính đặt giữa ảnh."
-                  previewClassName="aspect-[1280/280] w-full"
+                  hint={`Nên dùng ảnh ${HOME_HERO_BANNER_SPECS.rightPromo.uploadSize}, tỷ lệ ${HOME_HERO_BANNER_SPECS.rightPromo.aspectRatio}, nội dung chính đặt giữa ảnh.`}
+                  previewClassName="aspect-[1500/420] w-full"
                   previewFrameClassName="rounded-xl"
                   previewImageClassName="object-cover object-center"
                   previewSizes="(max-width: 768px) 100vw, 640px"
@@ -516,7 +579,7 @@ export default function AdminHomeBannersEditor({
           </p>
         </div>
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm font-medium leading-relaxed text-amber-950">
-          Khung hiển thị desktop thực tế khoảng 245 × 104 px mỗi ô. Tỷ lệ chuẩn khoảng 2.356:1. Kích thước ảnh khuyến nghị: 1470 × 624 px. Với ảnh có sẵn chữ bên trong, nên dùng chế độ “Hiển thị đủ ảnh (không crop)”. Nếu ảnh là banner hoàn chỉnh có chữ và bố cục sẵn, ưu tiên chế độ không crop để tránh mất nội dung. Chừa mép an toàn tối thiểu: trái/phải 90px, trên/dưới 45px.
+          Khung hiển thị desktop thực tế khoảng {HOME_HERO_BANNER_SPECS.bottomPromo.renderedSize} mỗi ô. Tỷ lệ chuẩn {HOME_HERO_BANNER_SPECS.bottomPromo.aspectRatio}. Kích thước ảnh khuyến nghị: {HOME_HERO_BANNER_SPECS.bottomPromo.uploadSize}. Với ảnh có sẵn chữ bên trong, nên dùng chế độ “Hiển thị đủ ảnh (không crop)”. Nếu ảnh là banner hoàn chỉnh có chữ và bố cục sẵn, ưu tiên chế độ không crop để tránh mất nội dung. Chừa mép an toàn tối thiểu: trái/phải 90px, trên/dưới 45px.
         </div>
 
         <div className="space-y-4">
@@ -561,8 +624,8 @@ export default function AdminHomeBannersEditor({
                   label={`Banner nhỏ ${index + 1}`}
                   value={slot.imageUrl}
                   kind="banner"
-                  hint="Nên dùng ảnh 1470 × 624 px (xấp xỉ 2.356:1), ưu tiên nội dung chính nằm giữa ảnh, tránh sát mép."
-                  previewClassName="aspect-[1470/624] w-full"
+                  hint={`Nên dùng ảnh ${HOME_HERO_BANNER_SPECS.bottomPromo.uploadSize} (${HOME_HERO_BANNER_SPECS.bottomPromo.aspectRatio}), ưu tiên nội dung chính nằm giữa ảnh, tránh sát mép.`}
+                  previewClassName="aspect-[1500/636] w-full"
                   previewImageClassName={`${(slot.imageFit || "contain") === "cover" ? "object-cover" : "object-contain"} object-center`}
                   previewSizes="(max-width: 768px) 100vw, 624px"
                   previewOverlay={

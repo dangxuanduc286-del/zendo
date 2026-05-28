@@ -7,7 +7,7 @@ import { clsx } from "clsx";
 
 /** Chip link / xuất nhỏ (toolbar phụ, không phải tab). */
 export const AFFILIATE_ANALYTICS_CHIP_LINK = clsx(
-  "inline-flex items-center rounded-lg border border-blue-200/85 bg-blue-50/55 px-2.5 py-1 text-[11px] font-bold text-blue-800 transition hover:border-blue-300/70 hover:bg-blue-100/65",
+  "inline-flex items-center rounded-[14px] border border-blue-200/85 bg-blue-50/55 px-2.5 py-1 text-[11px] font-bold text-blue-800 transition hover:border-blue-300/70 hover:bg-blue-100/65",
 );
 
 /**
@@ -15,10 +15,12 @@ export const AFFILIATE_ANALYTICS_CHIP_LINK = clsx(
  * @deprecated — giữ export; phase sau có thể map CTV_CTA_TOOLBAR_* nếu cần.
  */
 export const AFFILIATE_ANALYTICS_TOOLBAR_BTN_SECONDARY = clsx(
-  "inline-flex items-center justify-center rounded-xl border border-blue-200/90 bg-white px-3 py-2 text-xs font-semibold text-blue-800 shadow-[0_1px_2px_rgba(37,99,235,0.06)] hover:bg-blue-50/90",
+  "inline-flex min-h-10 items-center justify-center rounded-[14px] border border-blue-200/90 bg-white px-3 py-2 text-xs font-semibold text-blue-800 shadow-[0_1px_2px_rgba(37,99,235,0.06)] hover:bg-blue-50/90",
+  "lg:min-h-12 lg:px-4 lg:text-sm",
 );
 
 /** @deprecated — giữ export; xem AFFILIATE_ANALYTICS_TOOLBAR_BTN_SECONDARY. */
 export const AFFILIATE_ANALYTICS_TOOLBAR_BTN_PRIMARY = clsx(
-  "inline-flex items-center justify-center rounded-xl border border-blue-500/90 bg-blue-600 px-3 py-2 text-xs font-semibold text-white shadow-[0_1px_2px_rgba(37,99,235,0.2)] hover:bg-blue-700",
+  "inline-flex min-h-10 items-center justify-center rounded-[14px] border border-blue-500/90 bg-blue-600 px-3 py-2 text-xs font-semibold text-white shadow-[0_1px_2px_rgba(37,99,235,0.2)] hover:bg-blue-700",
+  "lg:min-h-12 lg:px-4 lg:text-sm",
 );

@@ -11,7 +11,7 @@ export function CtvSkeletonLine({ className = "h-3 w-24" }: { className?: string
 
 function CtvMetricCardSkeletonInner(): JSX.Element {
   return (
-    <div className={`${CTV_V2_INSET} min-h-[5.5rem] space-y-3 rounded-[18px] lg:min-h-[8rem]`} aria-hidden>
+    <div className={`${CTV_V2_INSET} min-h-[5.5rem] space-y-3 rounded-2xl lg:min-h-[8rem]`} aria-hidden>
       <CtvSkeletonLine className="h-2.5 w-20" />
       <CtvSkeletonLine className="h-7 w-28" />
       <CtvSkeletonLine className="h-2 w-32" />
@@ -36,9 +36,9 @@ function CtvMetricGridSkeletonInner({ count = 4 }: { count?: number }): JSX.Elem
 function CtvTableSkeletonInner({ rows = 4 }: { rows?: number }): JSX.Element {
   return (
     <div className="space-y-2" aria-busy="true" aria-label="Đang tải bảng">
-      <CtvSkeletonLine className="h-8 w-full rounded-xl" />
+      <CtvSkeletonLine className="h-8 w-full rounded-2xl" />
       {Array.from({ length: rows }, (_, i) => (
-        <CtvSkeletonLine key={i} className="h-12 w-full rounded-xl" />
+        <CtvSkeletonLine key={i} className="h-12 w-full rounded-2xl" />
       ))}
     </div>
   );
@@ -48,8 +48,8 @@ function CtvPanelSkeletonInner(): JSX.Element {
   return (
     <div className="space-y-4" aria-busy="true" aria-label="Đang tải nội dung">
       <CtvSkeletonLine className="h-4 w-40" />
-      <CtvSkeletonLine className="h-10 w-full rounded-xl" />
-      <CtvSkeletonLine className="h-24 w-full rounded-xl" />
+      <CtvSkeletonLine className="h-10 w-full rounded-2xl" />
+      <CtvSkeletonLine className="h-24 w-full rounded-2xl" />
     </div>
   );
 }

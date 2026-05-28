@@ -14,8 +14,13 @@ import {
   useAffiliateTrafficSources,
   type RangeKey,
 } from "./use-affiliate-analytics-hooks";
+import { clsx } from "clsx";
 import {
+  CTV_COLOR_BORDER,
   CTV_COLOR_DIVIDER,
+  CTV_COLOR_SURFACE_ROW_HOVER,
+  CTV_COLOR_SURFACE_TABLE_HEAD,
+  CTV_DASHBOARD_FILTER_PANEL,
   CTV_SECTION_CARD,
   CTV_TYPE_CARD_TITLE,
 } from "./affiliate/affiliate-ctv-account-ui-tokens";
@@ -63,9 +68,14 @@ export default function AffiliateAnalyticsTrafficInsights(props: {
       <label className="flex flex-col gap-1.5 text-xs font-medium text-[#64748B]">
         Nguồn
         <select
+          id="affiliate-traffic-insights-source"
+          name="source"
           value={props.filters.source}
           onChange={(e) => patch({ source: e.target.value })}
-          className="h-10 rounded-xl border border-[#E2E8F0] bg-white px-3 text-sm text-[#0F172A] shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none focus-visible:ring-2 focus-visible:ring-[#0F172A]/10"
+          className={clsx(
+            "h-10 rounded-xl border bg-white px-3 text-sm text-[#0F172A] shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none focus-visible:ring-2 focus-visible:ring-[#0F172A]/10",
+            CTV_COLOR_BORDER,
+          )}
         >
           <option value="ALL">Tất cả</option>
           <option value="TIKTOK">TikTok</option>
@@ -79,9 +89,14 @@ export default function AffiliateAnalyticsTrafficInsights(props: {
       <label className="flex flex-col gap-1.5 text-xs font-medium text-[#64748B]">
         Thiết bị
         <select
+          id="affiliate-traffic-insights-device"
+          name="device"
           value={props.filters.device}
           onChange={(e) => patch({ device: e.target.value })}
-          className="h-10 rounded-xl border border-[#E2E8F0] bg-white px-3 text-sm text-[#0F172A] shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none focus-visible:ring-2 focus-visible:ring-[#0F172A]/10"
+          className={clsx(
+            "h-10 rounded-xl border bg-white px-3 text-sm text-[#0F172A] shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none focus-visible:ring-2 focus-visible:ring-[#0F172A]/10",
+            CTV_COLOR_BORDER,
+          )}
         >
           <option value="ALL">Tất cả</option>
           <option value="mobile">Mobile</option>
@@ -92,19 +107,29 @@ export default function AffiliateAnalyticsTrafficInsights(props: {
       <label className="flex flex-col gap-1.5 text-xs font-medium text-[#64748B] sm:col-span-2 lg:col-span-1">
         Pathname chứa
         <input
+          id="affiliate-traffic-insights-pathname"
+          name="pathname"
           value={props.filters.pathname}
           onChange={(e) => patch({ pathname: e.target.value })}
           placeholder="/deal-hot, /san-pham/…"
-          className="h-10 rounded-xl border border-[#E2E8F0] px-3 text-sm text-[#0F172A] shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none focus-visible:ring-2 focus-visible:ring-[#0F172A]/10"
+          className={clsx(
+            "h-10 rounded-xl border px-3 text-sm text-[#0F172A] shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none focus-visible:ring-2 focus-visible:ring-[#0F172A]/10",
+            CTV_COLOR_BORDER,
+          )}
         />
       </label>
       <label className="flex flex-col gap-1.5 text-xs font-medium text-[#64748B] sm:col-span-2 lg:col-span-1">
         Product ID
         <input
+          id="affiliate-traffic-insights-product-id"
+          name="productId"
           value={props.filters.productId}
           onChange={(e) => patch({ productId: e.target.value })}
           placeholder="cuid sản phẩm (tuỳ chọn)"
-          className="h-10 rounded-xl border border-[#E2E8F0] px-3 font-mono text-xs text-[#0F172A] shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none focus-visible:ring-2 focus-visible:ring-[#0F172A]/10"
+          className={clsx(
+            "h-10 rounded-xl border px-3 font-mono text-xs text-[#0F172A] shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none focus-visible:ring-2 focus-visible:ring-[#0F172A]/10",
+            CTV_COLOR_BORDER,
+          )}
         />
       </label>
     </div>
@@ -113,7 +138,7 @@ export default function AffiliateAnalyticsTrafficInsights(props: {
   return (
     <AnalyticsErrorBoundary title="Phân tích traffic tạm thời không khả dụng.">
     <div className="flex w-full max-w-none flex-col gap-5 lg:gap-6">
-      <div className="sticky top-0 z-20 hidden rounded-2xl border border-[#DBEAFE]/90 bg-[#EFF6FF]/40 p-4 shadow-[0_1px_2px_rgba(37,99,235,0.06)] ring-1 ring-[#DBEAFE]/50 lg:block lg:p-5">
+      <div className={clsx("sticky top-0 z-20 hidden p-4 lg:block lg:p-5", CTV_DASHBOARD_FILTER_PANEL)}>
         <div className="border-b border-[#F1F5F9] pb-3">
           <p className="text-[13px] font-semibold tracking-tight text-[#0F172A]">Bộ lọc analytics</p>
           <p className="mt-0.5 text-xs text-[#64748B]">Lọc toàn bộ biểu đồ và bảng trong tab này.</p>
@@ -145,7 +170,7 @@ export default function AffiliateAnalyticsTrafficInsights(props: {
         <button
           type="button"
           onClick={() => setSheet(true)}
-          className="h-10 rounded-xl border border-[#BFDBFE]/90 bg-white px-4 text-sm font-semibold text-[#0F172A] shadow-[0_1px_2px_rgba(37,99,235,0.05)] hover:bg-[#EFF6FF]/80 lg:hidden"
+          className="h-10 rounded-xl border border-[#BFDBFE]/90 bg-white px-4 text-sm font-semibold text-[#0F172A] shadow-[0_1px_2px_rgba(37,99,235,0.05)] hover:bg-blue-50/80 lg:hidden"
         >
           Bộ lọc & xuất
         </button>
@@ -163,13 +188,13 @@ export default function AffiliateAnalyticsTrafficInsights(props: {
             <div className="mt-3">{filterForm}</div>
             <div className="mt-4 flex flex-col gap-2">
               <a
-                className="rounded-xl border border-[#E2E8F0] py-2 text-center text-sm font-semibold text-[#2563EB]"
+                className={clsx("rounded-xl border py-2 text-center text-sm font-semibold text-[#2563EB]", CTV_COLOR_BORDER)}
                 href={`/api/account/affiliate/analytics/export?type=top-links&range=${props.range}&format=csv${filterQs ? `&${filterQs}` : ""}`}
               >
                 Xuất top links (CSV)
               </a>
               <a
-                className="rounded-xl border border-[#E2E8F0] py-2 text-center text-sm font-semibold text-[#2563EB]"
+                className={clsx("rounded-xl border py-2 text-center text-sm font-semibold text-[#2563EB]", CTV_COLOR_BORDER)}
                 href={`/api/account/affiliate/analytics/export?type=top-products&range=${props.range}&format=csv${filterQs ? `&${filterQs}` : ""}`}
               >
                 Xuất top sản phẩm
@@ -188,7 +213,7 @@ export default function AffiliateAnalyticsTrafficInsights(props: {
         </div>
         <div className="mt-4 w-full min-w-0 overflow-x-auto rounded-xl border border-[#F1F5F9]">
           <table className="w-full min-w-[720px] text-left text-sm">
-            <thead className="bg-[#F8FAFC]/90 text-[11px] font-semibold uppercase tracking-wide text-[#64748B]">
+            <thead className={clsx(CTV_COLOR_SURFACE_TABLE_HEAD, "text-[11px] font-semibold uppercase tracking-wide text-[#64748B]")}>
               <tr>
                 <th className="px-3 py-2.5 pr-2">Path</th>
                 <th className="px-3 py-2.5 pr-2">Click</th>
@@ -200,7 +225,7 @@ export default function AffiliateAnalyticsTrafficInsights(props: {
             </thead>
             <tbody className="divide-y divide-[#F1F5F9]">
               {topLinks.data?.rows?.map((r) => (
-                <tr key={r.pathname} className="bg-white hover:bg-[#F8FAFC]/60">
+                <tr key={r.pathname} className={clsx("bg-white", CTV_COLOR_SURFACE_ROW_HOVER)}>
                   <td className="max-w-[280px] truncate px-3 py-2.5 pr-2 font-medium text-[#0F172A]">{r.pathname}</td>
                   <td className="px-3 py-2.5 pr-2 tabular-nums text-[#1E293B]">{r.clicks}</td>
                   <td className="px-3 py-2.5 pr-2 tabular-nums text-[#1E293B]">{r.visitors}</td>
@@ -222,7 +247,7 @@ export default function AffiliateAnalyticsTrafficInsights(props: {
           </div>
           <div className="mt-4 overflow-x-auto rounded-xl border border-[#F1F5F9]">
             <table className="w-full min-w-[520px] text-left text-sm">
-              <thead className="bg-[#F8FAFC]/90 text-[11px] font-semibold uppercase tracking-wide text-[#64748B]">
+              <thead className={clsx(CTV_COLOR_SURFACE_TABLE_HEAD, "text-[11px] font-semibold uppercase tracking-wide text-[#64748B]")}>
                 <tr>
                   <th className="px-3 py-2.5 pr-2">Nguồn</th>
                   <th className="px-3 py-2.5 pr-2">Click</th>
@@ -234,7 +259,7 @@ export default function AffiliateAnalyticsTrafficInsights(props: {
               </thead>
               <tbody className="divide-y divide-[#F1F5F9]">
                 {sources.data?.rows?.map((r) => (
-                  <tr key={r.source} className="bg-white hover:bg-[#F8FAFC]/60">
+                  <tr key={r.source} className={clsx("bg-white", CTV_COLOR_SURFACE_ROW_HOVER)}>
                     <td className="px-3 py-2.5 pr-2 font-medium text-[#0F172A]">{r.source}</td>
                     <td className="px-3 py-2.5 pr-2 tabular-nums text-[#1E293B]">{r.clicks}</td>
                     <td className="px-3 py-2.5 pr-2 tabular-nums text-[#1E293B]">{r.visitors}</td>
@@ -246,7 +271,7 @@ export default function AffiliateAnalyticsTrafficInsights(props: {
               </tbody>
             </table>
           </div>
-          <div className="mt-4 max-w-full overflow-x-auto rounded-xl border border-[#F1F5F9] bg-[#F8FAFC]/40 p-2">
+          <div className="mt-4 max-w-full overflow-x-auto rounded-xl border border-[#F1F5F9] bg-slate-50/40 p-2">
             <AnalyticsErrorBoundary title="Biểu đồ nguồn traffic lỗi.">
               {sourcePie.length ? <AffiliateAnalyticsPieLazy data={sourcePie} compact /> : <p className="text-xs text-[#64748B]">Chưa đủ dữ liệu donut.</p>}
             </AnalyticsErrorBoundary>
@@ -259,7 +284,7 @@ export default function AffiliateAnalyticsTrafficInsights(props: {
           </div>
           <div className="mt-4 overflow-x-auto rounded-xl border border-[#F1F5F9]">
             <table className="w-full min-w-[480px] text-left text-sm">
-              <thead className="bg-[#F8FAFC]/90 text-[11px] font-semibold uppercase tracking-wide text-[#64748B]">
+              <thead className={clsx(CTV_COLOR_SURFACE_TABLE_HEAD, "text-[11px] font-semibold uppercase tracking-wide text-[#64748B]")}>
                 <tr>
                   <th className="px-3 py-2.5 pr-2">Device</th>
                   <th className="px-3 py-2.5 pr-2">Visitor</th>
@@ -270,7 +295,7 @@ export default function AffiliateAnalyticsTrafficInsights(props: {
               </thead>
               <tbody className="divide-y divide-[#F1F5F9]">
                 {devices.data?.rows?.map((r) => (
-                  <tr key={r.device} className="bg-white hover:bg-[#F8FAFC]/60">
+                  <tr key={r.device} className={clsx("bg-white", CTV_COLOR_SURFACE_ROW_HOVER)}>
                     <td className="px-3 py-2.5 pr-2 font-medium capitalize text-[#0F172A]">{r.device}</td>
                     <td className="px-3 py-2.5 pr-2 tabular-nums text-[#1E293B]">{r.visitors}</td>
                     <td className="px-3 py-2.5 pr-2 tabular-nums text-[#1E293B]">{r.clicks}</td>
@@ -281,7 +306,7 @@ export default function AffiliateAnalyticsTrafficInsights(props: {
               </tbody>
             </table>
           </div>
-          <div className="mt-4 rounded-xl border border-[#F1F5F9] bg-[#F8FAFC]/40 p-2">
+          <div className="mt-4 rounded-xl border border-[#F1F5F9] bg-slate-50/40 p-2">
             <AnalyticsErrorBoundary title="Biểu đồ thiết bị lỗi.">
               {devicePie.length ? <AffiliateAnalyticsPieLazy data={devicePie} compact /> : null}
             </AnalyticsErrorBoundary>
@@ -295,7 +320,7 @@ export default function AffiliateAnalyticsTrafficInsights(props: {
         </div>
         <div className="mt-4 overflow-x-auto rounded-xl border border-[#F1F5F9]">
           <table className="w-full min-w-[760px] text-left text-sm">
-            <thead className="bg-[#F8FAFC]/90 text-[11px] font-semibold uppercase tracking-wide text-[#64748B]">
+            <thead className={clsx(CTV_COLOR_SURFACE_TABLE_HEAD, "text-[11px] font-semibold uppercase tracking-wide text-[#64748B]")}>
               <tr>
                 <th className="px-3 py-2.5 pr-2">Path</th>
                 <th className="px-3 py-2.5 pr-2">Visits</th>
@@ -307,7 +332,7 @@ export default function AffiliateAnalyticsTrafficInsights(props: {
             </thead>
             <tbody className="divide-y divide-[#F1F5F9]">
               {landing.data?.rows?.map((r) => (
-                <tr key={r.pathname} className="bg-white hover:bg-[#F8FAFC]/60">
+                <tr key={r.pathname} className={clsx("bg-white", CTV_COLOR_SURFACE_ROW_HOVER)}>
                   <td className="max-w-[260px] truncate px-3 py-2.5 pr-2 font-medium text-[#0F172A]">{r.pathname}</td>
                   <td className="px-3 py-2.5 pr-2 tabular-nums text-[#1E293B]">{r.visits}</td>
                   <td className="px-3 py-2.5 pr-2 tabular-nums text-[#1E293B]">{r.clicks}</td>

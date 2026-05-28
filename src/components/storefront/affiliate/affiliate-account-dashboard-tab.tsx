@@ -24,11 +24,23 @@ import {
   type AffiliateAccountDashboardSource,
   type AffiliateSubTab,
 } from "../../../lib/affiliate-account-dashboard-model";
+import {
+  CTV_WORKSPACE_CLICK_HINT,
+  CTV_WORKSPACE_CLICK_LABEL,
+} from "../../../lib/ctv/ctv-click-display";
+import {
+  CTV_WORKSPACE_ORDER_HINT,
+  CTV_WORKSPACE_ORDER_LABEL,
+} from "../../../lib/ctv/ctv-order-display";
+import {
+  CTV_CONVERSION_FORMULA_HINT,
+  CTV_CONVERSION_MONTH_LABEL,
+} from "../../../lib/ctv/ctv-conversion-month-kpi";
 import { AffiliateCtvAccountApplyGate } from "../affiliate-ctv-account-apply-gate";
+import { CtvFormattedValue } from "../ctv/ctv-formatted-value";
 import {
   CTV_MOBILE_KPI_GRID,
   CTV_MOBILE_KPI_LABEL,
-  CTV_MOBILE_KPI_VALUE,
   CTV_MOBILE_KPI_HINT,
   CTV_MOBILE_STATUS_BADGE,
 } from "../ctv/ctv-ui-tokens";
@@ -74,6 +86,9 @@ const AffiliateGuidePanel = dynamic(() => import("../affiliate-guide-panel"), {
 const CtvRevenueRewardsPanel = dynamic(() => import("../ctv/ctv-revenue-rewards-panel").then((m) => m.CtvRevenueRewardsPanel), {
   loading: () => <PanelSkeleton />,
 });
+const CtvAccountHistoryPanel = dynamic(() => import("../ctv/ctv-account-history-panel").then((m) => m.CtvAccountHistoryPanel), {
+  loading: () => <PanelSkeleton />,
+});
 const AffiliateShortLinksPanel = dynamic(() => import("../affiliate-short-links-panel"), {
   loading: () => <PanelSkeleton />,
 });
@@ -111,6 +126,7 @@ type PayoutAccount = null | {
 
 function AffiliateMetricCard({
   label,
+  labelTitle,
   value,
   hint,
   Icon,
@@ -120,6 +136,7 @@ function AffiliateMetricCard({
   trend,
 }: {
   label: string;
+  labelTitle?: string;
   value: string;
   hint?: string;
   Icon: LucideIcon;
@@ -132,6 +149,7 @@ function AffiliateMetricCard({
     return (
       <CtvMetricCard
         label={label}
+        labelTitle={labelTitle}
         value={value}
         hint={hint}
         Icon={Icon}
@@ -144,6 +162,7 @@ function AffiliateMetricCard({
     return (
       <AffiliateCtvMetricCard
         label={label}
+        labelTitle={labelTitle}
         value={value}
         hint={hint}
         Icon={Icon}
@@ -165,17 +184,17 @@ function AffiliateMetricCard({
         : "border-slate-200 bg-white text-slate-500";
 
   return (
-    <article className={`${shell} flex min-h-[5.5rem] flex-col justify-between max-lg:min-h-[5.5rem] max-lg:rounded-[18px] max-lg:p-[14px] max-lg:shadow-[0_2px_10px_rgba(15,23,42,0.05)]`}>
+    <article className={`${shell} flex min-h-[5.5rem] flex-col justify-between max-lg:min-h-[5.5rem] max-lg:rounded-2xl max-lg:p-4 max-lg:shadow-[0_2px_10px_rgba(15,23,42,0.05)]`}>
       <div className="flex items-start justify-between gap-2 sm:gap-3">
         <div className="min-w-0 flex-1 overflow-hidden">
-          <p className={`${CTV_MOBILE_KPI_LABEL} max-lg:normal-case`}>{label}</p>
-          <p className={`${CTV_MOBILE_KPI_VALUE} mt-1.5`} title={value}>
-            {value}
+          <p className={`${CTV_MOBILE_KPI_LABEL} max-lg:normal-case max-lg:break-words lg:whitespace-nowrap lg:break-normal`}>
+            {label}
           </p>
+          <CtvFormattedValue value={value} className="mt-1.5" />
           {hint ? <p className={CTV_MOBILE_KPI_HINT}>{hint}</p> : null}
         </div>
         <div
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border max-lg:h-9 max-lg:w-9 sm:h-10 sm:w-10 ${iconWrap}`}
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[14px] border max-lg:h-9 max-lg:w-9 sm:h-10 sm:w-10 lg:h-10 lg:w-10 ${iconWrap}`}
           aria-hidden
         >
           <Icon className="h-5 w-5 sm:h-6 sm:w-6" strokeWidth={2} />
@@ -252,7 +271,11 @@ export function AffiliateAccountDashboardTab({
       ? "w-full min-w-0 space-y-5"
       : panelClassName;
   const sharedModel = useCtvAffiliateDashboardModel();
-  const localModel = useAffiliateAccountDashboardModel(accountSettings, data);
+  const localModel = useAffiliateAccountDashboardModel(accountSettings, data, {
+    dashboardEnabled: activeSubTab !== "history",
+    metricsEnabled: activeSubTab === "overview",
+    runDashboardLifecycle: activeSubTab === "overview" || activeSubTab === "revenueRewards",
+  });
   const model = isCtvPanels && sharedModel ? sharedModel : localModel;
   const {
     referralUrl,
@@ -275,6 +298,11 @@ export function AffiliateAccountDashboardTab({
     guideSteps,
     showWithdrawable,
   } = model;
+
+  const referredOrders = Array.isArray(affDash.data?.referredOrders) ? affDash.data.referredOrders : [];
+  const commissions = Array.isArray(affDash.data?.commissions) ? affDash.data.commissions : [];
+  const withdrawals = Array.isArray(affDash.data?.withdrawals) ? affDash.data.withdrawals : [];
+  const productQuickLinks = Array.isArray(affDash.data?.productQuickLinks) ? affDash.data.productQuickLinks : [];
 
   const [affiliateCopied, setAffiliateCopied] = useState(false);
   const [affiliateCopyError, setAffiliateCopyError] = useState("");
@@ -318,13 +346,13 @@ export function AffiliateAccountDashboardTab({
       { id: "points", label: "Điểm thưởng", value: data.stats.rewardPoints.toLocaleString("vi-VN") },
       {
         id: "conversion",
-        label: "Tỷ lệ chuyển đổi",
+        label: CTV_CONVERSION_MONTH_LABEL,
         value:
           conversionRate === null || conversionRate === undefined ? "—" : `${conversionRate}%`,
       },
       { id: "revenue", label: "Doanh thu ghi nhận", value: money(referralRevenueUi) },
-      { id: "clicks", label: "Tổng click", value: totalClicksUi.toLocaleString("vi-VN") },
-      { id: "orders", label: "Đơn giới thiệu", value: referredOrdersUi.toLocaleString("vi-VN") },
+      { id: "clicks", label: CTV_WORKSPACE_CLICK_LABEL, value: totalClicksUi.toLocaleString("vi-VN") },
+      { id: "orders", label: CTV_WORKSPACE_ORDER_LABEL, value: referredOrdersUi.toLocaleString("vi-VN") },
       ...(showWithdrawable
         ? [{ id: "withdrawable", label: "Khả dụng rút", value: money(withdrawableBalanceUi) }]
         : []),
@@ -448,18 +476,18 @@ export function AffiliateAccountDashboardTab({
                 className={isCtvPanels || isCtvShell ? CTV_MOBILE_KPI_GRID : "grid min-w-0 auto-rows-fr items-stretch grid-cols-[repeat(auto-fit,minmax(min(100%,10.5rem),1fr))] gap-3"}
               >
                 <AffiliateMetricCard
-                  label="Tổng click"
+                  label={CTV_WORKSPACE_CLICK_LABEL}
+                  labelTitle={CTV_WORKSPACE_CLICK_HINT}
                   value={totalClicksUi.toLocaleString("vi-VN")}
-                  hint="Lượt truy cập qua link ref"
                   Icon={MousePointerClick}
                   ctv={isCtvShell}
                   ctvPanels={isCtvPanels}
                   trend={{ caption: "Xu hướng sắp có", direction: "neutral" }}
                 />
                 <AffiliateMetricCard
-                  label="Đơn phát sinh"
+                  label={CTV_WORKSPACE_ORDER_LABEL}
+                  labelTitle={CTV_WORKSPACE_ORDER_HINT}
                   value={referredOrdersUi.toLocaleString("vi-VN")}
-                  hint="Đơn ghi nhận từ giới thiệu"
                   Icon={Package}
                   ctv={isCtvShell}
                   ctvPanels={isCtvPanels}
@@ -626,7 +654,8 @@ export function AffiliateAccountDashboardTab({
                   ctvPanels={isCtvPanels}
                   />
                   <AffiliateMetricCard
-                    label="Tỷ lệ chuyển đổi"
+                    label={CTV_CONVERSION_MONTH_LABEL}
+                    labelTitle={CTV_CONVERSION_FORMULA_HINT}
                     value={
                       conversionRate === null || conversionRate === undefined
                         ? "—"
@@ -747,7 +776,7 @@ export function AffiliateAccountDashboardTab({
                   variant={isCtvPanels ? "ctv" : "default"}
                   highlightOrderCode={highlightOrderCode}
                   loading={affDash.loading && !affDash.data}
-                  orders={(affDash.data?.referredOrders ?? []).map((o) => ({
+                  orders={referredOrders.map((o) => ({
                     id: o.id,
                     code: o.code,
                     createdAt: o.createdAt,
@@ -764,7 +793,7 @@ export function AffiliateAccountDashboardTab({
                 <AffiliateEarningsPanel
                   variant={isCtvPanels ? "ctv" : "default"}
                   loading={affDash.loading && !affDash.data}
-                  commissions={(affDash.data?.commissions ?? []).map((c) => ({
+                  commissions={commissions.map((c) => ({
                     id: c.id,
                     createdAt: c.createdAt,
                     amount: c.amount,
@@ -787,8 +816,8 @@ export function AffiliateAccountDashboardTab({
                       affDash.data?.program.withdrawalEnabled && accountSettings.affiliateShowWithdrawals,
                     )}
                     payoutAccount={payoutAccount}
-                    availableAmount={affDash.data?.summary.withdrawableBalance ?? 0}
-                    withdrawals={(affDash.data?.withdrawals ?? []).map((w) => ({
+                    availableAmount={affDash.data?.summary?.withdrawableBalance ?? 0}
+                    withdrawals={withdrawals.map((w) => ({
                       id: w.id,
                       createdAt: w.createdAt,
                       amount: w.amount,
@@ -825,14 +854,14 @@ export function AffiliateAccountDashboardTab({
                 <div className="min-w-0 space-y-4">
                   {showGrowthToolkit ? <AffiliateShortLinksPanel /> : null}
                   <AffiliateLinkBuilder refCode={data.affiliate.refCode} variant={isCtvPanels ? "ctv" : "default"} />
-                  {(affDash.data?.productQuickLinks?.length ?? 0) > 0 ? (
+                  {productQuickLinks.length > 0 ? (
                     <section className={isCtvPanels ? CTV_V2_PANEL_INSET : "rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4"}>
                       <p className="text-sm font-semibold text-slate-900">Link theo sản phẩm (gợi ý)</p>
                       <p className="mt-1 text-xs text-slate-500">
                         Gợi ý sản phẩm để tạo link ref nhanh — không hiển thị dữ liệu khách mua.
                       </p>
                       <div className="mt-3 flex max-h-48 flex-col gap-1.5 overflow-y-auto overscroll-contain">
-                        {affDash.data?.productQuickLinks.map((p) => (
+                        {productQuickLinks.map((p) => (
                           <Link
                             key={p.id}
                             href={`/san-pham/${encodeURIComponent(p.slug)}`}
@@ -854,8 +883,9 @@ export function AffiliateAccountDashboardTab({
                 </div>
               ) : null}
               {activeSubTab === "revenueRewards" ? (
-                <CtvRevenueRewardsPanel affiliateProfileEnabled={Boolean(data.affiliate.hasProfile)} />
+                <CtvRevenueRewardsPanel affiliateProfileEnabled={Boolean(data.affiliate.hasProfile)} affiliateDashboard={affDash} />
               ) : null}
+              {activeSubTab === "history" ? <CtvAccountHistoryPanel /> : null}
               {activeSubTab === "guide" ? (
                 <AffiliateGuidePanel
                   title={guideTitle}

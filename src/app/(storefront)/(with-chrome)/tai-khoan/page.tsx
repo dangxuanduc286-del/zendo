@@ -31,7 +31,7 @@ export default async function StoreAccountPage({
 }): Promise<JSX.Element> {
   const session = await getServerSession(authOptions);
   const params = (await searchParams) ?? {};
-  const callbackUrl = params.callbackUrl ?? "/tai-khoan";
+  const callbackUrl = params.callbackUrl ?? "/";
   const authError = params.authError ?? "";
   const initialAccountTab = typeof params.tab === "string" ? params.tab.trim() : "";
   const initialAffiliateSubTab = typeof params.sub === "string" ? params.sub.trim() : "";

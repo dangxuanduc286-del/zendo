@@ -27,6 +27,12 @@ import {
   commissionLifecycleNotificationVisual,
   readAffiliateCommissionNotificationType,
 } from "@/lib/affiliate/affiliate-commission-notification-types";
+import { AccountPageTabPanel } from "./account-page-tab-panel";
+import { CtvFormattedValue } from "./ctv/ctv-formatted-value";
+import {
+  ACCOUNT_PAGE_HEADER_TOOLBAR_BTN,
+  ACCOUNT_PAGE_HEADER_TOOLBAR_BTN_DANGER,
+} from "./account-page-header-tokens";
 
 export type AccountNotificationListItem = CustomerNotificationsPollBundle["items"][number];
 
@@ -773,45 +779,47 @@ export function AccountNotificationsSection({
 
   return (
     <NotificationRelativeTimeProvider>
-    <section id="thong-bao" className="w-full min-w-0 rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
-        <h3 className="text-base font-semibold text-[#0F172A]">{title}</h3>
-        <div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:items-end">
-          <div className="flex flex-wrap items-center justify-end gap-2 text-xs">
-            {notifications.unread > 0 ? (
-              <span className="rounded-full bg-[#EF4444] px-2 py-0.5 font-semibold text-white shadow-sm">
-                {notifications.unread > 99 ? "99+ mới" : `${notifications.unread} mới`}
-              </span>
-            ) : null}
-            {showCommissionHub && unreadInPayloadByCategory.commission > 0 ? (
-              <span className="rounded-full bg-emerald-600 px-2 py-0.5 font-semibold text-white shadow-sm">
-                Hoa hồng {unreadInPayloadByCategory.commission > 99 ? "99+" : unreadInPayloadByCategory.commission}
-              </span>
-            ) : null}
-          </div>
-          {notifications.items.length > 0 ? (
-            <div className="flex w-full flex-wrap justify-end gap-2">
-              <button
-                type="button"
-                className="min-h-[44px] shrink-0 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-xs font-semibold text-[#0F172A] hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
-                disabled={!hasAnyReadInFeed}
-                onClick={() => void confirmDeleteRead()}
-              >
-                Xóa đã đọc
-              </button>
-              <button
-                type="button"
-                className="min-h-[44px] shrink-0 rounded-xl border border-rose-200 bg-white px-3 text-xs font-semibold text-rose-700 hover:bg-rose-50"
-                onClick={() => void confirmDeleteAll()}
-              >
-                Xóa tất cả
-              </button>
+      <AccountPageTabPanel
+        id="thong-bao"
+        title={title}
+        headingLevel="h2"
+        toolbar={
+          <>
+            <div className="flex flex-wrap items-center justify-end gap-2 text-xs">
+              {notifications.unread > 0 ? (
+                <span className="inline-flex h-10 min-h-10 items-center rounded-xl bg-[#EF4444] px-3 font-semibold text-white shadow-sm">
+                  {notifications.unread > 99 ? "99+ mới" : `${notifications.unread} mới`}
+                </span>
+              ) : null}
+              {showCommissionHub && unreadInPayloadByCategory.commission > 0 ? (
+                <span className="inline-flex h-10 min-h-10 items-center rounded-xl bg-emerald-600 px-3 font-semibold text-white shadow-sm">
+                  Hoa hồng {unreadInPayloadByCategory.commission > 99 ? "99+" : unreadInPayloadByCategory.commission}
+                </span>
+              ) : null}
             </div>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="mt-3 -mx-1 flex gap-1 overflow-x-auto pb-1 snap-x snap-mandatory sm:mx-0 sm:flex-wrap sm:overflow-visible">
+            {notifications.items.length > 0 ? (
+              <>
+                <button
+                  type="button"
+                  className={ACCOUNT_PAGE_HEADER_TOOLBAR_BTN}
+                  disabled={!hasAnyReadInFeed}
+                  onClick={() => void confirmDeleteRead()}
+                >
+                  Xóa đã đọc
+                </button>
+                <button
+                  type="button"
+                  className={ACCOUNT_PAGE_HEADER_TOOLBAR_BTN_DANGER}
+                  onClick={() => void confirmDeleteAll()}
+                >
+                  Xóa tất cả
+                </button>
+              </>
+            ) : null}
+          </>
+        }
+      >
+      <div className="-mx-1 flex gap-1 overflow-x-auto pb-1 snap-x snap-mandatory sm:mx-0 sm:flex-wrap sm:overflow-visible">
         <button
           type="button"
           onClick={() => {
@@ -912,30 +920,30 @@ export function AccountNotificationsSection({
           </div>
           {income ? (
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-              <div className="rounded-lg bg-white/90 p-2 shadow-sm">
+              <div className="@container/metric min-w-0 overflow-hidden rounded-lg bg-white/90 p-2 shadow-sm">
                 <p className="text-[10px] font-medium text-[#64748B]">Hôm nay</p>
-                <p className="text-sm font-bold tabular-nums text-emerald-700">+{fmtVnd(income.todayCommission)}</p>
+                <CtvFormattedValue value={`+${fmtVnd(income.todayCommission)}`} variant="money-sm" className="text-emerald-700" />
               </div>
-              <div className="rounded-lg bg-white/90 p-2 shadow-sm">
+              <div className="@container/metric min-w-0 overflow-hidden rounded-lg bg-white/90 p-2 shadow-sm">
                 <p className="text-[10px] font-medium text-[#64748B]">Tháng này</p>
-                <p className="text-sm font-bold tabular-nums text-emerald-700">+{fmtVnd(income.monthCommission)}</p>
+                <CtvFormattedValue value={`+${fmtVnd(income.monthCommission)}`} variant="money-sm" className="text-emerald-700" />
               </div>
               {commissionTab.showPendingCommission ? (
-                <div className="rounded-lg bg-white/90 p-2 shadow-sm">
+                <div className="@container/metric min-w-0 overflow-hidden rounded-lg bg-white/90 p-2 shadow-sm">
                   <p className="text-[10px] font-medium text-[#64748B]">Chờ duyệt</p>
-                  <p className="text-sm font-bold tabular-nums text-amber-700">{fmtVnd(income.pendingTotal)}</p>
+                  <CtvFormattedValue value={fmtVnd(income.pendingTotal)} variant="money-sm" className="text-amber-700" />
                 </div>
               ) : null}
               {commissionTab.showPaidCommission ? (
-                <div className="rounded-lg bg-white/90 p-2 shadow-sm">
+                <div className="@container/metric min-w-0 overflow-hidden rounded-lg bg-white/90 p-2 shadow-sm">
                   <p className="text-[10px] font-medium text-[#64748B]">Đã thanh toán</p>
-                  <p className="text-sm font-bold tabular-nums text-[#0F172A]">{fmtVnd(income.paidTotal)}</p>
+                  <CtvFormattedValue value={fmtVnd(income.paidTotal)} variant="money-sm" />
                 </div>
               ) : null}
               {commissionTab.showAffiliateOrderCount ? (
-                <div className="rounded-lg bg-white/90 p-2 shadow-sm">
+                <div className="@container/metric min-w-0 overflow-hidden rounded-lg bg-white/90 p-2 shadow-sm">
                   <p className="text-[10px] font-medium text-[#64748B]">Đơn affiliate</p>
-                  <p className="text-sm font-bold tabular-nums text-[#0F172A]">{income.affiliateOrderCount}</p>
+                  <CtvFormattedValue value={String(income.affiliateOrderCount)} variant="metric" />
                 </div>
               ) : null}
             </div>
@@ -1780,7 +1788,7 @@ export function AccountNotificationsSection({
           </div>
         </div>
       ) : null}
-    </section>
+      </AccountPageTabPanel>
     </NotificationRelativeTimeProvider>
   );
 }

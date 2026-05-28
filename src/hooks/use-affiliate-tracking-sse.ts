@@ -1,8 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useDocumentVisibility } from "@/hooks/use-document-visibility";
-import { devStabilityLog } from "@/lib/next-dev-stability";
+import { useAffiliateCtvRuntimeActive } from "@/hooks/use-affiliate-ctv-runtime-active";
 import type { AffiliateTrackingStreamTickV1 } from "@/lib/affiliate-tracking-stream-types";
 
 const STREAM_URL = "/api/affiliate/tracking/stream";
@@ -20,7 +19,7 @@ export function useAffiliateTrackingSse(args: {
   lastHeartbeatAt: number | null;
 } {
   const flushMs = args.flushMs ?? 280;
-  const visible = useDocumentVisibility();
+  const runtimeActive = useAffiliateCtvRuntimeActive();
   const [status, setStatus] = useState<AffiliateTrackingSseStatus>("idle");
   const [reconnectCount, setReconnectCount] = useState(0);
   const [lastHeartbeatAt, setLastHeartbeatAt] = useState<number | null>(null);
@@ -58,8 +57,7 @@ export function useAffiliateTrackingSse(args: {
       setStatus("unsupported");
       return;
     }
-    if (!visible) {
-      devStabilityLog("[NextDevStability]", "affiliate sse pause while tab hidden", {});
+    if (!runtimeActive) {
       return;
     }
 
@@ -143,7 +141,7 @@ export function useAffiliateTrackingSse(args: {
       es = null;
       setStatus("idle");
     };
-  }, [args.enabled, visible, flush, scheduleFlush, reconnectToken]);
+  }, [args.enabled, runtimeActive, flush, scheduleFlush, reconnectToken]);
 
   return { status, reconnectCount, lastHeartbeatAt };
 }

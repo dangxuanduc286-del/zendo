@@ -36,13 +36,6 @@ export const UI_GRID_TIER_CARDS_STABLE = [
   "grid-cols-[repeat(auto-fit,minmax(min(100%,15rem),1fr))]",
 ].join(" ");
 
-/** Stat tiles (4 ô) */
-export const UI_GRID_STAT_STABLE = [
-  "grid w-full min-w-0 auto-rows-fr items-stretch gap-2",
-  "grid-cols-[repeat(auto-fit,minmax(min(100%,8.5rem),1fr))]",
-  "sm:gap-3",
-].join(" ");
-
 /** Quick actions */
 export const UI_GRID_ACTIONS_STABLE = [
   "grid w-full min-w-0 auto-rows-fr items-stretch gap-3",

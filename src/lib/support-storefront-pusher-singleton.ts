@@ -3,6 +3,7 @@
 import Pusher from "pusher-js";
 
 import { hasPusherClientConfig } from "@/lib/support-ticket-chat-channel";
+import { pusherConnectionActiveForOps, safePusherDisconnect } from "@/lib/support-pusher-client-safe";
 
 let singleton: Pusher | null = null;
 let acquireCount = 0;
@@ -19,7 +20,11 @@ export function acquireSupportStorefrontPusher(): Pusher | null {
   if (!key || !cluster) return null;
 
   acquireCount += 1;
-  if (singleton) return singleton;
+  if (singleton) {
+    if (pusherConnectionActiveForOps(singleton.connection)) return singleton;
+    safePusherDisconnect(singleton);
+    singleton = null;
+  }
 
   try {
     singleton = new Pusher(key, {
@@ -37,10 +42,6 @@ export function acquireSupportStorefrontPusher(): Pusher | null {
 export function releaseSupportStorefrontPusher(): void {
   acquireCount = Math.max(0, acquireCount - 1);
   if (acquireCount > 0 || !singleton) return;
-  try {
-    singleton.disconnect();
-  } catch {
-    /* ignore */
-  }
+  safePusherDisconnect(singleton);
   singleton = null;
 }

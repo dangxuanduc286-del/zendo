@@ -6,14 +6,37 @@ import EmptyState from "./empty-state";
 import { formatVnd } from "../../lib/currency";
 import { useGuestCart } from "../../hooks/use-guest-cart";
 import CtvPurchaseBlockedPanel from "./ctv-purchase-blocked-panel";
+import { findNextVoucherMilestone, GUEST_COUPON_OPTIONS } from "../../lib/coupon";
+import VoucherProgressCard from "./voucher-progress-card";
+import CartAddonSuggestions from "./cart-addon-suggestions";
+import {
+  DEFAULT_SHIPPING_PROMOTION_CONFIG,
+  getNextShippingPromotionProgress,
+  getShippingPromotionDiscount,
+  type ShippingPromotionConfig,
+} from "../../lib/shipping";
+import ShippingPromotionProgressCard from "./shipping-promotion-progress";
+
+function getCartVoucherValueLabel(code: string): string {
+  const coupon = GUEST_COUPON_OPTIONS.find((item) => item.code === code.toUpperCase());
+  if (!coupon) return code.toUpperCase();
+  if (coupon.type === "PERCENT") return `Giảm ${coupon.value}%`;
+  if (coupon.type === "FREE_SHIPPING") return `Ưu đãi vận chuyển ${formatVnd(coupon.value)}`;
+  return `Giảm ${formatVnd(coupon.value)}`;
+}
 
 export default function CartPage(
   props: {
     checkoutLocked?: boolean;
     checkoutBlockMessage?: string;
+    shippingPromotionConfig?: ShippingPromotionConfig;
   } = {},
 ): JSX.Element {
-  const { checkoutLocked = false, checkoutBlockMessage = "" } = props;
+  const {
+    checkoutLocked = false,
+    checkoutBlockMessage = "",
+    shippingPromotionConfig = DEFAULT_SHIPPING_PROMOTION_CONFIG,
+  } = props;
   const {
     items,
     subtotal,
@@ -21,6 +44,7 @@ export default function CartPage(
     total,
     totalQuantity,
     couponCode,
+    couponSource,
     setCouponCode,
     appliedCoupon,
     setQuantity,
@@ -29,6 +53,12 @@ export default function CartPage(
     removeCoupon,
     getUnitPrice,
   } = useGuestCart();
+  const nextVoucherMilestone = findNextVoucherMilestone(subtotal);
+  const hasActiveCoupon = Boolean(appliedCoupon);
+  const shippingPromoProgress = hasActiveCoupon ? null : getNextShippingPromotionProgress(subtotal, shippingPromotionConfig);
+  const estimatedShippingPromo = hasActiveCoupon
+    ? null
+    : getShippingPromotionDiscount(subtotal, Number.MAX_SAFE_INTEGER, shippingPromotionConfig);
 
 
   if (!items.length) {
@@ -129,6 +159,7 @@ export default function CartPage(
               </div>
             </div>
           ))}
+          <CartAddonSuggestions />
         </article>
 
         <aside className="h-fit rounded-xl border border-zinc-200 bg-white p-4 sm:p-5">
@@ -143,6 +174,37 @@ export default function CartPage(
               <span>Giảm giá</span>
               <span className="font-medium text-zinc-900">- {formatVnd(discount)}</span>
             </div>
+            <div className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-medium text-zinc-600">
+              Phí vận chuyển sẽ được tính khi nhập địa chỉ giao hàng.
+            </div>
+            {appliedCoupon ? (
+              <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3">
+                <p className="text-xs font-bold text-emerald-800">
+                  {couponSource === "auto" ? "🔥 Đã tự động áp dụng ưu đãi tốt nhất" : "🎁 Voucher đã áp dụng"}
+                </p>
+                <div className="mt-1 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-extrabold text-emerald-950">{appliedCoupon.code}</p>
+                    <p className="text-xs font-medium text-emerald-700">{getCartVoucherValueLabel(appliedCoupon.code)}</p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-[11px] font-semibold text-emerald-700">
+                      {appliedCoupon.type === "FREE_SHIPPING" ? "Vận chuyển" : "Tiết kiệm"}
+                    </p>
+                    <p className="text-sm font-extrabold text-emerald-950">
+                      {appliedCoupon.type === "FREE_SHIPPING" ? "Tính ở checkout" : formatVnd(discount)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+            {nextVoucherMilestone ? <VoucherProgressCard milestone={nextVoucherMilestone} subtotal={subtotal} compact /> : null}
+            <ShippingPromotionProgressCard
+              progress={shippingPromoProgress}
+              applied={estimatedShippingPromo}
+              subtotal={subtotal}
+              compact
+            />
             <div className="border-t border-zinc-200 pt-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold text-zinc-900">Tổng cộng</span>
@@ -173,16 +235,13 @@ export default function CartPage(
               </button>
             </div>
             {appliedCoupon ? (
-              <div className="flex items-center justify-between rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-                <span>Đã áp dụng: {appliedCoupon.code}</span>
-                <button
-                  type="button"
-                  onClick={removeCoupon}
-                  className="font-medium text-emerald-800"
-                >
-                  Bỏ
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={removeCoupon}
+                className="text-xs font-semibold text-emerald-700 transition hover:text-emerald-800"
+              >
+                Bỏ voucher đang áp dụng
+              </button>
             ) : null}
           </div>
 

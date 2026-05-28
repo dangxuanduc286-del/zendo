@@ -2,9 +2,17 @@
 
 import Link from "next/link";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { useAffiliateCtvRuntimeActive } from "@/hooks/use-affiliate-ctv-runtime-active";
+import {
+  fetchAffiliateClientJson,
+  readAffiliateClientJsonCache,
+} from "@/lib/affiliate-client-json-cache";
+
 import AffiliateQrCodeCard from "./affiliate-qr-code-card";
 import AffiliateQuickShareButtons from "./affiliate-quick-share-buttons";
 
+const CACHE_SHORT_LINKS = "affiliate:short-links:rows";
+const CACHE_SHORT_LINK_STATS = "affiliate:short-links:stats:30d";
 
 type LinkRow = {
   id: string;
@@ -30,11 +38,29 @@ type StatRow = {
   topSource: string | null;
 };
 
+type RowsPayload<T> = T[] | { ok?: boolean; message?: string; rows?: T[] };
+
+function normalizeRowsPayload<T>(payload: unknown): T[] {
+  if (Array.isArray(payload)) return payload as T[];
+  if (payload && typeof payload === "object" && Array.isArray((payload as { rows?: unknown }).rows)) {
+    return (payload as { rows: T[] }).rows;
+  }
+  return [];
+}
+
+function isErrorPayload(payload: unknown): payload is { ok: false; message?: string } {
+  return Boolean(payload && typeof payload === "object" && (payload as { ok?: unknown }).ok === false);
+}
+
 export default memo(function AffiliateShortLinksPanel(): JSX.Element {
-  const [rows, setRows] = useState<LinkRow[]>([]);
-  const [stats, setStats] = useState<StatRow[]>([]);
-  const [origin, setOrigin] = useState("");
-  const [loading, setLoading] = useState(true);
+  const runtimeActive = useAffiliateCtvRuntimeActive();
+  const initialRowsPayload = readAffiliateClientJsonCache<unknown>(CACHE_SHORT_LINKS);
+  const initialStatsPayload = readAffiliateClientJsonCache<unknown>(CACHE_SHORT_LINK_STATS);
+  const initialRows = normalizeRowsPayload<LinkRow>(initialRowsPayload);
+  const initialStats = normalizeRowsPayload<StatRow>(initialStatsPayload);
+  const [rows, setRows] = useState<LinkRow[]>(initialRows);
+  const [stats, setStats] = useState<StatRow[]>(initialStats);
+  const [loading, setLoading] = useState(() => !(initialRowsPayload && initialStatsPayload));
   const [err, setErr] = useState("");
   const [targetPath, setTargetPath] = useState("/");
   const [slug, setSlug] = useState("");
@@ -45,18 +71,27 @@ export default memo(function AffiliateShortLinksPanel(): JSX.Element {
   const [busy, setBusy] = useState(false);
   const [pickUrl, setPickUrl] = useState("");
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (force = false) => {
     setErr("");
     try {
       const [a, b] = await Promise.all([
-        fetch("/api/account/affiliate/short-links", { credentials: "same-origin" }).then((r) => r.json()),
-        fetch("/api/account/affiliate/analytics/short-links?range=30d", { credentials: "same-origin" }).then((r) => r.json()),
+        fetchAffiliateClientJson<RowsPayload<LinkRow>>({
+          cacheKey: CACHE_SHORT_LINKS,
+          url: "/api/account/affiliate/short-links",
+          force,
+          parse: async (r) => r.json(),
+        }),
+        fetchAffiliateClientJson<RowsPayload<StatRow>>({
+          cacheKey: CACHE_SHORT_LINK_STATS,
+          url: "/api/account/affiliate/analytics/short-links?range=30d",
+          force,
+          parse: async (r) => r.json(),
+        }),
       ]);
-      if (!a?.ok) throw new Error(a?.message || "Không tải danh sách.");
-      if (!b?.ok) throw new Error(b?.message || "Không tải thống kê.");
-      setRows(a.rows ?? []);
-      setOrigin(String(a.origin ?? ""));
-      setStats(b.rows ?? []);
+      if (isErrorPayload(a)) throw new Error(a.message || "Không tải danh sách.");
+      if (isErrorPayload(b)) throw new Error(b.message || "Không tải thống kê.");
+      setRows(normalizeRowsPayload<LinkRow>(a));
+      setStats(normalizeRowsPayload<StatRow>(b));
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Lỗi tải.");
     } finally {
@@ -65,10 +100,17 @@ export default memo(function AffiliateShortLinksPanel(): JSX.Element {
   }, []);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (!runtimeActive) return;
+    const cachedLinks = readAffiliateClientJsonCache<unknown>(CACHE_SHORT_LINKS);
+    const cachedStats = readAffiliateClientJsonCache<unknown>(CACHE_SHORT_LINK_STATS);
+    const cached = cachedLinks && cachedStats;
+    void load(!cached);
+  }, [load, runtimeActive]);
 
-  const statById = useMemo(() => new Map(stats.map((s) => [s.id, s])), [stats]);
+  const statById = useMemo(() => {
+    const safeStats = Array.isArray(stats) ? stats : [];
+    return new Map(safeStats.map((s) => [s.id, s]));
+  }, [stats]);
 
   const onCreate = async () => {
     setBusy(true);
@@ -91,7 +133,7 @@ export default memo(function AffiliateShortLinksPanel(): JSX.Element {
       if (!res.ok || !j.ok) throw new Error(j.message || "Không tạo được.");
       setSlug("");
       setCampaignName("");
-      await load();
+      await load(true);
       if (j.link?.shortUrl) setPickUrl(j.link.shortUrl);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Lỗi tạo link.");
@@ -110,7 +152,14 @@ export default memo(function AffiliateShortLinksPanel(): JSX.Element {
     await load();
   };
 
-  const displayQrUrl = pickUrl || rows.find((r) => r.shortUrl)?.shortUrl || "";
+  const displayQrUrl = useMemo(() => {
+    const safeRows = Array.isArray(rows) ? rows : [];
+    return pickUrl || safeRows.find((r) => r.shortUrl)?.shortUrl || "";
+  }, [pickUrl, rows]);
+
+  const tableRows = useMemo(() => {
+    return Array.isArray(rows) ? rows : [];
+  }, [rows]);
 
   return (
     <div className="space-y-4">
@@ -123,6 +172,8 @@ export default memo(function AffiliateShortLinksPanel(): JSX.Element {
           <label className="text-xs font-medium text-[#64748B]">
             Đích (path nội bộ)
             <input
+              id="affiliate-short-link-target-path"
+              name="targetPathname"
               value={targetPath}
               onChange={(e) => setTargetPath(e.target.value)}
               className="mt-1 w-full rounded-lg border border-[#E2E8F0] bg-white px-2 py-2 text-sm text-[#0F172A]"
@@ -132,6 +183,8 @@ export default memo(function AffiliateShortLinksPanel(): JSX.Element {
           <label className="text-xs font-medium text-[#64748B]">
             Slug tuỳ chọn (để trống = tự sinh)
             <input
+              id="affiliate-short-link-slug"
+              name="slug"
               value={slug}
               onChange={(e) => setSlug(e.target.value)}
               className="mt-1 w-full rounded-lg border border-[#E2E8F0] bg-white px-2 py-2 font-mono text-sm text-[#0F172A]"
@@ -141,6 +194,8 @@ export default memo(function AffiliateShortLinksPanel(): JSX.Element {
           <label className="text-xs font-medium text-[#64748B]">
             Nhãn (tuỳ chọn)
             <input
+              id="affiliate-short-link-label"
+              name="label"
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               className="mt-1 w-full rounded-lg border border-[#E2E8F0] bg-white px-2 py-2 text-sm"
@@ -149,6 +204,8 @@ export default memo(function AffiliateShortLinksPanel(): JSX.Element {
           <label className="text-xs font-medium text-[#64748B]">
             utm_source / nguồn
             <input
+              id="affiliate-short-link-utm-source"
+              name="utmSource"
               value={utmSource}
               onChange={(e) => setUtmSource(e.target.value)}
               className="mt-1 w-full rounded-lg border border-[#E2E8F0] bg-white px-2 py-2 text-sm"
@@ -158,6 +215,8 @@ export default memo(function AffiliateShortLinksPanel(): JSX.Element {
           <label className="text-xs font-medium text-[#64748B]">
             subid (tuỳ chọn)
             <input
+              id="affiliate-short-link-subid"
+              name="subid"
               value={subid}
               onChange={(e) => setSubid(e.target.value)}
               className="mt-1 w-full rounded-lg border border-[#E2E8F0] bg-white px-2 py-2 text-sm"
@@ -166,6 +225,8 @@ export default memo(function AffiliateShortLinksPanel(): JSX.Element {
           <label className="text-xs font-medium text-[#64748B]">
             Tên campaign (tạo nhóm riêng)
             <input
+              id="affiliate-short-link-campaign-name"
+              name="campaignName"
               value={campaignName}
               onChange={(e) => setCampaignName(e.target.value)}
               className="mt-1 w-full rounded-lg border border-[#E2E8F0] bg-white px-2 py-2 text-sm"
@@ -204,8 +265,7 @@ export default memo(function AffiliateShortLinksPanel(): JSX.Element {
       ) : null}
 
       {loading ? <p className="text-sm text-[#64748B]">Đang tải link…</p> : null}
-      {!loading && rows.length === 0 ? <p className="text-sm text-[#64748B]">Chưa có link ngắn.</p> : null}
-      {rows.length ? (
+      {!loading && tableRows.length > 0 ? (
         <div className="overflow-x-auto rounded-xl border border-[#E2E8F0]">
           <table className="w-full min-w-[720px] text-left text-xs">
             <thead className="bg-[#F8FAFC] text-[10px] uppercase text-[#64748B]">
@@ -219,7 +279,7 @@ export default memo(function AffiliateShortLinksPanel(): JSX.Element {
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => {
+              {tableRows.map((r) => {
                 const st = statById.get(r.id);
                 return (
                   <tr key={r.id} className="border-t border-[#E2E8F0]">
@@ -256,11 +316,6 @@ export default memo(function AffiliateShortLinksPanel(): JSX.Element {
             </tbody>
           </table>
         </div>
-      ) : null}
-      {origin ? (
-        <p className="text-[11px] text-[#64748B]">
-          Base: <span className="font-mono text-[#0F172A]">{origin}</span>
-        </p>
       ) : null}
     </div>
   );

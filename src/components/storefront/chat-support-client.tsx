@@ -8,6 +8,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { fetchWithAuth, FetchUnauthorizedError } from "../../lib/fetchWithAuth";
+import { safePusherDisconnect, safePusherUnsubscribe } from "../../lib/support-pusher-client-safe";
 import { hasPusherClientConfig, supportTicketChatChannelName } from "../../lib/support-ticket-chat-channel";
 import { releaseMarkSeenTabLock, tryReserveMarkSeenForTicket } from "../../lib/support-ticket-mark-seen-tab-lock";
 
@@ -375,8 +376,8 @@ export default function ChatSupportClient(): JSX.Element {
       void flushMarkSeenIfUnread(ticketId, { leaveBurst: true });
       channel.unbind("new-message", onNew);
       channel.unbind("seen-update", onSeen);
-      pusher.unsubscribe(channelName);
-      pusher.disconnect();
+      safePusherUnsubscribe(pusher, channelName);
+      safePusherDisconnect(pusher);
     };
   }, [
     ticketId,

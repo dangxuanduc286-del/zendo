@@ -3,14 +3,16 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "../../../../../lib/auth";
 import { getStorefrontAffiliateDashboardForCustomer } from "../../../../../lib/storefront-affiliate-dashboard";
 
-export async function GET(): Promise<NextResponse> {
+export async function GET(request: Request): Promise<NextResponse> {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id || session.user.role !== "USER") {
     return NextResponse.json({ ok: false, message: "Không xác thực." }, { status: 401 });
   }
 
   try {
-    const data = await getStorefrontAffiliateDashboardForCustomer(session.user.id);
+    const { searchParams } = new URL(request.url);
+    const runLifecycle = searchParams.get("lifecycle") !== "0";
+    const data = await getStorefrontAffiliateDashboardForCustomer(session.user.id, { runLifecycle });
     if (!data) {
       return NextResponse.json(
         { ok: false, message: "Không tìm thấy hồ sơ CTV.", code: "NO_PROFILE" },

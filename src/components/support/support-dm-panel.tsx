@@ -9,6 +9,7 @@ import { isAdminSupportTicketRole } from "@/lib/admin-support-ticket-roles";
 import { fetchWithAuth } from "@/lib/fetchWithAuth";
 import { notifyStorefrontSupportUnreadUpdated } from "@/lib/storefront-support-sync";
 import { hasPusherClientConfig, supportDmChatChannelName } from "@/lib/support-dm-chat-channel";
+import { pusherConnectionOpenForSend, safePusherDisconnect, safePusherUnsubscribe } from "@/lib/support-pusher-client-safe";
 import { acquireSupportStorefrontPusher, releaseSupportStorefrontPusher } from "@/lib/support-storefront-pusher-singleton";
 import { useStorefrontSupportDisabledOnAdminRoute } from "@/lib/use-storefront-support-disabled-on-admin";
 import { useSupportInboxStore } from "@/stores/supportInboxStore";
@@ -286,12 +287,16 @@ export function SupportDmPanel({
       try {
         inbox.unbind("support.dm.message.created", bump);
         inbox.unbind("support.dm.inbox.totals", bump);
-        pusher?.unsubscribe("private-support-admin-inbox");
+        if (pusher && pusherConnectionOpenForSend(pusher.connection)) {
+          safePusherUnsubscribe(pusher, "private-support-admin-inbox");
+        }
         if (dmCh && onDmNew) {
           dmCh.unbind("new-message", onDmNew);
-          if (selectedConvId) pusher?.unsubscribe(supportDmChatChannelName(selectedConvId));
+          if (pusher && selectedConvId && pusherConnectionOpenForSend(pusher.connection)) {
+            safePusherUnsubscribe(pusher, supportDmChatChannelName(selectedConvId));
+          }
         }
-        pusher?.disconnect();
+        safePusherDisconnect(pusher);
       } catch {
         /* ignore */
       }

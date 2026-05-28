@@ -63,6 +63,11 @@ export default async function StorefrontChromeLayout({ children }: Props): Promi
   const siteName = websiteSettings.siteName.trim() || "Zendo.vn";
   const searchPlaceholder =
     websiteSettings.searchPlaceholder.trim() || "Bạn cần tìm gì hôm nay?";
+  const accountDisplayName = (
+    session?.user?.name?.trim() ||
+    session?.user?.email?.trim() ||
+    ""
+  ).trim();
 
   return (
     <>
@@ -181,6 +186,7 @@ export default async function StorefrontChromeLayout({ children }: Props): Promi
             showHeaderCartIcon={websiteSettings.showHeaderCartIcon}
             showHeaderAdminMenu={websiteSettings.showHeaderAdminMenu}
             isAuthenticated={Boolean(session?.user?.id)}
+            accountDisplayName={accountDisplayName}
             mobileStorefrontAccountHref={mobileStorefrontAccountHref}
             desktopCategoryLimit={websiteSettings.headerDesktopCategoryLimit}
             mobileCategoryLimit={websiteSettings.headerMobileCategoryLimit}

@@ -151,6 +151,15 @@ export async function POST(req: Request): Promise<NextResponse> {
       ticketId: result.conversationId,
     });
 
+    void import("@/lib/admin/admin-operational-publish").then(({ notifyAdminSupportCustomerMessage }) =>
+      notifyAdminSupportCustomerMessage({
+        customerId,
+        messageId: result.message.id,
+        channel: "dm",
+        preview: bodyText,
+      }),
+    );
+
     return NextResponse.json({
       ok: true,
       id: result.message.id,

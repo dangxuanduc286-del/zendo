@@ -137,6 +137,20 @@ export async function PATCH(
       );
     }
 
+    if (
+      found.orderStatus !== "REFUNDED" &&
+      updated.orderStatus === "REFUNDED"
+    ) {
+      void import("../../../../../lib/admin/admin-operational-publish").then(({ notifyAdminOrderRefunded }) =>
+        notifyAdminOrderRefunded({
+          orderId: found.id,
+          orderCode: found.code,
+          customerId: found.customerId,
+          customerName: found.customerFullName,
+        }),
+      );
+    }
+
     if (found.affiliateProfileId) {
       await notifyAffiliateReferralOrderLifecycleAfterAdminPatch(
         db,

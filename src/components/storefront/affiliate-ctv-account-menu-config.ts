@@ -10,7 +10,6 @@ import {
   Megaphone,
   Shield,
   ShoppingBag,
-  Target,
   UserRound,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -103,16 +102,6 @@ export const ACCOUNT_MENU_ITEMS: readonly AccountMenuItemDef[] = [
     href: "/tai-khoan/affiliate/analytics",
   },
   {
-    key: "attribution",
-    kind: "link",
-    group: "insights",
-    mobile: true,
-    desktop: true,
-    label: "Attribution",
-    icon: Target,
-    href: "/tai-khoan/affiliate/attribution",
-  },
-  {
     key: "notifications",
     kind: "tab",
     group: "account",
@@ -186,8 +175,6 @@ function defToEntry(
       case "promo":
         return flags.showAffiliate && a;
       case "analytics":
-        return flags.showAffiliate && a;
-      case "attribution":
         return flags.showAffiliate && a;
       case "notifications":
         return flags.showNotifications;

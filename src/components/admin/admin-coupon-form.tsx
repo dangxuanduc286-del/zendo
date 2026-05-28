@@ -15,6 +15,7 @@ import {
   type CouponFormValues,
 } from "../../lib/admin-coupon";
 import { adminPrimaryButton, adminSecondaryButton } from "../../lib/admin-ui";
+import { GUEST_COUPON_OPTIONS, type GuestCouponOption } from "../../lib/coupon";
 
 interface AdminCouponFormProps {
   mode: "create" | "edit";
@@ -39,6 +40,7 @@ const DEFAULT_VALUES: CouponFormValues = {
 };
 
 type CouponFormInput = z.input<typeof couponFormSchema>;
+const QUICK_POPULAR_COUPON_CODES = ["SAVE20K", "SAVE30K", "SAVE50K", "WELCOME5", "WELCOME10", "FREESHIP20"];
 
 function toDatetimeLocal(value: string): string {
   if (!value) return "";
@@ -48,12 +50,37 @@ function toDatetimeLocal(value: string): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+function buildQuickCouponPayload(coupon: GuestCouponOption): CouponFormValues {
+  const startsAt = new Date();
+  const endsAt = new Date(Date.now() + 45 * 24 * 60 * 60 * 1000);
+  return {
+    code: coupon.code,
+    name: coupon.name,
+    description: coupon.description,
+    discountType: coupon.type,
+    scope: coupon.type === "FREE_SHIPPING" ? "SHIPPING" : "ORDER",
+    currency: "VND",
+    discountValue: coupon.value,
+    maxDiscountValue: coupon.type === "PERCENT" || coupon.type === "FREE_SHIPPING"
+      ? coupon.maxDiscountValue ?? undefined
+      : undefined,
+    minOrderValue: coupon.minOrderValue ?? undefined,
+    usageLimit: 3000,
+    usagePerCustomer: coupon.type === "FREE_SHIPPING" ? 5 : 2,
+    startAt: startsAt.toISOString(),
+    endAt: endsAt.toISOString(),
+    isActive: true,
+  };
+}
+
 export default function AdminCouponForm({
   mode,
   couponId,
 }: AdminCouponFormProps): JSX.Element {
   const router = useRouter();
   const [submitError, setSubmitError] = useState("");
+  const [quickCreateStatus, setQuickCreateStatus] = useState("");
+  const [quickCreating, setQuickCreating] = useState(false);
   const [loadingData, setLoadingData] = useState(mode === "edit");
   const [ready, setReady] = useState(mode === "create");
 
@@ -68,6 +95,12 @@ export default function AdminCouponForm({
     resolver: zodResolver(couponFormSchema),
     defaultValues: DEFAULT_VALUES,
   });
+  const discountType = watch("discountType");
+  const maxDiscountValue = watch("maxDiscountValue");
+  const isPercentDiscount = discountType === "PERCENT";
+  const missingPercentMax = isPercentDiscount && (!maxDiscountValue || Number(maxDiscountValue) <= 0);
+  const minOrderValue = watch("minOrderValue");
+  const missingPercentMinOrder = isPercentDiscount && (!minOrderValue || Number(minOrderValue) <= 0);
 
   useEffect(() => {
     if (mode !== "edit" || !couponId) return;
@@ -108,6 +141,12 @@ export default function AdminCouponForm({
     });
   }, [mode, couponId, reset]);
 
+  useEffect(() => {
+    if (discountType !== "PERCENT") {
+      setValue("maxDiscountValue", undefined, { shouldDirty: true, shouldValidate: true });
+    }
+  }, [discountType, setValue]);
+
   const onSubmit = async (values: CouponFormValues) => {
     setSubmitError("");
     const endpoint = mode === "create" ? "/api/admin/coupons" : `/api/admin/coupons/${couponId}`;
@@ -130,6 +169,40 @@ export default function AdminCouponForm({
     router.refresh();
   };
 
+  const createPopularCoupons = async () => {
+    setQuickCreating(true);
+    setQuickCreateStatus("");
+    setSubmitError("");
+    const coupons = GUEST_COUPON_OPTIONS.filter((coupon) => QUICK_POPULAR_COUPON_CODES.includes(coupon.code));
+    let createdCount = 0;
+    let skippedCount = 0;
+
+    try {
+      for (const coupon of coupons) {
+        const response = await fetch("/api/admin/coupons", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(buildQuickCouponPayload(coupon)),
+        });
+        if (response.status === 409) {
+          skippedCount += 1;
+          continue;
+        }
+        if (!response.ok) {
+          const body = (await response.json()) as { message?: string };
+          throw new Error(body.message ?? `Không thể tạo voucher ${coupon.code}.`);
+        }
+        createdCount += 1;
+      }
+      setQuickCreateStatus(`Đã tạo ${createdCount} voucher phổ biến, bỏ qua ${skippedCount} mã đã tồn tại.`);
+      router.refresh();
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Không thể tạo nhanh voucher phổ biến.");
+    } finally {
+      setQuickCreating(false);
+    }
+  };
+
   if (!ready || loadingData) {
     return (
       <section className="rounded-xl border border-zinc-200 bg-white p-6 text-sm text-zinc-600">
@@ -137,8 +210,6 @@ export default function AdminCouponForm({
       </section>
     );
   }
-  const discountType = watch("discountType");
-
   const generateCode = () => {
     const presets = ["ZENDO10", "SALE20", "FREESHIP", "VIP50"];
     const random = presets[Math.floor(Math.random() * presets.length)] ?? "ZENDO10";
@@ -150,6 +221,28 @@ export default function AdminCouponForm({
       onSubmit={handleSubmit(onSubmit)}
       className="space-y-5 rounded-2xl border border-[#E2E8F0] bg-white p-5 shadow-sm sm:p-6"
     >
+      {mode === "create" ? (
+        <section className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-sm font-bold text-blue-950">Tạo nhanh voucher phổ biến</h2>
+              <p className="mt-1 text-xs font-medium text-blue-800">
+                Tự sinh SAVE20K, SAVE30K, SAVE50K, WELCOME5, WELCOME10 và FREESHIP20. Mã đã tồn tại sẽ được bỏ qua.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={createPopularCoupons}
+              disabled={quickCreating}
+              className="inline-flex h-10 shrink-0 items-center justify-center rounded-lg bg-[#2563EB] px-4 text-sm font-semibold text-white transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {quickCreating ? "Đang tạo..." : "Tạo nhanh voucher phổ biến"}
+            </button>
+          </div>
+          {quickCreateStatus ? <p className="mt-2 text-xs font-semibold text-blue-900">{quickCreateStatus}</p> : null}
+        </section>
+      ) : null}
+
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <label className="space-y-1">
           <span className="text-sm font-medium text-zinc-700">Mã giảm giá *</span>
@@ -198,7 +291,7 @@ export default function AdminCouponForm({
           >
             {COUPON_DISCOUNT_TYPES.map((type) => (
               <option key={type} value={type}>
-                {type === "PERCENT" ? "Giảm theo %" : type === "FIXED_AMOUNT" ? "Giảm số tiền cố định" : "Miễn phí vận chuyển"}
+                {type === "PERCENT" ? "Giảm theo %" : type === "FIXED_AMOUNT" ? "Giảm số tiền cố định" : "Ưu đãi vận chuyển"}
               </option>
             ))}
           </select>
@@ -212,7 +305,7 @@ export default function AdminCouponForm({
           >
             {COUPON_SCOPE_TYPES.map((scope) => (
               <option key={scope} value={scope}>
-                {scope === "ORDER" ? "Toàn bộ đơn" : "Miễn phí vận chuyển"}
+                {scope === "ORDER" ? "Toàn bộ đơn" : "Ưu đãi vận chuyển"}
               </option>
             ))}
           </select>
@@ -246,7 +339,9 @@ export default function AdminCouponForm({
         </label>
 
         <label className="space-y-1">
-          <span className="text-sm font-medium text-zinc-700">Đơn tối thiểu</span>
+          <span className="text-sm font-medium text-zinc-700">
+            Đơn tối thiểu {isPercentDiscount ? <span className="text-rose-600">*</span> : null}
+          </span>
           <input
             type="number"
             step="0.01"
@@ -254,21 +349,37 @@ export default function AdminCouponForm({
             className="h-10 w-full rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-zinc-500"
             placeholder="0"
           />
+          {missingPercentMinOrder ? (
+            <p className="rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700">
+              Mã giảm theo % bắt buộc phải có Đơn tối thiểu lớn hơn 0.
+            </p>
+          ) : null}
           {errors.minOrderValue ? <p className="text-xs text-rose-600">{errors.minOrderValue.message}</p> : null}
         </label>
 
-        <label className="space-y-1">
-          <span className="text-sm font-medium text-zinc-700">Giảm tối đa</span>
-          <input
-            type="number"
-            step="0.01"
-            {...register("maxDiscountValue")}
-            className="h-10 w-full rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-zinc-500"
-            placeholder="Không bắt buộc"
-          />
-          <p className="text-xs text-zinc-500">Chỉ áp dụng cho mã giảm theo %.</p>
-          {errors.maxDiscountValue ? <p className="text-xs text-rose-600">{errors.maxDiscountValue.message}</p> : null}
-        </label>
+        {isPercentDiscount ? (
+          <label className="space-y-1">
+            <span className="text-sm font-medium text-zinc-700">
+              Giảm tối đa <span className="text-rose-600">*</span>
+            </span>
+            <input
+              type="number"
+              step="0.01"
+              {...register("maxDiscountValue")}
+              className="h-10 w-full rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-zinc-500"
+              placeholder="Ví dụ: 100000"
+            />
+            <p className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800">
+              Bắt buộc với mã giảm theo % để giới hạn mức giảm tối đa.
+            </p>
+            {missingPercentMax ? (
+              <p className="rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700">
+                Không thể lưu mã giảm theo % nếu chưa nhập Giảm tối đa lớn hơn 0.
+              </p>
+            ) : null}
+            {errors.maxDiscountValue ? <p className="text-xs text-rose-600">{errors.maxDiscountValue.message}</p> : null}
+          </label>
+        ) : null}
 
         <label className="space-y-1">
           <span className="text-sm font-medium text-zinc-700">Ngày bắt đầu</span>

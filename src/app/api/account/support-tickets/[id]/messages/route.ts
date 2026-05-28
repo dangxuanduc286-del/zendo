@@ -47,6 +47,14 @@ export async function POST(request: Request, segment: { params: ParamsInput }): 
       if (!posted) {
         return NextResponse.json({ message: "Not found" }, { status: 404 });
       }
+      void import("../../../../../../lib/admin/admin-operational-publish").then(({ notifyAdminSupportCustomerMessage }) =>
+        notifyAdminSupportCustomerMessage({
+          customerId: session.user.id,
+          messageId: posted.id,
+          channel: "ticket",
+          preview: textBody,
+        }),
+      );
       const tid = ticketId.trim();
       const { db } = await import("../../../../../../lib/db");
       const row = await db.supportTicketMessage.findUnique({

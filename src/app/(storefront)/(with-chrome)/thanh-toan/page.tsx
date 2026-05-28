@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
+import { getServerSession } from "next-auth";
 import Breadcrumbs from "../../../../components/storefront/breadcrumbs";
 import CheckoutFormClient from "../../../../components/storefront/checkout-form-client";
+import { authOptions } from "../../../../lib/auth";
 import { getStorefrontCheckoutLockState } from "../../../../lib/storefront-checkout-lock";
+import { getWebsiteSettings } from "../../../../lib/settings";
+import { buildShippingPromotionConfig } from "../../../../lib/shipping";
 
 export const metadata: Metadata = {
   title: "Thanh toán | Zendo.vn",
@@ -13,7 +17,11 @@ export const metadata: Metadata = {
 };
 
 export default async function CheckoutPage(): Promise<JSX.Element> {
-  const lock = await getStorefrontCheckoutLockState();
+  const [lock, settings, session] = await Promise.all([
+    getStorefrontCheckoutLockState(),
+    getWebsiteSettings(),
+    getServerSession(authOptions),
+  ]);
 
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
@@ -24,7 +32,12 @@ export default async function CheckoutPage(): Promise<JSX.Element> {
           { label: "Thanh toán" },
         ]}
       />
-      <CheckoutFormClient checkoutLocked={lock.locked} checkoutBlockMessage={lock.message} />
+      <CheckoutFormClient
+        checkoutLocked={lock.locked}
+        checkoutBlockMessage={lock.message}
+        shippingPromotionConfig={buildShippingPromotionConfig(settings)}
+        isAuthenticated={Boolean(session?.user?.id)}
+      />
     </main>
   );
 }

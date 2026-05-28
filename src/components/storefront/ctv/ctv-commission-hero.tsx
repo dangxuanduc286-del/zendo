@@ -3,15 +3,13 @@
 import { Wallet } from "lucide-react";
 import { memo, useMemo } from "react";
 import { formatCtvRankMoney } from "@/lib/ctv/ctv-membership-tier-logic";
+import { CtvFormattedValue } from "./ctv-formatted-value";
 import {
-  CTV_HUB_CARD_PAD,
   CTV_HUB_CARD_TITLE,
-  CTV_HUB_INNER_CARD,
-  CTV_HUB_RANK_CARD_SURFACE,
-  CTV_HUB_WALLET_AMOUNT,
   CTV_HUB_WALLET_AMOUNT_ROW,
   CTV_HUB_WALLET_PENDING_AMOUNT,
   CTV_HUB_WALLET_PLUS,
+  CTV_HUB_WALLET_SHELL,
   CTV_V2_BTN_WALLET,
 } from "./ctv-ui-tokens";
 
@@ -22,8 +20,6 @@ type CtvCommissionHeroProps = {
   waitingReleaseCommission: number;
   withdrawalEnabled: boolean;
   onWithdraw: () => void;
-  /** Cùng gradient nền card Cấp bậc (`getCtvRank(...).color.gradient`) */
-  cardGradient: string;
 };
 
 function CtvCommissionHeroInner({
@@ -31,7 +27,6 @@ function CtvCommissionHeroInner({
   waitingReleaseCommission,
   withdrawalEnabled,
   onWithdraw,
-  cardGradient,
 }: CtvCommissionHeroProps): JSX.Element {
   const availableCommissionDisplay = useMemo(
     () => formatCtvRankMoney(withdrawableBalance),
@@ -46,7 +41,7 @@ function CtvCommissionHeroInner({
 
   return (
     <section
-      className={[CTV_HUB_INNER_CARD, CTV_HUB_CARD_PAD, CTV_HUB_RANK_CARD_SURFACE, cardGradient].join(" ")}
+      className={CTV_HUB_WALLET_SHELL}
       aria-labelledby="ctv-wallet-heading"
     >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -55,9 +50,11 @@ function CtvCommissionHeroInner({
             Hoa hồng khả dụng
           </h2>
           <div className={CTV_HUB_WALLET_AMOUNT_ROW} aria-label={`Hoa hồng khả dụng ${ariaAmountLabel}`}>
-            <span className={`${CTV_HUB_WALLET_AMOUNT} min-w-0 shrink`}>
-              {availableCommissionDisplay}
-            </span>
+            <CtvFormattedValue
+              value={availableCommissionDisplay}
+              variant="money-lg"
+              className="min-w-0 shrink"
+            />
             <span
               className={`${CTV_HUB_WALLET_PENDING_AMOUNT} inline-flex min-w-0 items-center gap-1`}
               title={PENDING_UNLOCK_TOOLTIP}
@@ -68,7 +65,7 @@ function CtvCommissionHeroInner({
               </span>
               <span className="inline-flex items-center gap-1 px-1" aria-hidden>
                 <span>(</span>
-                <span>{pendingCommissionDisplay}</span>
+                <CtvFormattedValue value={pendingCommissionDisplay} variant="money-sm" />
                 <span>)</span>
               </span>
             </span>

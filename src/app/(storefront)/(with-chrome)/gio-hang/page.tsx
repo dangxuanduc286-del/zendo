@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Breadcrumbs from "../../../../components/storefront/breadcrumbs";
 import CartPage from "../../../../components/storefront/cart-page";
 import { getStorefrontCheckoutLockState } from "../../../../lib/storefront-checkout-lock";
+import { getWebsiteSettings } from "../../../../lib/settings";
+import { buildShippingPromotionConfig } from "../../../../lib/shipping";
 
 export const metadata: Metadata = {
   title: "Giỏ hàng | Zendo.vn",
@@ -13,7 +15,10 @@ export const metadata: Metadata = {
 };
 
 export default async function CartRoutePage(): Promise<JSX.Element> {
-  const lock = await getStorefrontCheckoutLockState();
+  const [lock, settings] = await Promise.all([
+    getStorefrontCheckoutLockState(),
+    getWebsiteSettings(),
+  ]);
 
   return (
     <>
@@ -25,7 +30,11 @@ export default async function CartRoutePage(): Promise<JSX.Element> {
           ]}
         />
       </div>
-      <CartPage checkoutLocked={lock.locked} checkoutBlockMessage={lock.message} />
+      <CartPage
+        checkoutLocked={lock.locked}
+        checkoutBlockMessage={lock.message}
+        shippingPromotionConfig={buildShippingPromotionConfig(settings)}
+      />
     </>
   );
 }

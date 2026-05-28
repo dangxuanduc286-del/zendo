@@ -48,6 +48,12 @@ const PRIMARY_BUTTON_CLASS =
   "inline-flex h-11 w-full items-center justify-center rounded-xl bg-[#2563EB] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto";
 const ERROR_ALERT_CLASS = "rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700";
 const SUCCESS_ALERT_CLASS = "rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700";
+const SUPPORT_ROLE_ROWS = [
+  { key: "guest", label: "Guest / chưa đăng nhập" },
+  { key: "customer", label: "Customer / khách hàng" },
+  { key: "collaborator", label: "CTV / cộng tác viên" },
+  { key: "admin", label: "Admin / quản trị" },
+] as const;
 const SEARCH_KEYWORDS: Record<SettingsSectionKey, string[]> = {
   general: ["thong tin", "website", "seo", "meta", "logo", "favicon", "lien he"],
   storefront: ["header", "footer", "banner", "cta", "menu", "giao dien", "mau", "topbar", "banner cam ket", "cam ket duoi"],
@@ -369,7 +375,6 @@ function GeneralCard({
     setOk("Đã lưu cài đặt.");
     await onSaved();
   };
-
   return (
     <section id="section-chung" className={SECTION_CLASS}>
       <div className={SECTION_HEADER_CLASS}>
@@ -770,7 +775,6 @@ function StorefrontCard({
     setOk("Đã lưu cài đặt.");
     await onSaved();
   };
-
   return (
     <section id="section-storefront" className={SECTION_CLASS}>
       <div className={SECTION_HEADER_CLASS}>
@@ -2497,10 +2501,11 @@ function CommerceCard({
   settings: WebsiteSettings;
   onSaved: () => Promise<void>;
 }): JSX.Element {
-  type FormValues = z.infer<typeof websiteSectionCommerceSchema>;
+  type FormInputValues = z.input<typeof websiteSectionCommerceSchema>;
+  type FormValues = z.output<typeof websiteSectionCommerceSchema>;
   const [err, setErr] = useState("");
   const [ok, setOk] = useState("");
-  const form = useForm<FormValues>({
+  const form = useForm<FormInputValues, unknown, FormValues>({
     resolver: zodResolver(websiteSectionCommerceSchema),
     defaultValues: {
       section: "commerce",
@@ -2508,6 +2513,12 @@ function CommerceCard({
       mapUrl: settings.mapUrl,
       taxCode: settings.taxCode,
       defaultProductWarranty: settings.defaultProductWarranty,
+      shippingPromoEnabled: settings.shippingPromoEnabled,
+      shippingPromoTier1Min: settings.shippingPromoTier1Min,
+      shippingPromoTier1Discount: settings.shippingPromoTier1Discount,
+      shippingPromoTier2Min: settings.shippingPromoTier2Min,
+      shippingPromoTier2Discount: settings.shippingPromoTier2Discount,
+      shippingPromoFreeMin: settings.shippingPromoFreeMin,
     },
   });
 
@@ -2518,6 +2529,12 @@ function CommerceCard({
       mapUrl: settings.mapUrl,
       taxCode: settings.taxCode,
       defaultProductWarranty: settings.defaultProductWarranty,
+      shippingPromoEnabled: settings.shippingPromoEnabled,
+      shippingPromoTier1Min: settings.shippingPromoTier1Min,
+      shippingPromoTier1Discount: settings.shippingPromoTier1Discount,
+      shippingPromoTier2Min: settings.shippingPromoTier2Min,
+      shippingPromoTier2Discount: settings.shippingPromoTier2Discount,
+      shippingPromoFreeMin: settings.shippingPromoFreeMin,
     });
   }, [settings, form]);
 
@@ -2560,6 +2577,41 @@ function CommerceCard({
                 <p className="text-xs text-rose-600">{form.formState.errors.defaultProductWarranty.message}</p>
               ) : null}
             </label>
+          </section>
+
+          <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div>
+              <h3 className="text-sm font-semibold text-slate-900">Cài đặt ưu đãi vận chuyển</h3>
+              <p className="mt-1 text-xs text-slate-500">
+                Tự động áp dụng theo giá trị đơn hàng, không cần khách nhập mã.
+              </p>
+            </div>
+            <label className="inline-flex items-center gap-2 text-sm font-medium text-zinc-700">
+              <input type="checkbox" {...form.register("shippingPromoEnabled")} className="h-4 w-4 rounded border-zinc-300" />
+              Bật chương trình ưu đãi vận chuyển
+            </label>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="space-y-1.5">
+                <span className="text-sm font-medium text-zinc-700">Mốc 1 - Đơn từ</span>
+                <input type="number" step="1000" {...form.register("shippingPromoTier1Min", { valueAsNumber: true })} />
+              </label>
+              <label className="space-y-1.5">
+                <span className="text-sm font-medium text-zinc-700">Giảm ship mốc 1</span>
+                <input type="number" step="1000" {...form.register("shippingPromoTier1Discount", { valueAsNumber: true })} />
+              </label>
+              <label className="space-y-1.5">
+                <span className="text-sm font-medium text-zinc-700">Mốc 2 - Đơn từ</span>
+                <input type="number" step="1000" {...form.register("shippingPromoTier2Min", { valueAsNumber: true })} />
+              </label>
+              <label className="space-y-1.5">
+                <span className="text-sm font-medium text-zinc-700">Giảm ship mốc 2</span>
+                <input type="number" step="1000" {...form.register("shippingPromoTier2Discount", { valueAsNumber: true })} />
+              </label>
+              <label className="space-y-1.5 sm:col-span-2">
+                <span className="text-sm font-medium text-zinc-700">Mốc miễn phí vận chuyển - Đơn từ</span>
+                <input type="number" step="1000" {...form.register("shippingPromoFreeMin", { valueAsNumber: true })} />
+              </label>
+            </div>
           </section>
 
           <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -2860,6 +2912,34 @@ function CustomerAccountCard({
               <input {...form.register("supportMessengerUrl")} placeholder="https://m.me/..." />
               <input {...form.register("returnPolicyUrl")} placeholder="/chinh-sach-doi-tra" />
               <input {...form.register("warrantyPolicyUrl")} placeholder="/chinh-sach-bao-hanh" />
+            </div>
+          </section>
+
+          <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
+            <div>
+              <h3 className="text-sm font-semibold text-slate-900">Hỗ trợ theo vai trò</h3>
+              <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                Link này dùng cho floating support. URL Facebook/Zalo phải dùng HTTPS; nếu bỏ trống, hệ thống tự fallback theo vai trò.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+              {SUPPORT_ROLE_ROWS.map((role) => (
+                <div key={role.key} className="space-y-2 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-600">{role.label}</p>
+                  <input
+                    {...form.register(`supportConfig.${role.key}.facebook`)}
+                    placeholder="Facebook fanpage: https://facebook.com/..."
+                  />
+                  <input
+                    {...form.register(`supportConfig.${role.key}.zalo`)}
+                    placeholder="Zalo: https://zalo.me/..."
+                  />
+                  <input
+                    {...form.register(`supportConfig.${role.key}.hotline`)}
+                    placeholder="Hotline"
+                  />
+                </div>
+              ))}
             </div>
           </section>
 

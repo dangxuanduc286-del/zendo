@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { storefrontSectionTitleTypography } from "./storefront-typography";
 
 interface SectionHeadingProps {
   id?: string;
@@ -18,7 +19,7 @@ export default function SectionHeading({
   return (
     <div className="mb-4 flex flex-wrap items-start justify-between gap-2.5 sm:mb-5 sm:gap-3">
       <div className="min-w-0 max-w-3xl">
-        <h2 id={id} className="text-base font-semibold tracking-tight text-[#0F172A] sm:text-lg">
+        <h2 id={id} className={`text-base ${storefrontSectionTitleTypography} text-[#0F172A] sm:text-lg`}>
           {title}
         </h2>
         {description ? (

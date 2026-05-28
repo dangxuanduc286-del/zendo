@@ -6,16 +6,17 @@ import { signOut } from "next-auth/react";
 import { usePathname, useRouter } from "next/navigation";
 import type { AffiliateCommissionTabSettings } from "@/lib/affiliate-commission-tab-settings";
 import type { CustomerAccountSettings } from "@/lib/settings";
-import type { StorefrontCustomerAccountDashboardData } from "@/lib/server/storefront-customer-account-dashboard";
+import type { AffiliateLayoutChromeData } from "@/lib/server/affiliate-layout-chrome-data";
 import { buildAffiliateCtvNavEntriesFromDashboard } from "@/lib/storefront-affiliate-ctv-nav-build";
 import { useCustomerNotificationsPoll } from "@/lib/use-customer-notifications-poll";
 import { useAccountMobileMenuStore } from "@/stores/accountMobileMenuStore";
 import AccountMobileMenuDrawer from "./account-mobile-menu-drawer";
+import { AffiliateCommissionUnlockBanner } from "./affiliate/affiliate-commission-unlock-banner";
 import { AffiliateCtvAccountSidebar } from "./affiliate-ctv-account-sidebar";
-import { AffiliateCtvAccountTwoColumnLayout } from "./affiliate/affiliate-ctv-account-two-column-layout";
+import { AccountPageMainChrome } from "./account-page-main-chrome";
 
 /**
- * Sidebar + vùng nội dung cho các route `/tai-khoan/affiliate/*` (analytics, attribution, …).
+ * Sidebar + vùng nội dung cho các route `/tai-khoan/affiliate/*` (analytics, campaign, …).
  * Tab trong sidebar điều hướng về `/tai-khoan?tab=…` để giữ một shell tài khoản thống nhất.
  */
 export function AffiliateAccountSubpagesChrome({
@@ -27,7 +28,7 @@ export function AffiliateAccountSubpagesChrome({
 }: {
   children: ReactNode;
   accountSettings: CustomerAccountSettings;
-  data: StorefrontCustomerAccountDashboardData;
+  data: AffiliateLayoutChromeData;
   affiliateCommissionTab: AffiliateCommissionTabSettings;
   affiliateProgramEnabled: boolean;
 }): JSX.Element {
@@ -38,6 +39,10 @@ export function AffiliateAccountSubpagesChrome({
   const ctvNavEntries = useMemo(
     () => buildAffiliateCtvNavEntriesFromDashboard(accountSettings, data),
     [accountSettings, data],
+  );
+
+  const commissionNotifyUiEnabled = Boolean(
+    data.affiliate.isActive && affiliateProgramEnabled && affiliateCommissionTab.tabEnabled,
   );
 
   const [liveNotifications] = useCustomerNotificationsPoll(
@@ -80,56 +85,61 @@ export function AffiliateAccountSubpagesChrome({
       onToggleSection={toggleNavSection}
       notificationsUnread={liveNotifications.unread}
       commissionBadge={liveNotifications.groups.commission}
-      showCommissionBadge={Boolean(
-        data.affiliate.isActive && affiliateProgramEnabled && affiliateCommissionTab.tabEnabled,
-      )}
+      showCommissionBadge={commissionNotifyUiEnabled}
       onSignOut={() => {
         signOut({ callbackUrl: "/" }).catch(() => {});
       }}
     />
   );
 
-  return (
-    <div className="w-full min-w-0 max-w-none space-y-4 overflow-x-hidden bg-transparent">
-      <AccountMobileMenuDrawer
-        items={[]}
-        customNav={
-          <AffiliateCtvAccountSidebar
-            dense
-            entries={ctvNavEntries}
-            activeTab=""
-            activeAffiliateSubTab=""
-            pathname={pathname}
-            onSelectTab={(t) => {
-              if (t === "affiliate") pushMainAccount("affiliate", "overview");
-              else pushMainAccount(t);
-            }}
-            onSelectAffiliateSubTab={(s) => pushMainAccount("affiliate", s)}
-            expandedSections={navExpanded}
-            onToggleSection={toggleNavSection}
-            notificationsUnread={liveNotifications.unread}
-            commissionBadge={liveNotifications.groups.commission}
-            showCommissionBadge={Boolean(
-              data.affiliate.isActive && affiliateProgramEnabled && affiliateCommissionTab.tabEnabled,
-            )}
-            onSignOut={() => {
-              signOut({ callbackUrl: "/" }).catch(() => {});
-            }}
-            onNavigate={() => useAccountMobileMenuStore.getState().close()}
-          />
-        }
-        activeTab=""
-        onSelectTab={() => {}}
-        onOpenSupport={() => {}}
-        supportUnreadTotal={0}
-        onSignOut={() => {
-          signOut({ callbackUrl: "/" }).catch(() => {});
-        }}
-      />
+  const drawer = (
+    <AccountMobileMenuDrawer
+      items={[]}
+      customNav={
+        <AffiliateCtvAccountSidebar
+          dense
+          entries={ctvNavEntries}
+          activeTab=""
+          activeAffiliateSubTab=""
+          pathname={pathname}
+          onSelectTab={(t) => {
+            if (t === "affiliate") pushMainAccount("affiliate", "overview");
+            else pushMainAccount(t);
+          }}
+          onSelectAffiliateSubTab={(s) => pushMainAccount("affiliate", s)}
+          expandedSections={navExpanded}
+          onToggleSection={toggleNavSection}
+          notificationsUnread={liveNotifications.unread}
+          commissionBadge={liveNotifications.groups.commission}
+          showCommissionBadge={commissionNotifyUiEnabled}
+          onSignOut={() => {
+            signOut({ callbackUrl: "/" }).catch(() => {});
+          }}
+          onNavigate={() => useAccountMobileMenuStore.getState().close()}
+        />
+      }
+      activeTab=""
+      onSelectTab={() => {}}
+      onOpenSupport={() => {}}
+      supportUnreadTotal={0}
+      onSignOut={() => {
+        signOut({ callbackUrl: "/" }).catch(() => {});
+      }}
+    />
+  );
 
-      <AffiliateCtvAccountTwoColumnLayout sidebar={sidebar} contentId="tai-khoan-affiliate-subpage-content">
-        {children}
-      </AffiliateCtvAccountTwoColumnLayout>
-    </div>
+  const topSlot = commissionNotifyUiEnabled ? (
+    <AffiliateCommissionUnlockBanner notifications={liveNotifications} enabled={commissionNotifyUiEnabled} />
+  ) : null;
+
+  return (
+    <AccountPageMainChrome
+      contentId="tai-khoan-affiliate-subpage-content"
+      sidebar={sidebar}
+      drawer={drawer}
+      topSlot={topSlot}
+    >
+      {children}
+    </AccountPageMainChrome>
   );
 }

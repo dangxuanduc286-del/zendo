@@ -4,7 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
+  ADMIN_AFFILIATE_ANALYTICS_HREF,
   ADMIN_AFFILIATE_APPLICATIONS_HREF,
+  ADMIN_AFFILIATE_FRAUD_HREF,
   ADMIN_MENU_ITEMS,
   ADMIN_ORDERS_MENU_HREF,
 } from "../../lib/admin-menu";
@@ -19,6 +21,7 @@ import {
   type AdminSupportNewMessageToastDetail,
   useAdminSupportTicketUnreadPolling,
 } from "./admin-support-unread-badge";
+import AdminNotificationsBell from "./admin-notifications-bell";
 import {
   adminDangerButton,
   adminMobileMenuItemActive,
@@ -52,6 +55,13 @@ function adminStorefrontHomeButtonClass(active: boolean): string {
   return `${base} border-slate-200/90 bg-gradient-to-br from-white via-slate-50/80 to-sky-50/40 text-slate-800 shadow-md shadow-slate-900/[0.06] ring-1 ring-slate-200/70 hover:border-sky-200/90 hover:bg-gradient-to-br hover:from-white hover:via-sky-50/50 hover:to-violet-50/30 hover:text-slate-900 hover:shadow-lg hover:shadow-sky-500/10 hover:ring-sky-200/50`;
 }
 
+function isAdminMenuItemActive(pathname: string, href: string): boolean {
+  if (href === ADMIN_AFFILIATE_ANALYTICS_HREF && pathname.startsWith(ADMIN_AFFILIATE_FRAUD_HREF)) {
+    return true;
+  }
+  return pathname === href || (href !== "/admin" && pathname.startsWith(`${href}/`));
+}
+
 function AffiliateApplicationsPendingBadge({ count }: { count: number }): JSX.Element | null {
   if (count <= 0) return null;
   return <AdminSidebarNumericBadge count={count} title="yêu cầu CTV chờ duyệt" />;
@@ -75,12 +85,14 @@ export default function AdminShell({
   children,
   collaboratorsPendingBadgeCount = 0,
   initialOrdersUnreadCount = 0,
+  initialAdminNotificationUnreadCount = 0,
   supportTicketSidebarEnabled = false,
   initialSupportTicketUnreadCount = 0,
 }: {
   children: React.ReactNode;
   collaboratorsPendingBadgeCount?: number;
   initialOrdersUnreadCount?: number;
+  initialAdminNotificationUnreadCount?: number;
   supportTicketSidebarEnabled?: boolean;
   initialSupportTicketUnreadCount?: number;
 }): JSX.Element {
@@ -217,10 +229,15 @@ export default function AdminShell({
           >
             Trang chủ
           </Link>
+          <div className="mb-3 flex justify-end">
+            <AdminNotificationsBell
+              initialUnreadCount={initialAdminNotificationUnreadCount}
+              enabled={sidebarActive}
+            />
+          </div>
           <nav aria-label="Sidebar quản trị" className="space-y-1">
             {ADMIN_MENU_ITEMS.map((item) => {
-              const active =
-                pathname === item.href || (item.href !== "/admin" && pathname.startsWith(`${item.href}/`));
+              const active = isAdminMenuItemActive(pathname, item.href);
               return (
                 <Link
                   key={item.href}
@@ -273,7 +290,10 @@ export default function AdminShell({
               <Link href="/admin" className="min-w-0 flex-1 truncate text-center text-sm font-bold tracking-tight text-slate-900">
                 Quản trị Zendo
               </Link>
-              <span className="w-11 shrink-0" aria-hidden />
+              <AdminNotificationsBell
+                initialUnreadCount={initialAdminNotificationUnreadCount}
+                enabled={sidebarActive}
+              />
             </div>
             <div className="px-3 pb-3 sm:px-4">
               <input
@@ -330,8 +350,7 @@ export default function AdminShell({
                   <nav aria-label="Menu quản trị" className="space-y-1.5">
                     {filteredMobileMenuItems.length ? (
                       filteredMobileMenuItems.map((item) => {
-                        const active =
-                          pathname === item.href || (item.href !== "/admin" && pathname.startsWith(`${item.href}/`));
+                        const active = isAdminMenuItemActive(pathname, item.href);
                         return (
                           <Link
                             key={item.href}

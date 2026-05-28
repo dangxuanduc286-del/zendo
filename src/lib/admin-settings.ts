@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { SocialLink } from "./settings";
 import { safeParseJson } from "./safe-json";
 import { isPublicMediaUrl } from "./media-url";
+import { sanitizeSupportFacebookUrl, sanitizeSupportZaloUrl } from "./support-contact-config";
 
 const mediaFieldSchema = z
   .string()
@@ -436,6 +437,12 @@ export const websiteSectionCommerceSchema = z.object({
   mapUrl: z.string().trim().max(2000).optional().or(z.literal("")),
   taxCode: z.string().trim().max(50).optional().or(z.literal("")),
   defaultProductWarranty: z.string().trim().max(1000).optional().or(z.literal("")),
+  shippingPromoEnabled: z.boolean().optional().default(true),
+  shippingPromoTier1Min: z.coerce.number().min(0).optional().default(999000),
+  shippingPromoTier1Discount: z.coerce.number().min(0).optional().default(30000),
+  shippingPromoTier2Min: z.coerce.number().min(0).optional().default(1499000),
+  shippingPromoTier2Discount: z.coerce.number().min(0).optional().default(50000),
+  shippingPromoFreeMin: z.coerce.number().min(0).optional().default(2999000),
 });
 
 export const websiteSectionAnalyticsSchema = z.object({
@@ -461,6 +468,38 @@ export const websiteSectionAnalyticsSchema = z.object({
 
 const accountUrlField = z.string().trim().max(300).optional().or(z.literal(""));
 const accountTextField = z.string().trim().max(220).optional().or(z.literal(""));
+const supportFacebookUrlField = z
+  .string()
+  .trim()
+  .max(300)
+  .refine((value) => value === "" || Boolean(sanitizeSupportFacebookUrl(value)), "URL Facebook/Messenger hỗ trợ không hợp lệ.")
+  .optional()
+  .or(z.literal(""));
+const supportZaloUrlField = z
+  .string()
+  .trim()
+  .max(300)
+  .refine((value) => value === "" || Boolean(sanitizeSupportZaloUrl(value)), "URL hoặc số Zalo hỗ trợ không hợp lệ.")
+  .optional()
+  .or(z.literal(""));
+const supportPhoneField = z
+  .string()
+  .trim()
+  .max(80)
+  .refine((value) => value === "" || /^[\d+()\-\s.]{6,80}$/.test(value), "Số hotline không hợp lệ.")
+  .optional()
+  .or(z.literal(""));
+const supportContactChannelSchema = z.object({
+  facebook: supportFacebookUrlField,
+  zalo: supportZaloUrlField,
+  hotline: supportPhoneField,
+});
+const roleSupportConfigSchema = z.object({
+  guest: supportContactChannelSchema,
+  customer: supportContactChannelSchema,
+  collaborator: supportContactChannelSchema,
+  admin: supportContactChannelSchema,
+});
 
 export const websiteSectionCustomerAccountSchema = z.object({
   section: z.literal("customerAccount"),
@@ -505,9 +544,10 @@ export const websiteSectionCustomerAccountSchema = z.object({
   returnRequestTitle: accountTextField,
   continueShoppingUrl: accountUrlField,
   orderLookupUrl: accountUrlField,
-  supportPhone: z.string().trim().max(80).optional().or(z.literal("")),
-  supportZaloUrl: accountUrlField,
-  supportMessengerUrl: accountUrlField,
+  supportPhone: supportPhoneField,
+  supportZaloUrl: supportZaloUrlField,
+  supportMessengerUrl: supportFacebookUrlField,
+  supportConfig: roleSupportConfigSchema,
   returnPolicyUrl: accountUrlField,
   warrantyPolicyUrl: accountUrlField,
   affiliateTitle: accountTextField.optional(),

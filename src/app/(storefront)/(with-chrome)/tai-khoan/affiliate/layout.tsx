@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { AffiliateAccountSubpagesChrome } from "@/components/storefront/affiliate-account-subpages-chrome";
 import { StorefrontAccountShell } from "@/components/storefront/storefront-account-shell";
 import { authOptions } from "@/lib/auth";
-import { getStorefrontCustomerAccountDashboardData } from "@/lib/server/storefront-customer-account-dashboard";
+import { getAffiliateLayoutChromeData } from "@/lib/server/affiliate-layout-chrome-data";
 import { getStorefrontSettings } from "@/lib/storefront-settings";
 
 export default async function AffiliateAccountBranchLayout({
@@ -19,7 +19,7 @@ export default async function AffiliateAccountBranchLayout({
   }
 
   const storefrontSettings = await getStorefrontSettings();
-  const data = await getStorefrontCustomerAccountDashboardData(String(session.user.id));
+  const data = await getAffiliateLayoutChromeData(String(session.user.id));
   if (!data.affiliate.isActive) {
     redirect("/tai-khoan?tab=affiliate");
   }
@@ -27,8 +27,8 @@ export default async function AffiliateAccountBranchLayout({
   const accountSettings = storefrontSettings.website.customerAccountSettings;
 
   return (
-    <div className="min-h-[calc(100vh-140px)] bg-slate-50 py-5 sm:py-6">
-      <StorefrontAccountShell>
+    <div className="min-h-[calc(100vh-140px)] bg-[#F8FAFC] px-0 py-0 sm:px-4 sm:py-6 lg:px-6 lg:py-6">
+      <StorefrontAccountShell variant="flush">
         <AffiliateAccountSubpagesChrome
           accountSettings={accountSettings}
           data={data}

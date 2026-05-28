@@ -2,10 +2,27 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { ReactNode } from "react";
+import type { ReactNode, RefObject } from "react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { adminCardBody, adminCardTitle, adminContentShell, adminInput, adminMetaText, adminMetricNumber, adminPageSubtitle, adminPageTitle, adminSelect, adminStatCard } from "@/lib/admin-ui";
+import { ADMIN_AFFILIATE_FRAUD_HREF } from "@/lib/admin-menu";
 import AdminAffiliateAnalyticsChartLazy from "./admin-affiliate-analytics-chart-lazy";
+import {
+  clickLabelForAnalyticsRange,
+  CTV_ANALYTICS_CLICK_PERIOD_HINT,
+} from "@/lib/ctv/ctv-click-display";
+import {
+  CTV_ANALYTICS_ORDER_PERIOD_HINT,
+  CTV_PAID_ORDER_KPI_HINT,
+  orderLabelForAdminSystemOverview,
+  paidOrderLabelForAdminSystemOverview,
+  paidOrderLabelForAnalyticsRange,
+} from "@/lib/ctv/ctv-order-display";
+import {
+  conversionLabelForAnalyticsRange,
+  CTV_CONVERSION_FORMULA_HINT,
+} from "@/lib/ctv/ctv-conversion-month-kpi";
+import type { RangeKey } from "@/lib/affiliate-analytics";
 import {
   useAdminAffiliateChart,
   useAdminAffiliateFraud,
@@ -50,8 +67,37 @@ function Skeleton({ className }: { className: string }): JSX.Element {
   return <div className={`animate-pulse rounded-xl bg-slate-100 ${className}`} />;
 }
 
+function useEnabledOnVisible<T extends Element>(rootMargin = "160px"): [RefObject<T | null>, boolean] {
+  const ref = useRef<T | null>(null);
+  const [enabled, setEnabled] = useState(false);
+
+  useEffect(() => {
+    if (enabled) return;
+    const el = ref.current;
+    if (!el) return;
+    if (!("IntersectionObserver" in window)) {
+      setEnabled(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setEnabled(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [enabled, rootMargin]);
+
+  return [ref, enabled];
+}
+
 function MetricCard(props: {
   label: string;
+  labelTitle?: string;
   value: ReactNode;
   pulse?: boolean;
   loading?: boolean;
@@ -61,7 +107,9 @@ function MetricCard(props: {
   return (
     <article className={adminStatCard}>
       <div className="flex items-center justify-between gap-1">
-        <p className={`${adminMetaText} font-semibold uppercase tracking-wide`}>{props.label}</p>
+        <p className={`${adminMetaText} font-semibold uppercase tracking-wide`} title={props.labelTitle}>
+          {props.label}
+        </p>
         {props.pulse ? (
           <span className="inline-flex h-2 w-2 shrink-0 rounded-full bg-emerald-500 shadow-[0_0_0_3px_rgba(16,185,129,0.35)]" title="Realtime" />
         ) : null}
@@ -147,6 +195,8 @@ export default function AdminAffiliateAnalyticsDashboard(): JSX.Element {
   const [fraudQ, setFraudQ] = useState("");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [exportAffiliateId, setExportAffiliateId] = useState("");
+  const [healthSectionRef, healthEnabled] = useEnabledOnVisible<HTMLElement>();
+  const [fraudSectionRef, fraudEnabled] = useEnabledOnVisible<HTMLElement>("240px");
 
   const exportAffiliateQs = useMemo(() => {
     const t = exportAffiliateId.trim();
@@ -172,8 +222,8 @@ export default function AdminAffiliateAnalyticsDashboard(): JSX.Element {
     online,
     enabled: true,
   });
-  const fraud = useAdminAffiliateFraud({ range, severity: fraudSeverity, q: fraudQ, enabled: true });
-  const health = useAdminAffiliateHealth({ enabled: true });
+  const fraud = useAdminAffiliateFraud({ range, severity: fraudSeverity, q: fraudQ, enabled: fraudEnabled });
+  const health = useAdminAffiliateHealth({ enabled: healthEnabled });
 
   const ov = overview.data?.overview as
     | {
@@ -210,6 +260,8 @@ export default function AdminAffiliateAnalyticsDashboard(): JSX.Element {
         </div>
         <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-stretch xl:items-center">
           <select
+            id="admin-affiliate-analytics-range"
+            name="range"
             value={range}
             onChange={(e) => {
               setRange(e.target.value as AdminRangeKey);
@@ -268,6 +320,8 @@ export default function AdminAffiliateAnalyticsDashboard(): JSX.Element {
               Sources
             </a>
             <input
+              id="admin-affiliate-analytics-export-affiliate-id"
+              name="exportAffiliateId"
               value={exportAffiliateId}
               onChange={(e) => setExportAffiliateId(e.target.value)}
               placeholder="affiliateId → export SP"
@@ -300,6 +354,7 @@ export default function AdminAffiliateAnalyticsDashboard(): JSX.Element {
       </header>
 
       <section
+        ref={healthSectionRef}
         className="grid grid-cols-1 gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-2 sm:gap-4 sm:p-5 xl:grid-cols-6"
         aria-label="Health monitoring affiliate analytics"
       >
@@ -344,7 +399,8 @@ export default function AdminAffiliateAnalyticsDashboard(): JSX.Element {
       <div className="sticky top-0 z-20 -mx-1 border-b border-slate-200/80 bg-slate-50/95 px-1 py-2 backdrop-blur xl:static xl:border-0 xl:bg-transparent xl:px-0 xl:py-0">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 xl:grid-cols-6">
           <MetricCard
-            label="Tổng click"
+            label={clickLabelForAnalyticsRange(range as RangeKey)}
+            labelTitle={CTV_ANALYTICS_CLICK_PERIOD_HINT}
             loading={overview.loading}
             pulse
             value={ov ? <AnimatedInt value={ov.totalClicks} /> : "0"}
@@ -354,13 +410,28 @@ export default function AdminAffiliateAnalyticsDashboard(): JSX.Element {
             loading={overview.loading}
             value={ov ? <AnimatedInt value={ov.uniqueVisitors} /> : "0"}
           />
-          <MetricCard label="Đơn (tất cả)" loading={overview.loading} value={ov ? <AnimatedInt value={ov.totalOrders} /> : "0"} />
-          <MetricCard label="Đơn đã trả" loading={overview.loading} value={ov ? <AnimatedInt value={ov.paidOrders} /> : "0"} />
+          <MetricCard
+            label={orderLabelForAdminSystemOverview(range as RangeKey)}
+            labelTitle={CTV_ANALYTICS_ORDER_PERIOD_HINT}
+            loading={overview.loading}
+            value={ov ? <AnimatedInt value={ov.totalOrders} /> : "0"}
+          />
+          <MetricCard
+            label={paidOrderLabelForAdminSystemOverview(range as RangeKey)}
+            labelTitle={CTV_PAID_ORDER_KPI_HINT}
+            loading={overview.loading}
+            value={ov ? <AnimatedInt value={ov.paidOrders} /> : "0"}
+          />
           <MetricCard label="Doanh thu" loading={overview.loading} value={ov ? fmtVnd(ov.totalRevenue) : fmtVnd(0)} />
           <MetricCard label="Commission" loading={overview.loading} value={ov ? fmtVnd(ov.totalCommission) : fmtVnd(0)} />
           <MetricCard label="CTV hoạt động" loading={overview.loading} value={ov ? <AnimatedInt value={ov.activeAffiliates} /> : "0"} />
           <MetricCard label="CTV online" loading={overview.loading} pulse value={ov ? <AnimatedInt value={ov.onlineAffiliates} /> : "0"} />
-          <MetricCard label="Conversion" loading={overview.loading} value={ov ? fmtPct(ov.conversionRate) : "0%"} />
+          <MetricCard
+            label={conversionLabelForAnalyticsRange(range as RangeKey)}
+            labelTitle={CTV_CONVERSION_FORMULA_HINT}
+            loading={overview.loading}
+            value={ov ? fmtPct(ov.conversionRate) : "0%"}
+          />
           <MetricCard label="RPM" loading={overview.loading} value={ov ? fmtVnd(ov.RPM) : fmtVnd(0)} />
           <MetricCard label="EPC" loading={overview.loading} value={ov ? fmtVnd(ov.EPC) : fmtVnd(0)} />
           <MetricCard
@@ -439,6 +510,26 @@ export default function AdminAffiliateAnalyticsDashboard(): JSX.Element {
         </section>
       </div>
 
+      <section className={`${adminCardBody} border-sky-100 bg-gradient-to-br from-white via-sky-50/50 to-white`}>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-700">
+              Affiliate Analytics
+            </p>
+            <h2 className={adminCardTitle}>Fraud Affiliate</h2>
+            <p className="mt-1 max-w-3xl text-sm text-slate-600">
+              Mở case management fraud hiện có sau Traffic hệ thống và Realtime panel. Route, API, resolve/dismiss và deep link cũ được giữ nguyên.
+            </p>
+          </div>
+          <Link
+            href={ADMIN_AFFILIATE_FRAUD_HREF}
+            className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl border border-sky-200 bg-white px-4 text-sm font-semibold text-sky-700 shadow-sm hover:bg-sky-50"
+          >
+            Mở Fraud Affiliate
+          </Link>
+        </div>
+      </section>
+
       <section className={adminCardBody}>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h2 className={adminCardTitle}>Top campaigns & nguồn</h2>
@@ -473,6 +564,8 @@ export default function AdminAffiliateAnalyticsDashboard(): JSX.Element {
         <h2 className={adminCardTitle}>Top affiliates</h2>
         <div className="mt-3 flex flex-wrap items-end gap-2">
           <input
+            id="admin-affiliate-analytics-q"
+            name="q"
             value={qInput}
             onChange={(e) => {
               setQInput(e.target.value);
@@ -482,6 +575,8 @@ export default function AdminAffiliateAnalyticsDashboard(): JSX.Element {
             className={`h-10 min-w-[180px] flex-1 ${adminSelect}`}
           />
           <select
+            id="admin-affiliate-analytics-status"
+            name="status"
             value={status}
             onChange={(e) => {
               setStatus(e.target.value);
@@ -495,6 +590,8 @@ export default function AdminAffiliateAnalyticsDashboard(): JSX.Element {
             <option value="LOCKED">LOCKED</option>
           </select>
           <select
+            id="admin-affiliate-analytics-online"
+            name="online"
             value={online}
             onChange={(e) => {
               setOnline(e.target.value);
@@ -507,6 +604,8 @@ export default function AdminAffiliateAnalyticsDashboard(): JSX.Element {
             <option value="NO">Offline</option>
           </select>
           <select
+            id="admin-affiliate-analytics-sort"
+            name="sort"
             value={`${sort}:${dir}`}
             onChange={(e) => {
               const [s, d] = e.target.value.split(":");
@@ -533,7 +632,9 @@ export default function AdminAffiliateAnalyticsDashboard(): JSX.Element {
                 <th className="py-2 pr-2">Conv</th>
                 <th className="py-2 pr-2">Doanh thu</th>
                 <th className="py-2 pr-2">Commission</th>
-                <th className="py-2 pr-2">Đơn trả</th>
+                <th className="py-2 pr-2" title={CTV_PAID_ORDER_KPI_HINT}>
+                  {paidOrderLabelForAnalyticsRange(range as RangeKey)}
+                </th>
                 <th className="py-2 pr-2">EPC</th>
                 <th className="py-2 pr-2">RPM</th>
                 <th className="py-2 pr-2">Trạng thái</th>
@@ -583,7 +684,9 @@ export default function AdminAffiliateAnalyticsDashboard(): JSX.Element {
                 <th className="py-2 pr-2">Conv</th>
                 <th className="py-2 pr-2">Doanh thu</th>
                 <th className="py-2 pr-2">Hoa hồng</th>
-                <th className="py-2 pr-2">Đơn</th>
+                <th className="py-2 pr-2" title={CTV_PAID_ORDER_KPI_HINT}>
+                  {paidOrderLabelForAnalyticsRange(range as RangeKey)}
+                </th>
                 <th className="py-2 pr-2">EPC</th>
                 <th className="py-2 pr-2">RPM</th>
                 <th className="py-2 pr-2">TT</th>
@@ -597,7 +700,7 @@ export default function AdminAffiliateAnalyticsDashboard(): JSX.Element {
         </div>
       </section>
 
-      <section className={adminCardBody}>
+      <section ref={fraudSectionRef} className={adminCardBody}>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h2 className={adminCardTitle}>Fraud & rủi ro</h2>
           <div className="flex flex-wrap gap-2">
@@ -614,6 +717,8 @@ export default function AdminAffiliateAnalyticsDashboard(): JSX.Element {
               </button>
             ))}
             <input
+              id="admin-affiliate-analytics-fraud-q"
+              name="fraudQ"
               value={fraudQ}
               onChange={(e) => setFraudQ(e.target.value)}
               placeholder="Tìm ref / session / IP…"
@@ -682,6 +787,8 @@ export default function AdminAffiliateAnalyticsDashboard(): JSX.Element {
             <p className={adminCardTitle}>Bộ lọc</p>
             <div className="mt-3 space-y-3">
               <input
+                id="admin-affiliate-analytics-mobile-q"
+                name="mobileQ"
                 value={qInput}
                 onChange={(e) => {
                   setQInput(e.target.value);
@@ -691,6 +798,8 @@ export default function AdminAffiliateAnalyticsDashboard(): JSX.Element {
                 placeholder="Tìm ref / tên…"
               />
               <select
+                id="admin-affiliate-analytics-mobile-status"
+                name="mobileStatus"
                 value={status}
                 onChange={(e) => {
                   setStatus(e.target.value);
@@ -704,6 +813,8 @@ export default function AdminAffiliateAnalyticsDashboard(): JSX.Element {
                 <option value="LOCKED">LOCKED</option>
               </select>
               <select
+                id="admin-affiliate-analytics-mobile-online"
+                name="mobileOnline"
                 value={online}
                 onChange={(e) => {
                   setOnline(e.target.value);
@@ -716,6 +827,8 @@ export default function AdminAffiliateAnalyticsDashboard(): JSX.Element {
                 <option value="NO">Offline</option>
               </select>
               <select
+                id="admin-affiliate-analytics-mobile-sort"
+                name="mobileSort"
                 value={`${sort}:${dir}`}
                 onChange={(e) => {
                   const [s, d] = e.target.value.split(":");

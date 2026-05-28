@@ -11,6 +11,14 @@ import {
   CTV_HUB_ACCOUNT_META,
   CTV_HUB_ACCOUNT_NAME,
   CTV_HUB_ACCOUNT_SECONDARY,
+  CTV_HUB_IDENTITY_AVATAR_WRAP,
+  CTV_HUB_IDENTITY_BODY,
+  CTV_HUB_IDENTITY_CONTACT_ROW,
+  CTV_HUB_IDENTITY_COPY_BTN,
+  CTV_HUB_IDENTITY_DETAILS,
+  CTV_HUB_IDENTITY_NAME_ROW,
+  CTV_HUB_IDENTITY_REF_ROW,
+  CTV_HUB_IDENTITY_REF_TEXT,
   CTV_HUB_IDENTITY_STACK,
   CTV_HUB_OVERVIEW_CARD,
   CTV_V2_ACCOUNT_TIER_ACTIONS,
@@ -18,9 +26,9 @@ import {
   CTV_V2_AVATAR_IMG_PX,
   CTV_V2_AVATAR_INNER,
   CTV_V2_AVATAR_OUTER,
+  CTV_V2_AVATAR_PLACEHOLDER_TEXT,
   CTV_V2_AVATAR_QUALITY,
   CTV_V2_AVATAR_SIZES,
-  CTV_V2_MOTION,
 } from "./ctv-ui-tokens";
 import { CtvRoleBadge, CtvVerifiedBadge } from "./ctv-profile-badges";
 import { CtvProfileQuickActions } from "./ctv-profile-quick-actions";
@@ -48,8 +56,6 @@ export type CtvProfileIdentityCardProps = {
 
 const accountTitleFallback = "Tài khoản của tôi";
 
-const formatRewardPoints = (value: number) => new Intl.NumberFormat("vi-VN").format(value);
-
 function CtvProfileIdentityCardInner(props: CtvProfileIdentityCardProps): JSX.Element {
   const {
     accountSettings,
@@ -67,10 +73,8 @@ function CtvProfileIdentityCardInner(props: CtvProfileIdentityCardProps): JSX.El
     onEditProfile,
     showProfileLink,
     orderLookupHref,
-    rewardPoints: rewardRaw,
   } = props;
 
-  const rewardPoints = Number.isFinite(rewardRaw) ? rewardRaw : 0;
   const hasAvatar = Boolean((currentAvatar || avatarUrl).trim());
   const isCtv = badge.toUpperCase().includes("CTV");
 
@@ -108,77 +112,79 @@ function CtvProfileIdentityCardInner(props: CtvProfileIdentityCardProps): JSX.El
       </header>
 
       <div className={CTV_HUB_IDENTITY_STACK}>
-        <div className="flex min-w-0 items-start gap-3">
-          <div className={CTV_V2_AVATAR_OUTER}>
-            <div className={CTV_V2_AVATAR_INNER}>
-              {currentAvatar && !avatarBroken ? (
-                <Image
-                  src={currentAvatar}
-                  alt={avatarAlt}
-                  width={CTV_V2_AVATAR_IMG_PX}
-                  height={CTV_V2_AVATAR_IMG_PX}
-                  quality={clampNextImageQuality(CTV_V2_AVATAR_QUALITY)}
-                  sizes={CTV_V2_AVATAR_SIZES}
-                  className={CTV_V2_AVATAR_IMG_CLASS}
-                  onError={() => setAvatarBroken(true)}
-                />
-              ) : (
-                <div
-                  className={`${CTV_V2_AVATAR_IMG_CLASS} flex items-center justify-center bg-slate-100 text-xl font-bold text-slate-700`}
-                  role="img"
-                  aria-label={avatarAlt}
-                >
-                  {(displayName.trim()[0] || "Z").toUpperCase()}
-                </div>
-              )}
+        <div className={CTV_HUB_IDENTITY_BODY}>
+          <div className={CTV_HUB_IDENTITY_AVATAR_WRAP}>
+            <div className={CTV_V2_AVATAR_OUTER}>
+              <div className={CTV_V2_AVATAR_INNER}>
+                {currentAvatar && !avatarBroken ? (
+                  <Image
+                    src={currentAvatar}
+                    alt={avatarAlt}
+                    width={CTV_V2_AVATAR_IMG_PX}
+                    height={CTV_V2_AVATAR_IMG_PX}
+                    quality={clampNextImageQuality(CTV_V2_AVATAR_QUALITY)}
+                    sizes={CTV_V2_AVATAR_SIZES}
+                    className={CTV_V2_AVATAR_IMG_CLASS}
+                    priority
+                    onError={() => setAvatarBroken(true)}
+                  />
+                ) : (
+                  <div
+                    className={`${CTV_V2_AVATAR_IMG_CLASS} ${CTV_V2_AVATAR_PLACEHOLDER_TEXT} flex items-center justify-center bg-slate-100`}
+                    role="img"
+                    aria-label={avatarAlt}
+                  >
+                    {(displayName.trim()[0] || "Z").toUpperCase()}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
-          <div className="min-w-0 flex-1 space-y-1.5">
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <p className={CTV_HUB_ACCOUNT_NAME}>{displayName}</p>
+          <div className={CTV_HUB_IDENTITY_DETAILS}>
+            <div className={CTV_HUB_IDENTITY_NAME_ROW}>
+              <h3 className={CTV_HUB_ACCOUNT_NAME}>{displayName}</h3>
               <CtvRoleBadge badge={badge} isCtv={isCtv} />
             </div>
 
             {contactText ? (
-              <p className={`${CTV_HUB_ACCOUNT_META} flex min-w-0 items-center gap-1.5`}>
-                <span className="min-w-0 break-words text-pretty max-lg:truncate lg:whitespace-normal">{contactText}</span>
-                <CtvVerifiedBadge className="shrink-0" />
+              <p className={`${CTV_HUB_ACCOUNT_META} ${CTV_HUB_IDENTITY_CONTACT_ROW}`}>
+                <span className="min-w-0 break-words text-pretty max-lg:truncate lg:whitespace-normal">
+                  {contactText}
+                </span>
+                <CtvVerifiedBadge className="shrink-0 self-center" />
               </p>
             ) : null}
 
             {refCode ? (
-              <div className="flex min-w-0 flex-wrap items-center gap-2">
-                <span className={`${CTV_HUB_ACCOUNT_SECONDARY} min-w-0 break-words text-pretty max-lg:truncate lg:whitespace-normal`}>
+              <div className={CTV_HUB_IDENTITY_REF_ROW}>
+                <span className={`${CTV_HUB_ACCOUNT_SECONDARY} ${CTV_HUB_IDENTITY_REF_TEXT} leading-none`}>
                   Mã ref: <strong className="font-semibold text-[#0F172A]">{refCode}</strong>
                 </span>
                 <button
                   type="button"
                   onClick={copyRef}
-                  className={`inline-flex h-8 shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 text-sm font-semibold text-slate-700 hover:bg-[#F8FAFC] ${CTV_V2_MOTION}`}
+                  className={CTV_HUB_IDENTITY_COPY_BTN}
                   aria-label={copied ? "Đã sao chép mã giới thiệu" : "Sao chép mã giới thiệu"}
                   title={copied ? "Đã sao chép" : "Sao chép mã ref"}
                 >
                   {copied ? (
-                    <Check className="h-3.5 w-3.5 text-emerald-600" aria-hidden />
+                    <Check className="h-4 w-4 text-emerald-600" aria-hidden />
                   ) : (
-                    <Copy className="h-3.5 w-3.5 text-slate-500" aria-hidden />
+                    <Copy className="h-4 w-4 text-slate-500" aria-hidden />
                   )}
                   <span>{copied ? "Đã copy" : "Copy"}</span>
                 </button>
               </div>
             ) : null}
-
-            <p className={CTV_HUB_ACCOUNT_SECONDARY}>
-              Điểm thưởng:{" "}
-              <strong className="font-semibold tabular-nums text-[#0F172A]">{formatRewardPoints(rewardPoints)}</strong>
-            </p>
           </div>
         </div>
       </div>
 
       <div className={CTV_V2_ACCOUNT_TIER_ACTIONS}>
         <input
+          id="ctv-profile-identity-avatar"
+          name="avatar"
           ref={avatarInputRef}
           type="file"
           accept="image/*,.jpg,.jpeg,.png,.webp,.gif,.avif,.heic"

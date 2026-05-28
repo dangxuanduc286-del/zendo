@@ -4,6 +4,7 @@ import { authOptions } from "../../lib/auth";
 import { resolveMediaUrl } from "../../lib/media";
 import { memoizePerRequest } from "../../lib/runtime/request-cache";
 import { getStorefrontDbClient } from "../../lib/storefront-db";
+import { DEFAULT_ROLE_SUPPORT_CONFIG } from "../../lib/support-contact-config";
 
 /** Alias for storefront root layout / metadata (same memoized DB client). */
 export { getStorefrontDbClient as getDbClient } from "../../lib/storefront-db";
@@ -118,6 +119,9 @@ export async function getSafeWebsiteSettings() {
       robotsFollow: true,
       searchPlaceholder: "",
       socialLinks: [],
+      customerAccountSettings: {
+        supportConfig: DEFAULT_ROLE_SUPPORT_CONFIG,
+      },
       logo: "",
       footer: { company: "", address: "", copyright: "" },
       seoDefault: { siteName: "Zendo.vn", title: "", description: "", keywords: [], ogImage: "" },

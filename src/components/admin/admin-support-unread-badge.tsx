@@ -4,6 +4,7 @@ import Pusher from "pusher-js";
 import { useEffect, useLayoutEffect, useRef } from "react";
 
 import { adminOrdersUnreadPollMs } from "@/lib/next-dev-stability";
+import { safePusherDisconnect, safePusherUnsubscribe } from "@/lib/support-pusher-client-safe";
 import { SUPPORT_ADMIN_INBOX_CHANNEL_NAME } from "@/lib/support-ticket-admin-inbox-channel";
 import { hasPusherClientConfig } from "@/lib/support-dm-chat-channel";
 import type { SupportAdminInboxPayload } from "@/lib/support-ticket-pusher";
@@ -224,8 +225,8 @@ export function useAdminSupportTicketUnreadPolling(initialCount: number, enabled
       try {
         ch.unbind("support.dm.message.created", onCreated);
         ch.unbind("support.dm.inbox.totals", onInboxCountOnly);
-        pusher?.unsubscribe(SUPPORT_ADMIN_INBOX_CHANNEL_NAME);
-        pusher?.disconnect();
+        if (pusher) safePusherUnsubscribe(pusher, SUPPORT_ADMIN_INBOX_CHANNEL_NAME);
+        safePusherDisconnect(pusher);
       } catch {
         /* ignore */
       }

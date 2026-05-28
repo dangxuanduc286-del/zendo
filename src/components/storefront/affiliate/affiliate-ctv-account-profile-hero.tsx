@@ -8,6 +8,7 @@ import { clampNextImageQuality } from "@/lib/next-image-quality";
 import { CtvRoleBadge, CtvVerifiedBadge } from "../ctv/ctv-profile-badges";
 import type { ChangeEvent, RefObject } from "react";
 import type { CustomerAccountSettings } from "../../../lib/settings";
+import { CtvFormattedValue } from "../ctv/ctv-formatted-value";
 import { CTV_MOBILE_KPI_GRID } from "../ctv/ctv-ui-tokens";
 import {
   CTV_CTA_ACCENT,
@@ -91,7 +92,7 @@ export function AffiliateCtvAccountProfileHero({
 
   const shellClass = isDesktop
     ? CTV_PROFILE_SHELL
-    : "w-full min-w-0 rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 lg:p-6";
+    : "w-full min-w-0 rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 lg:p-6";
 
   const avatarSize = isDesktop
     ? "h-14 w-14 lg:h-16 lg:w-16"
@@ -151,14 +152,14 @@ export function AffiliateCtvAccountProfileHero({
             <article
               key={card.key}
               role="listitem"
-              className={`flex min-h-[4.5rem] flex-col justify-center rounded-xl px-4 py-3 ${
+              className={`@container/metric flex min-h-[4.5rem] flex-col justify-center overflow-hidden rounded-xl px-4 py-3 ${
                 card.key === "rewards"
                   ? "bg-emerald-50/90 ring-1 ring-emerald-100/90"
                   : "bg-slate-50/95 ring-1 ring-slate-100/90"
               }`}
             >
               <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">{card.label}</p>
-              <p className="mt-1 text-lg font-bold tabular-nums text-slate-900">{formatStatValue(card.value)}</p>
+              <CtvFormattedValue value={formatStatValue(card.value)} variant="auto" className="mt-1" />
             </article>
           ))}
         </div>
@@ -166,6 +167,8 @@ export function AffiliateCtvAccountProfileHero({
 
       <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4">
         <input
+          id="affiliate-profile-hero-avatar-desktop"
+          name="avatar"
           ref={avatarInputRef}
           type="file"
           accept="image/*,.jpg,.jpeg,.png,.webp,.gif,.avif,.heic"
@@ -258,6 +261,8 @@ export function AffiliateCtvAccountProfileHero({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <input
+            id="affiliate-profile-hero-avatar-mobile"
+            name="avatar"
             ref={avatarInputRef}
             type="file"
             accept="image/*,.jpg,.jpeg,.png,.webp,.gif,.avif,.heic"
@@ -302,12 +307,10 @@ export function AffiliateCtvAccountProfileHero({
           {quickCards.map((card) => (
             <article
               key={card.key}
-              className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-2.5 py-2 shadow-sm sm:px-3 sm:py-2.5"
+              className="@container/metric overflow-hidden rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-2.5 py-2 shadow-sm sm:px-3 sm:py-2.5"
             >
               <p className="text-[10px] font-medium leading-snug text-slate-500 lg:text-[11px]">{card.label}</p>
-              <p className="mt-0.5 truncate text-sm font-bold tabular-nums text-slate-900 lg:text-base">
-                {formatStatValue(card.value)}
-              </p>
+              <CtvFormattedValue value={formatStatValue(card.value)} variant="auto" className="mt-0.5" />
             </article>
           ))}
         </div>

@@ -6,6 +6,7 @@ import AppSessionProvider from "../../components/providers/session-provider";
 import { StorefrontCampaignBleedPortal } from "../../components/storefront/storefront-campaign-bleed-portal";
 import { StorefrontSupportProvider } from "../../components/support/storefront-support-provider";
 import { getDbClient, getSafeStorefrontSession, sanitizeCampaignBackgroundUrl } from "./_storefront-layout-shared";
+import { classifyPublicSupportAudience } from "../../lib/support-contact-config";
 
 interface StorefrontLayoutProps {
   children: ReactNode;
@@ -46,7 +47,12 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function StorefrontLayout({
   children,
 }: StorefrontLayoutProps): Promise<JSX.Element> {
-  const [themeSettings, session] = await Promise.all([getThemeSettings(), getSafeStorefrontSession()]);
+  const [themeSettings, session, websiteSettings] = await Promise.all([
+    getThemeSettings(),
+    getSafeStorefrontSession(),
+    getWebsiteSettings(),
+  ]);
+  const supportAudience = classifyPublicSupportAudience(session);
 
   const campaignBackgroundDesktop =
     themeSettings.campaignBackgroundEnabled
@@ -104,7 +110,12 @@ export default async function StorefrontLayout({
       ) : null}
       {showCampaignBackground ? <StorefrontCampaignBleedPortal /> : null}
       <AppSessionProvider session={session}>
-        <StorefrontSupportProvider>{children}</StorefrontSupportProvider>
+        <StorefrontSupportProvider
+          supportConfig={websiteSettings.customerAccountSettings.supportConfig}
+          supportAudience={supportAudience}
+        >
+          {children}
+        </StorefrontSupportProvider>
       </AppSessionProvider>
     </div>
   );

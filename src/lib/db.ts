@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
+import { wrapPrismaForLifecycleProfile } from "@/lib/ctv/ctv-lifecycle-profile-stats";
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
@@ -14,18 +15,27 @@ function createPrismaClient(): PrismaClient {
     throw new Error("DATABASE_URL is not configured.");
   }
 
-  const pool = globalForPrisma.prismaPool ?? new Pool({ connectionString: databaseUrl });
+  const pool =
+    globalForPrisma.prismaPool ??
+    new Pool({
+      connectionString: databaseUrl,
+      max: Math.max(4, Number(process.env.PG_POOL_MAX) || 12),
+      idleTimeoutMillis: 30_000,
+      connectionTimeoutMillis: 15_000,
+    });
   globalForPrisma.prismaPool = pool;
 
   const adapter = new PrismaPg(pool);
 
-  return new PrismaClient({
-    adapter,
-    log:
-      process.env.NODE_ENV === "development" && process.env.PRISMA_QUERY_DEBUG === "1"
-        ? ["query", "warn", "error"]
-        : ["error"],
-  });
+  return wrapPrismaForLifecycleProfile(
+    new PrismaClient({
+      adapter,
+      log:
+        process.env.NODE_ENV === "development" && process.env.PRISMA_QUERY_DEBUG === "1"
+          ? ["query", "warn", "error"]
+          : ["error"],
+    }),
+  );
 }
 
 export const db =

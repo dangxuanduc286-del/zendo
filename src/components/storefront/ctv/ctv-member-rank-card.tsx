@@ -11,25 +11,24 @@ import {
   type CtvRankResult,
 } from "@/lib/ctv/ctv-membership-tier-logic";
 import type { CtvMembershipTierRecord } from "@/lib/ctv/ctv-membership-tier-types";
+import { CtvFormattedValue } from "./ctv-formatted-value";
 import {
-  CTV_HUB_CARD_HEADER,
+  CTV_HUB_RANK_CARD_HEADER,
   CTV_HUB_CARD_TITLE,
-  CTV_HUB_OVERVIEW_CARD,
   CTV_HUB_PROGRESS_PCT,
   CTV_HUB_PROGRESS_TRACK,
   CTV_HUB_RANK_BADGE,
   CTV_HUB_RANK_BODY,
   CTV_HUB_RANK_CAPTION,
-  CTV_HUB_RANK_CARD_SURFACE,
   CTV_HUB_RANK_CONTENT,
   CTV_HUB_RANK_FOOTER,
   CTV_HUB_RANK_FOOTER_HINT,
   CTV_HUB_RANK_FOOTER_ROW,
+  CTV_HUB_RANK_SHELL,
+  resolveCtvRankCardSurfaceGradient,
   CTV_HUB_RANK_ICON_WRAP,
   CTV_HUB_RANK_META,
   CTV_HUB_RANK_NAME,
-  CTV_HUB_RANK_REVENUE,
-  CTV_HUB_RANK_REWARD_AMOUNT,
   CTV_HUB_RANK_REWARD_AMOUNT_ACHIEVED,
   CTV_HUB_RANK_REWARD_AMOUNT_PENDING,
   CTV_HUB_RANK_REWARD_BODY,
@@ -96,9 +95,8 @@ function CtvMemberRankCardInner({
   return (
     <article
       className={[
-        CTV_HUB_OVERVIEW_CARD,
-        CTV_HUB_RANK_CARD_SURFACE,
-        rank.color.gradient,
+        CTV_HUB_RANK_SHELL,
+        resolveCtvRankCardSurfaceGradient(rank.code, rank.name),
         "lg:flex lg:flex-col",
       ].join(" ")}
       aria-labelledby="ctv-member-rank-heading"
@@ -108,11 +106,11 @@ function CtvMemberRankCardInner({
         aria-hidden
       />
 
-      <header className={CTV_HUB_CARD_HEADER}>
-        <h2 id="ctv-member-rank-heading" className={`${CTV_HUB_CARD_TITLE} min-w-0`}>
+      <header className={CTV_HUB_RANK_CARD_HEADER}>
+        <h2 id="ctv-member-rank-heading" className={`${CTV_HUB_CARD_TITLE} min-w-0 lg:shrink-0`}>
           Cấp bậc thành viên CTV
         </h2>
-        <span className={[CTV_HUB_RANK_BADGE, "shrink-0", rank.color.badge].join(" ")}>{rank.badge}</span>
+        <span className={[CTV_HUB_RANK_BADGE, rank.color.badge].join(" ")}>{rank.badge}</span>
       </header>
 
       <div className={CTV_HUB_RANK_BODY}>
@@ -130,9 +128,12 @@ function CtvMemberRankCardInner({
           {busy ? (
             <div className="h-7 w-36 max-w-full animate-pulse rounded-md bg-slate-200/80" aria-hidden />
           ) : (
-            <p className={`${CTV_HUB_RANK_REVENUE} block`} title={currentRevenueFormatted}>
-              {currentRevenueFormatted}
-            </p>
+            <CtvFormattedValue
+              value={currentRevenueFormatted}
+              variant="money-lg"
+              className="block"
+              title={currentRevenueFormatted}
+            />
           )}
           <p className={CTV_HUB_RANK_CAPTION} title={CTV_RANK_REVENUE_CAPTION}>
             {CTV_RANK_REVENUE_CAPTION}
@@ -187,17 +188,16 @@ function CtvMemberRankCardInner({
                   <Gift className={CTV_HUB_RANK_REWARD_GIFT_GLYPH} strokeWidth={2.25} />
                 </span>
                 <span className={CTV_HUB_RANK_REWARD_LABEL}>Thưởng:</span>
-                <span
+                <CtvFormattedValue
+                  value={formatCtvRevenueRewardAmount(rewardFocus.tier)}
+                  variant="money-sm"
                   className={[
-                    CTV_HUB_RANK_REWARD_AMOUNT,
                     rewardFocus.achieved
                       ? CTV_HUB_RANK_REWARD_AMOUNT_ACHIEVED
                       : CTV_HUB_RANK_REWARD_AMOUNT_PENDING,
                     !rewardFocus.achieved ? rewardFocus.amountTextClass : "",
                   ].join(" ")}
-                >
-                  {formatCtvRevenueRewardAmount(rewardFocus.tier)}
-                </span>
+                />
                 <span className={CTV_HUB_RANK_REWARD_SUFFIX}>khi đạt yêu cầu</span>
                 {rewardFocus.granted ? (
                   <span

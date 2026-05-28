@@ -7,18 +7,6 @@ export function isNextDevelopment(): boolean {
   return process.env.NODE_ENV === "development";
 }
 
-export type DevStabilityLogTag = "[NextDevStability]" | "[PollingCleanup]" | "[HotReloadSafe]";
-
-export function devStabilityLog(
-  _tag: DevStabilityLogTag,
-  _message: string,
-  _extra?: Record<string, unknown>,
-): void {
-  void _tag;
-  void _message;
-  void _extra;
-}
-
 /** Debounce refetch tay (setTick) — dev chậm hơn để tránh chồng request khi hot reload. */
 export function devManualRefetchDebounceMs(): number {
   return isNextDevelopment() ? 450 : 0;

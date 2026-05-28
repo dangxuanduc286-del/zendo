@@ -2,6 +2,13 @@
 
 import Link from "next/link";
 import { memo, useEffect, useState } from "react";
+import { useAffiliateCtvRuntimeActive } from "@/hooks/use-affiliate-ctv-runtime-active";
+import {
+  fetchAffiliateClientJson,
+  readAffiliateClientJsonCache,
+} from "@/lib/affiliate-client-json-cache";
+
+const CACHE_REVENUE_INSIGHTS = "affiliate:revenue-insights:30d";
 
 
 type Insights = {
@@ -12,24 +19,36 @@ type Insights = {
 };
 
 export default memo(function AffiliateRevenueInsightsCard(): JSX.Element {
-  const [data, setData] = useState<Insights | null>(null);
+  const runtimeActive = useAffiliateCtvRuntimeActive();
+  const [data, setData] = useState<Insights | null>(() =>
+    readAffiliateClientJsonCache<Insights>(CACHE_REVENUE_INSIGHTS),
+  );
   const [err, setErr] = useState("");
 
   useEffect(() => {
+    if (!runtimeActive) return;
     let cancelled = false;
-    void fetch("/api/account/affiliate/analytics/revenue-insights?range=30d", { credentials: "same-origin" })
-      .then((r) => r.json())
+    const cached = readAffiliateClientJsonCache<Insights>(CACHE_REVENUE_INSIGHTS);
+    if (cached) setData(cached);
+
+    void fetchAffiliateClientJson<{ ok?: boolean; message?: string; insights?: Insights }>({
+      cacheKey: CACHE_REVENUE_INSIGHTS,
+      url: "/api/account/affiliate/analytics/revenue-insights?range=30d",
+      force: !cached,
+      parse: async (r) => r.json(),
+    })
       .then((j) => {
         if (cancelled) return;
         if (!j?.ok) throw new Error(j?.message || "Lỗi");
-        setData(j.insights as Insights);      })
+        setData(j.insights as Insights);
+      })
       .catch((e) => {
-        if (!cancelled) setErr(e instanceof Error ? e.message : "Lỗi");
+        if (!cancelled && !cached) setErr(e instanceof Error ? e.message : "Lỗi");
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [runtimeActive]);
 
   if (err) return <p className="text-xs text-rose-600">{err}</p>;
   if (!data) return <div className="h-16 animate-pulse rounded-xl bg-slate-100 motion-reduce:animate-none" />;

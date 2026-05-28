@@ -79,6 +79,7 @@ function mapProduct(row: {
     brandId: row.brandId ?? "",
     vendorId: row.vendorId ?? "",
     warrantyInfo: String(specs.warrantyInfo ?? ""),
+    shippingClass: String(specs.shippingClass ?? "LIGHT"),
     colors: Array.isArray(specs.colors) ? specs.colors.map((item) => String(item)).slice(0, 5) : [],
     soldCount: Number(row.soldCount ?? specs.soldCountAdmin ?? 0),
     saleEndAt: String(specs.saleEndAt ?? ""),
@@ -221,6 +222,7 @@ export async function PATCH(request: Request, { params }: { params: ParamsInput 
         description: values.description || null,
         specifications: {
           warrantyInfo: values.warrantyInfo || "",
+          shippingClass: values.shippingClass ?? "LIGHT",
           colors: values.colors ?? [],
           soldCountAdmin: values.soldCount ?? 0,
           seoKeywords: values.seoKeywords || "",

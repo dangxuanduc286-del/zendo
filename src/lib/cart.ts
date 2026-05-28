@@ -1,6 +1,7 @@
 export const CART_STORAGE_KEY = "zendo_cart_items";
 export const CART_UPDATED_EVENT = "zendo:cart-updated";
 export const CART_COUPON_STORAGE_KEY = "zendo_cart_coupon";
+export const CART_COUPON_SOURCE_STORAGE_KEY = "zendo_cart_coupon_source";
 /** Lưu mã ref (?ref=) gần nhất để gửi kèm checkout (chống tự giới thiệu server-side). */
 export const AFFILIATE_REF_STORAGE_KEY = "zendo_affiliate_ref";
 
@@ -15,6 +16,7 @@ export interface GuestCartItem {
   salePrice?: number | null;
   quantity: number;
   stockQuantity?: number | null;
+  shippingClass?: string | null;
 }
 
 export function normalizeCartItem(input: unknown): GuestCartItem | null {
@@ -36,6 +38,7 @@ export function normalizeCartItem(input: unknown): GuestCartItem | null {
     raw.stockQuantity == null || raw.stockQuantity === ""
       ? null
       : Number(raw.stockQuantity);
+  const shippingClass = String(raw.shippingClass ?? "").trim().toUpperCase();
 
   if (!id || !productId || !slug || !Number.isFinite(basePrice) || basePrice < 0) {
     return null;
@@ -53,6 +56,7 @@ export function normalizeCartItem(input: unknown): GuestCartItem | null {
     quantity: Number.isFinite(quantity) ? quantity : 1,
     stockQuantity:
       stockQuantity != null && Number.isFinite(stockQuantity) ? stockQuantity : null,
+    shippingClass: shippingClass || null,
   };
 }
 

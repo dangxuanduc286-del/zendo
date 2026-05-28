@@ -4,21 +4,17 @@ import { clsx } from "clsx";
 import type { LucideIcon } from "lucide-react";
 import { memo, type ReactNode } from "react";
 import {
+  CTV_ANALYTICS_CARD_HEADER,
+  CTV_ANALYTICS_CARD_TITLE,
   CTV_METRIC_TILE,
   CTV_METRIC_TILE_ACCENT,
   CTV_SECTION_CARD,
-  CTV_TYPE_BODY,
   CTV_TYPE_CARD_TITLE,
   CTV_TYPE_METRIC_HINT,
   CTV_TYPE_METRIC_LABEL,
 } from "./affiliate/affiliate-ctv-account-ui-tokens";
-import { CTV_MONEY_VALUE_SM } from "./ctv/ctv-ui-tokens";
-
-/** KPI compact — clamp nhỏ hơn hub + ellipsis khi số cực đoan (visual regression). */
-const CREATOR_METRIC_VALUE = [
-  CTV_MONEY_VALUE_SM,
-  "mt-auto block min-w-0 max-w-full truncate",
-].join(" ");
+import { AnalyticsCardHintText } from "./affiliate/affiliate-analytics-card-hints";
+import { CtvFormattedValue } from "./ctv/ctv-formatted-value";
 
 function Skeleton({ className }: { className: string }): JSX.Element {
   return <div className={clsx("animate-pulse rounded-lg bg-slate-100/90", className)} />;
@@ -35,6 +31,8 @@ const metricToneShell: Record<"blue" | "emerald" | "fuchsia" | "slate" | "amber"
 export type CreatorMetricCardProps = {
   icon?: LucideIcon;
   label: string;
+  /** Tooltip nhãn (vd. công thức conversion). */
+  labelTitle?: string;
   value: string;
   sub?: string;
   tone?: keyof typeof metricToneShell;
@@ -60,7 +58,12 @@ function CreatorMetricCardInner(props: CreatorMetricCardProps): JSX.Element {
           {Icon ? (
             <Icon className="h-3.5 w-3.5 shrink-0 text-slate-400" strokeWidth={1.75} aria-hidden />
           ) : null}
-          <p className={`${CTV_TYPE_METRIC_LABEL} min-w-0 flex-1 truncate`}>{props.label}</p>
+          <p
+            className={`${CTV_TYPE_METRIC_LABEL} min-w-0 flex-1 truncate`}
+            title={props.labelTitle}
+          >
+            {props.label}
+          </p>
         </div>
         <div className="flex shrink-0 items-center gap-1">
           {t != null && Number.isFinite(t) ? (
@@ -80,9 +83,7 @@ function CreatorMetricCardInner(props: CreatorMetricCardProps): JSX.Element {
       {props.loading ? (
         <Skeleton className="mt-auto h-8 w-24" />
       ) : (
-        <p className={CREATOR_METRIC_VALUE} title={props.value}>
-          {props.value}
-        </p>
+        <CtvFormattedValue value={props.value} variant="money" className="mt-auto" />
       )}
       {props.sub ? <p className={`${CTV_TYPE_METRIC_HINT} mt-0.5 min-w-0`}>{props.sub}</p> : null}
     </div>
@@ -96,18 +97,34 @@ CreatorMetricCard.displayName = "CreatorMetricCard";
 export function CreatorSectionShell(props: {
   title: string;
   hint?: string;
+  /** lg+: hint xuống dòng trong card, không tràn (mobile/md giữ nguyên). */
+  hintDesktopWrap?: boolean;
   children: ReactNode;
   className?: string;
+  /** lg+: body flex-1 để cặp card traffic cùng chiều cao. */
+  bodyClassName?: string;
 }): JSX.Element {
   return (
     <div className={clsx(CTV_SECTION_CARD, props.className)}>
-      <div className="flex shrink-0 flex-wrap items-start justify-between gap-2 border-b border-slate-200/60 pb-3">
-        <h3 className={`${CTV_TYPE_CARD_TITLE} min-w-0 flex-1`}>{props.title}</h3>
+      <div
+        className={clsx(
+          CTV_ANALYTICS_CARD_HEADER,
+          props.hintDesktopWrap && "lg:flex-wrap lg:items-start lg:gap-y-1.5",
+        )}
+      >
+        <h3 className={`${CTV_TYPE_CARD_TITLE} ${CTV_ANALYTICS_CARD_TITLE}`}>{props.title}</h3>
         {props.hint ? (
-          <span className={`${CTV_TYPE_BODY} min-w-0 max-w-[16rem] shrink-0 text-right text-xs`}>{props.hint}</span>
+          <AnalyticsCardHintText text={props.hint} desktopWrap={props.hintDesktopWrap} />
         ) : null}
       </div>
-      <div className="flex min-h-0 flex-1 flex-col">{props.children}</div>
+      <div
+        className={clsx(
+          "flex min-h-0 flex-col",
+          props.bodyClassName ?? "max-lg:min-h-0 lg:flex-none",
+        )}
+      >
+        {props.children}
+      </div>
     </div>
   );
 }
@@ -117,7 +134,7 @@ export function CreatorEmptyState(props: { title: string; hint: string; icon?: L
   return (
     <div
       className={clsx(
-        "flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 px-4 py-8 text-center",
+        "flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 px-4 py-8 text-center",
         props.className,
       )}
     >

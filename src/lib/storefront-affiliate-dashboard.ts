@@ -6,7 +6,10 @@ import {
 } from "@/lib/affiliate/commission-hold";
 import { normalizeAffiliateSettings, resolveCtvGuideContentForDisplay } from "@/lib/admin/affiliate-settings-shared";
 import { loadAffiliatePayoutLedgerForProfile } from "@/lib/affiliate/affiliate-withdrawal-ledger";
+import { resolveCustomerAffiliateProfileLatest } from "@/lib/affiliate-customer-status";
 import { runCtvAffiliateLifecycle, type CtvTierProgressSummary } from "@/lib/ctv/ctv-affiliate-lifecycle";
+import { memoizeArgsPerRequest } from "@/lib/runtime/request-cache";
+import { AFFILIATE_DB_QUERY_CONCURRENCY, runQueriesInChunks } from "@/lib/server/run-queries-in-chunks";
 import { db } from "./db";
 import { getWebsiteSettings } from "./settings";
 
@@ -151,18 +154,15 @@ export type StorefrontAffiliateDashboardData = {
  * Dashboard CTV storefront — chỉ gọi từ API/RSC có session.customerId khớp.
  * Không trả field khách (tên/SĐT/email/địa chỉ): chỉ mã đơn + số tiền + trạng thái.
  */
-export async function getStorefrontAffiliateDashboardForCustomer(
+async function getStorefrontAffiliateDashboardForCustomerInternal(
   sessionCustomerId: string,
+  options?: { runLifecycle?: boolean },
 ): Promise<StorefrontAffiliateDashboardData | null> {
   const customerId = sessionCustomerId.trim();
   if (!customerId) return null;
 
   const [profile, website] = await Promise.all([
-    db.affiliateProfile.findFirst({
-      where: { customerId },
-      orderBy: { updatedAt: "desc" },
-      select: { id: true, refCode: true, status: true, revenueRewardWalletBalance: true },
-    }),
+    resolveCustomerAffiliateProfileLatest(customerId),
     getWebsiteSettings(),
   ]);
   if (!profile) return null;
@@ -180,76 +180,90 @@ export async function getStorefrontAffiliateDashboardForCustomer(
   const ctvGuideResolved = resolveCtvGuideContentForDisplay(affiliateSettings);
   const payoutThreshold = Math.max(website.payoutThreshold ?? 0, cas.affiliateMinWithdrawalAmount ?? 0);
 
-  const [totalClicks, orders, commissions, withdrawals, products, qualifiedRevenueAgg] = await Promise.all([
-    db.affiliateClick.count({ where: { affiliateProfileId: profile.id } }),
-    db.order.findMany({
-      where: { affiliateProfileId: profile.id },
-      orderBy: { createdAt: "desc" },
-      take: 150,
-      select: {
-        id: true,
-        code: true,
-        createdAt: true,
-        orderStatus: true,
-        paymentStatus: true,
-        totalAmount: true,
-        affiliateCommissions: {
-          take: 1,
-          select: {
-            amount: true,
-            status: true,
-          },
-        },
-      },
-    }),
-    db.affiliateCommission.findMany({
-      where: { affiliateProfileId: profile.id },
-      orderBy: { createdAt: "desc" },
-      take: 300,
-      select: {
-        id: true,
-        amount: true,
-        orderRevenue: true,
-        status: true,
-        createdAt: true,
-        approvedAt: true,
-        unlockAt: true,
-        availableAt: true,
-        paidAt: true,
-        order: { select: { code: true } },
-      },
-    }),
-    db.affiliateWithdrawalRequest.findMany({
-      where: { affiliateProfileId: profile.id },
-      orderBy: { createdAt: "desc" },
-      take: 80,
-      select: {
-        id: true,
-        amount: true,
-        status: true,
-        createdAt: true,
-        approvedAt: true,
-        paidAt: true,
-      },
-    }),
-    getDashboardQuickLinks(),
-    db.order.aggregate({
-      where: {
-        affiliateProfileId: profile.id,
-        paymentStatus: "PAID",
-        orderStatus: { in: ["COMPLETED", "DELIVERED"] },
-        createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
-      },
-      _sum: { totalAmount: true },
-    }),
-  ]);
+  const [totalClicks, orders, commissions, withdrawals, products, qualifiedRevenueAgg] =
+    await runQueriesInChunks(
+      [
+        () => db.affiliateClick.count({ where: { affiliateProfileId: profile.id } }),
+        () =>
+          db.order.findMany({
+            where: { affiliateProfileId: profile.id },
+            orderBy: { createdAt: "desc" },
+            take: 150,
+            select: {
+              id: true,
+              code: true,
+              createdAt: true,
+              orderStatus: true,
+              paymentStatus: true,
+              totalAmount: true,
+              affiliateCommissions: {
+                take: 1,
+                select: {
+                  amount: true,
+                  status: true,
+                },
+              },
+            },
+          }),
+        () =>
+          db.affiliateCommission.findMany({
+            where: { affiliateProfileId: profile.id },
+            orderBy: { createdAt: "desc" },
+            take: 300,
+            select: {
+              id: true,
+              amount: true,
+              orderRevenue: true,
+              status: true,
+              createdAt: true,
+              approvedAt: true,
+              unlockAt: true,
+              availableAt: true,
+              paidAt: true,
+              order: { select: { code: true } },
+            },
+          }),
+        () =>
+          db.affiliateWithdrawalRequest.findMany({
+            where: { affiliateProfileId: profile.id },
+            orderBy: { createdAt: "desc" },
+            take: 80,
+            select: {
+              id: true,
+              amount: true,
+              status: true,
+              createdAt: true,
+              approvedAt: true,
+              paidAt: true,
+            },
+          }),
+        () => getDashboardQuickLinks(),
+        () =>
+          db.order.aggregate({
+            where: {
+              affiliateProfileId: profile.id,
+              paymentStatus: "PAID",
+              orderStatus: { in: ["COMPLETED", "DELIVERED"] },
+              createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
+            },
+            _sum: { totalAmount: true },
+          }),
+      ] as const,
+      AFFILIATE_DB_QUERY_CONCURRENCY,
+    );
 
   const qualifiedReferralRevenue = money(qualifiedRevenueAgg._sum.totalAmount);
 
-  const lifecycle = await runCtvAffiliateLifecycle(profile.id, qualifiedReferralRevenue).catch((err) => {
-    console.error("[affiliate/dashboard] runCtvAffiliateLifecycle", err);
-    return null;
-  });
+  const runLifecycle = options?.runLifecycle !== false;
+  const [lifecycle, payoutLedger] = await Promise.all([
+    runLifecycle
+      ? runCtvAffiliateLifecycle(profile.id, qualifiedReferralRevenue).catch((err) => {
+          console.error("[affiliate/dashboard] runCtvAffiliateLifecycle", err);
+          return null;
+        })
+      : Promise.resolve(null),
+    loadAffiliatePayoutLedgerForProfile(profile.id),
+  ]);
 
   const grantRows = await db.ctvRevenueRewardGrant.findMany({
     where: { affiliateProfileId: profile.id },
@@ -293,7 +307,6 @@ export async function getStorefrontAffiliateDashboardForCustomer(
     if (row.status !== "CANCELLED") referralRevenue += money(row.orderRevenue);
   }
 
-  const payoutLedger = await loadAffiliatePayoutLedgerForProfile(profile.id);
   const commissionApprovedPool = payoutLedger.commissionApprovedPool;
   const withdrawableBalance = payoutLedger.withdrawableBalance;
 
@@ -397,3 +410,7 @@ export async function getStorefrontAffiliateDashboardForCustomer(
     },
   };
 }
+
+export const getStorefrontAffiliateDashboardForCustomer = memoizeArgsPerRequest(
+  getStorefrontAffiliateDashboardForCustomerInternal,
+);

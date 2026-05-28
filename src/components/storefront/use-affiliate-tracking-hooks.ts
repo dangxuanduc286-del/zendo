@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useDocumentVisibility } from "@/hooks/use-document-visibility";
+import { useAffiliateCtvRuntimeActive } from "@/hooks/use-affiliate-ctv-runtime-active";
 import type { TrackingHealthDto, TrackingOverviewDto, TrackingRealtimeEventDto } from "@/lib/affiliate-tracking-center-types";
 
 type Err = { ok: false; message: string };
@@ -10,10 +10,20 @@ type OkPayload<T> = { ok: true; data: T };
 const POLL_MS = 22_000;
 
 async function parseJson<T>(res: Response): Promise<OkPayload<T> | Err> {
-  const j = (await res.json()) as unknown;
-  if (!j || typeof j !== "object") return { ok: false, message: "Phản hồi không hợp lệ." };
+  const text = await res.text();
+  const trimmed = text.trim();
+  if (!trimmed || trimmed.startsWith("<")) {
+    return { ok: false, message: "" };
+  }
+  let j: unknown;
+  try {
+    j = JSON.parse(trimmed) as unknown;
+  } catch {
+    return { ok: false, message: "" };
+  }
+  if (!j || typeof j !== "object") return { ok: false, message: "" };
   const o = j as { ok?: boolean; message?: string; data?: unknown };
-  if (!o.ok) return { ok: false, message: typeof o.message === "string" ? o.message : "Lỗi API." };
+  if (!o.ok) return { ok: false, message: typeof o.message === "string" ? o.message : "" };
   return { ok: true, data: o.data as T };
 }
 
@@ -27,15 +37,14 @@ export function useAffiliateTrackingOverview(enabled: boolean): {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
-  const visible = useDocumentVisibility();
+  const runtimeActive = useAffiliateCtvRuntimeActive();
   const jsonRef = useRef<string>("");
   const dataRef = useRef<TrackingOverviewDto | null>(null);
   dataRef.current = data;
-
   const refetch = useCallback(() => setTick((n) => n + 1), []);
 
   useEffect(() => {
-    if (!enabled || !visible) return;
+    if (!enabled || !runtimeActive) return;
     const ac = new AbortController();
     let cancelled = false;
     const inFlight = { current: false };
@@ -77,7 +86,7 @@ export function useAffiliateTrackingOverview(enabled: boolean): {
       ac.abort();
       window.clearInterval(id);
     };
-  }, [enabled, visible, tick]);
+  }, [enabled, runtimeActive, tick]);
 
   return { data, loading, error, refetch };
 }
@@ -92,13 +101,13 @@ export function useAffiliateTrackingRealtime(enabled: boolean): {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
-  const visible = useDocumentVisibility();
+  const runtimeActive = useAffiliateCtvRuntimeActive();
   const jsonRef = useRef<string>("");
   const eventsLenRef = useRef(0);
   eventsLenRef.current = events.length;
 
   useEffect(() => {
-    if (!enabled || !visible) return;
+    if (!enabled || !runtimeActive) return;
     const ac = new AbortController();
     let cancelled = false;
     const inFlight = { current: false };
@@ -141,7 +150,7 @@ export function useAffiliateTrackingRealtime(enabled: boolean): {
       ac.abort();
       window.clearInterval(id);
     };
-  }, [enabled, visible]);
+  }, [enabled, runtimeActive]);
 
   return { events, loading, error, generatedAt };
 }
@@ -154,10 +163,10 @@ export function useAffiliateTrackingHealth(enabled: boolean): {
   const [data, setData] = useState<TrackingHealthDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const visible = useDocumentVisibility();
+  const runtimeActive = useAffiliateCtvRuntimeActive();
 
   useEffect(() => {
-    if (!enabled || !visible) return;
+    if (!enabled || !runtimeActive) return;
     const ac = new AbortController();
     let cancelled = false;
     const inFlight = { current: false };
@@ -194,7 +203,7 @@ export function useAffiliateTrackingHealth(enabled: boolean): {
       ac.abort();
       window.clearInterval(id);
     };
-  }, [enabled, visible]);
+  }, [enabled, runtimeActive]);
 
   return { data, loading, error };
 }
@@ -222,12 +231,12 @@ export function useAffiliateTrackingLogs(enabled: boolean): {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
-  const visible = useDocumentVisibility();
+  const runtimeActive = useAffiliateCtvRuntimeActive();
 
   const refetch = useCallback(() => setTick((n) => n + 1), []);
 
   useEffect(() => {
-    if (!enabled || !visible) return;
+    if (!enabled || !runtimeActive) return;
     const ac = new AbortController();
     let cancelled = false;
     const inFlight = { current: false };
@@ -262,7 +271,7 @@ export function useAffiliateTrackingLogs(enabled: boolean): {
       cancelled = true;
       ac.abort();
     };
-  }, [enabled, visible, tick]);
+  }, [enabled, runtimeActive, tick]);
 
   return { rows, loading, error, refetch };
 }

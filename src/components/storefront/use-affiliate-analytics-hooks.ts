@@ -1,12 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useDocumentVisibility } from "@/hooks/use-document-visibility";
+import { useAffiliateCtvRuntimeActive } from "@/hooks/use-affiliate-ctv-runtime-active";
+import {
+  fetchAffiliateJsonByUrl,
+  readAffiliateClientJsonCache,
+} from "@/lib/affiliate-client-json-cache";
+import {
+  isAffiliateAnalyticsFetchFailure,
+  logAffiliateAnalyticsFetchIssue,
+  parseAffiliateAnalyticsResponse,
+} from "@/lib/affiliate-analytics-client-fetch";
 import {
   affiliateCreatorPollIntervalMs,
   devManualRefetchDebounceMs,
-  devStabilityLog,
-  devVisibilityResumeDelayMs,
 } from "@/lib/next-dev-stability";
 
 export type RangeKey = "today" | "7d" | "30d" | "month";
@@ -27,18 +34,18 @@ function useFetchJson<T>(args: {
   refetch: () => void;
 } {
   const [tick, setTick] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const cachedInitial = args.enabled ? readAffiliateClientJsonCache<T>(args.url) : null;
+  const [loading, setLoading] = useState(() => Boolean(args.enabled && !cachedInitial));
   const [refreshing, setRefreshing] = useState(false);
-  const [data, setData] = useState<T | null>(null);
+  const [data, setData] = useState<T | null>(cachedInitial);
   const [error, setError] = useState<string | null>(null);
-  const visible = useDocumentVisibility();
-  const dataRef = useRef<T | null>(null);
+  const runtimeActive = useAffiliateCtvRuntimeActive();
+  const dataRef = useRef<T | null>(cachedInitial);
 
-  const pollMs = affiliateCreatorPollIntervalMs(visible, args.pollActive);
+  const pollMs = affiliateCreatorPollIntervalMs(runtimeActive, args.pollActive);
   const inFlightRef = useRef<AbortController | null>(null);
   const lastKeyRef = useRef<string>("");
   const refetchTimeoutRef = useRef<number | null>(null);
-  const tabWasHiddenRef = useRef(false);
 
   useEffect(() => {
     dataRef.current = data;
@@ -58,7 +65,6 @@ function useFetchJson<T>(args: {
       if (refetchTimeoutRef.current) {
         window.clearTimeout(refetchTimeoutRef.current);
         refetchTimeoutRef.current = null;
-        devStabilityLog("[PollingCleanup]", "cleared pending affiliate refetch debounce", { key: args.key });
       }
     },
     [args.key],
@@ -66,28 +72,10 @@ function useFetchJson<T>(args: {
 
   useEffect(() => {
     if (!args.enabled) return;
-    if (!visible) {
-      tabWasHiddenRef.current = true;
-      return;
-    }
-    if (!tabWasHiddenRef.current) return;
-    tabWasHiddenRef.current = false;
-    const delay = devVisibilityResumeDelayMs();
-    const t = window.setTimeout(() => {
-      setTick((n) => n + 1);
-      devStabilityLog("[NextDevStability]", "affiliate poll resume after tab visible", { key: args.key, delayMs: delay });
-    }, delay);
-    return () => window.clearTimeout(t);
-  }, [visible, args.enabled, args.key]);
-
-  useEffect(() => {
-    if (!args.enabled) return;
     if (!pollMs) return;
     const id = window.setInterval(() => setTick((n) => n + 1), pollMs);
-    devStabilityLog("[HotReloadSafe]", "affiliate poll interval start", { key: args.key, pollMs });
     return () => {
       window.clearInterval(id);
-      devStabilityLog("[PollingCleanup]", "affiliate poll interval cleared", { key: args.key });
     };
   }, [args.enabled, pollMs, args.key]);
 
@@ -97,25 +85,53 @@ function useFetchJson<T>(args: {
       setRefreshing(false);
       return;
     }
+    if (!runtimeActive) return;
+
     const reqKey = `${args.key}:${args.url}:${tick}`;
     lastKeyRef.current = reqKey;
 
     const ctrl = new AbortController();
     inFlightRef.current = ctrl;
 
+    const cached = readAffiliateClientJsonCache<T>(args.url);
     const hadData = dataRef.current != null;
-    if (hadData) setRefreshing(true);
+    if (cached && !hadData) {
+      setData(cached);
+      dataRef.current = cached;
+    }
+
+    const forceNetwork = tick > 0 || !cached;
+    if (!forceNetwork) {
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+
+    const hadDataNow = dataRef.current != null;
+    if (hadDataNow) setRefreshing(true);
     else setLoading(true);
 
     void (async () => {
       try {
-        const res = await fetch(args.url, { credentials: "same-origin", cache: "no-store", signal: ctrl.signal });
-        const json = (await res.json()) as { ok?: boolean; message?: string } & T;
-        if (!res.ok || json.ok === false) throw new Error(json.message || "Không tải được dữ liệu.");
+        const json = await fetchAffiliateJsonByUrl<{ ok?: boolean; message?: string } & T>({
+          url: args.url,
+          force: forceNetwork,
+          parse: async (res) => {
+            const parsed = await parseAffiliateAnalyticsResponse<{ ok?: boolean; message?: string } & T>(res);
+            if (!res.ok || parsed.ok === false) {
+              throw new Error(
+                typeof parsed.message === "string" && parsed.message.trim()
+                  ? parsed.message
+                  : "AFFILIATE_ANALYTICS_HTTP",
+              );
+            }
+            return parsed;
+          },
+        });
         if (ctrl.signal.aborted) return;
         if (lastKeyRef.current !== reqKey) return;
         const next = json as unknown as T;
-        if (args.compareJsonStable && hadData) {
+        if (args.compareJsonStable && hadDataNow) {
           try {
             if (JSON.stringify(dataRef.current) === JSON.stringify(next)) {
               setError(null);
@@ -130,10 +146,9 @@ function useFetchJson<T>(args: {
       } catch (e) {
         if (ctrl.signal.aborted) return;
         if (lastKeyRef.current !== reqKey) return;
-        if (!hadData) {
-          setData(null);
-        }
-        setError(e instanceof Error ? e.message : "Không tải được dữ liệu.");
+        logAffiliateAnalyticsFetchIssue(args.url, e);
+        setData(null);
+        setError(isAffiliateAnalyticsFetchFailure(e) ? null : e instanceof Error ? e.message : null);
       } finally {
         if (!ctrl.signal.aborted && lastKeyRef.current === reqKey) {
           setLoading(false);
@@ -146,7 +161,7 @@ function useFetchJson<T>(args: {
       ctrl.abort();
       if (inFlightRef.current === ctrl) inFlightRef.current = null;
     };
-  }, [args.enabled, args.key, args.url, tick, args.compareJsonStable]);
+  }, [args.enabled, args.key, args.url, tick, args.compareJsonStable, runtimeActive]);
 
   return { loading, refreshing, data, error, refetch };
 }

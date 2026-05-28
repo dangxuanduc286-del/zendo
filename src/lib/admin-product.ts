@@ -1,7 +1,14 @@
 import { z } from "zod";
 import { isPublicMediaUrl } from "./media-url";
+import { SHIPPING_CLASS_OPTIONS } from "./shipping";
 
 export const PRODUCT_STATUS_OPTIONS = ["DRAFT", "ACTIVE", "OUT_OF_STOCK", "ARCHIVED"] as const;
+export const PRODUCT_SHIPPING_CLASS_OPTIONS = SHIPPING_CLASS_OPTIONS.map((option) => option.value) as [
+  "LIGHT",
+  "STANDARD",
+  "HEAVY",
+  "BULKY",
+];
 
 const mediaUrlSchema = z
   .string()
@@ -26,6 +33,7 @@ export const productFormSchema = z
     shortDescription: z.string().trim().max(500).optional().or(z.literal("")),
     description: z.string().trim().max(20000).optional().or(z.literal("")),
     warrantyInfo: z.string().trim().max(1000, "Bảo hành tối đa 1000 ký tự.").optional().or(z.literal("")),
+    shippingClass: z.enum(PRODUCT_SHIPPING_CLASS_OPTIONS).optional().default("LIGHT"),
     colors: z.array(z.string().trim().min(1).max(40)).max(5, "Tối đa 5 màu sắc.").optional().default([]),
     rememberWarrantyAsDefault: z.boolean().optional().default(false),
     basePrice: z.number().min(0, "Giá gốc không hợp lệ."),
@@ -75,6 +83,7 @@ export interface ProductAdminDto {
   stockQuantity: number;
   soldCount: number;
   warrantyInfo: string;
+  shippingClass: (typeof PRODUCT_SHIPPING_CLASS_OPTIONS)[number];
   colors: string[];
   status: (typeof PRODUCT_STATUS_OPTIONS)[number];
   shortDescription: string;

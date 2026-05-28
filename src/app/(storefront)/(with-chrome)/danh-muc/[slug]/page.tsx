@@ -4,11 +4,11 @@ import Breadcrumbs from "../../../../../components/storefront/breadcrumbs";
 import EmptyState from "../../../../../components/storefront/empty-state";
 import Pagination from "../../../../../components/storefront/pagination";
 import ProductGrid from "../../../../../components/storefront/product-grid";
-import SectionHeading from "../../../../../components/storefront/section-heading";
 import type { ProductCardData } from "../../../../../components/storefront/product-card";
 import { resolveMediaUrl } from "../../../../../lib/media";
 import { buildBreadcrumbJsonLd, buildDynamicMetadata } from "../../../../../lib/seo";
-import { getWebsiteSettings } from "../../../../../lib/settings";
+import { getThemeSettings, getWebsiteSettings } from "../../../../../lib/settings";
+import { MARKETING_FRAME } from "../../../../../lib/storefront-frame";
 
 const PAGE_SIZE = 12;
 export const dynamic = "force-dynamic";
@@ -180,7 +180,10 @@ export default async function CategoryPage({
     const resolvedParams = await Promise.resolve(params);
     const resolvedSearchParams = await Promise.resolve(searchParams);
     const categorySlug = resolvedParams.slug;
-    const websiteSettings = await getWebsiteSettings();
+    const [websiteSettings, themeSettings] = await Promise.all([
+      getWebsiteSettings(),
+      getThemeSettings(),
+    ]);
 
     const minPrice = parsePositiveNumber(firstValue(resolvedSearchParams.minPrice));
     const maxPrice = parsePositiveNumber(firstValue(resolvedSearchParams.maxPrice));
@@ -271,7 +274,7 @@ export default async function CategoryPage({
                 sortOrder: true,
               },
               orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
-              take: 3,
+              take: 1,
             },
           },
         }),
@@ -329,9 +332,17 @@ export default async function CategoryPage({
       { name: "Danh mục", path: "/cua-hang" },
       { name: category.name, path: `/danh-muc/${category.slug}` },
     ]);
+    const productGridProps = {
+      buyNowLabel: themeSettings.productDetailPrimaryButtonText?.trim() || "Mua ngay",
+      addToCartLabel: "",
+      buttonMode: themeSettings.productCardButtonMode,
+      primaryColor: themeSettings.primaryColor || "#2563EB",
+      secondaryColor: themeSettings.secondaryColor || "#0F172A",
+      desktopColumns: Math.min(5, websiteSettings.productGridColumnsDesktop),
+    } as const;
 
     return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+    <div className={`${MARKETING_FRAME} py-6`}>
       <Breadcrumbs
         items={[
           { label: "Trang chủ", href: "/" },
@@ -340,14 +351,9 @@ export default async function CategoryPage({
         ]}
       />
 
-      <header className="mb-6 space-y-2">
-        <h1 className="text-2xl font-bold tracking-tight text-zinc-900 sm:text-3xl">{category.name}</h1>
-        {category.description ? (
-          <p className="max-w-3xl text-sm leading-6 text-zinc-600 sm:text-base">{category.description}</p>
-        ) : null}
-      </header>
+      <h1 className="sr-only">{category.name}</h1>
 
-      <section className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr]">
+      <section className="grid grid-cols-1 gap-6 lg:grid-cols-[243px_1fr]">
         <aside className="rounded-xl border border-zinc-200 bg-white p-4">
           <h2 className="text-base font-semibold text-zinc-900">Lọc sản phẩm</h2>
           <form className="mt-4 space-y-4" method="get">
@@ -437,17 +443,15 @@ export default async function CategoryPage({
           </form>
         </aside>
 
-        <section>
-          <SectionHeading
-            title={`Sản phẩm ${category.name}`}
-            description={`${totalItems} sản phẩm phù hợp`}
-          />
-
+        <section
+          aria-label="Danh sách sản phẩm"
+          className="rounded-[18px] border border-[#E2E8F0] bg-white p-3 shadow-sm sm:p-5 lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none"
+        >
           {products.length ? (
             <>
               <ProductGrid
                 products={products.map(toCardProduct)}
-                desktopColumns={websiteSettings.productGridColumnsDesktop}
+                {...productGridProps}
               />
               <Pagination currentPage={safePage} totalPages={totalPages} makeHref={makeHref} />
             </>

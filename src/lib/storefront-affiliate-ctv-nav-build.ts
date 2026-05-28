@@ -7,15 +7,19 @@ import {
   Truck,
 } from "lucide-react";
 import type { CustomerAccountSettings } from "@/lib/settings";
-import type { StorefrontCustomerAccountDashboardData } from "@/lib/server/storefront-customer-account-dashboard";
 import { buildCtvNavEntries, type CtvNavEntry } from "@/components/storefront/affiliate-ctv-account-menu-config";
+
+/** Slice tối thiểu để bật/tắt mục menu CTV (layout chrome + dashboard đầy đủ). */
+export type AffiliateCtvNavSource = {
+  affiliate: { isActive: boolean };
+};
 
 /**
  * Cùng logic menu CTV như `affiliate-only-account-view` — dùng cho shell trang con `/tai-khoan/affiliate/*`.
  */
 export function buildAffiliateCtvNavEntriesFromDashboard(
   accountSettings: CustomerAccountSettings,
-  data: StorefrontCustomerAccountDashboardData,
+  data: AffiliateCtvNavSource,
 ): CtvNavEntry[] {
   const buyerShortcutStatsOk = accountSettings.affiliateShowBuyerStats;
   const showPurchaseHistoryEffective =

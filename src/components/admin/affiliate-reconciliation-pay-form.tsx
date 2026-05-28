@@ -43,9 +43,9 @@ export default function AffiliateReconciliationPayForm({
         submit(e.currentTarget);
       }}
     >
-      <input type="hidden" name="affiliateProfileId" value={affiliateProfileId} />
-      <input type="hidden" name="redirectTo" value={redirectTo} />
-      <input type="hidden" name="confirmBelowThreshold" value="0" />
+      <input id={`affiliate-reconciliation-${affiliateProfileId}-profile-id`} type="hidden" name="affiliateProfileId" value={affiliateProfileId} />
+      <input id={`affiliate-reconciliation-${affiliateProfileId}-redirect-to`} type="hidden" name="redirectTo" value={redirectTo} />
+      <input id={`affiliate-reconciliation-${affiliateProfileId}-confirm-below-threshold`} type="hidden" name="confirmBelowThreshold" value="0" />
       <button
         type="submit"
         disabled={disabled || approvedOutstandingVnd <= 0}

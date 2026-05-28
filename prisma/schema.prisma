@@ -53,6 +53,7 @@ model Admin {
   resolvedAffiliateFraudCases         AffiliateFraudCase[]                  @relation("AffiliateFraudCaseResolver")
   affiliateFraudActionsTaken          AffiliateFraudAction[]
   reviewedAffiliateApplications       AffiliateApplication[]                @relation("AffiliateApplicationReviewer")
+  readAdminNotifications              AdminNotification[]                   @relation("AdminNotificationReadBy")
 
   @@index([roleId])
   @@index([status])
@@ -932,6 +933,42 @@ model Setting {
   @@index([group])
 }
 
+/// Sự kiện vận hành tập trung cho tab Lịch sử admin (append-only).
+model AdminActivityEvent {
+  id              String                @id @default(cuid())
+  category        AdminActivityCategory
+  eventType       String                @db.VarChar(80)
+  title           String                @db.VarChar(240)
+  summary         String                @db.Text
+  actorLabel      String?               @db.VarChar(200)
+  actorCustomerId String?
+  entity          String?               @db.VarChar(80)
+  entityId        String?               @db.VarChar(64)
+  actionHref      String                @db.VarChar(512)
+  dedupeKey       String                @unique @db.VarChar(180)
+  metadata        Json?
+  createdAt       DateTime              @default(now())
+  notification    AdminNotification?
+
+  @@index([category, createdAt(sort: Desc)])
+  @@index([createdAt(sort: Desc)])
+  @@index([eventType])
+}
+
+/// Thông báo cần xử lý — gắn 1-1 với activity (chuông admin).
+model AdminNotification {
+  id              String             @id @default(cuid())
+  activityEventId String             @unique
+  readAt          DateTime?
+  readByAdminId   String?
+  createdAt       DateTime           @default(now())
+  activityEvent   AdminActivityEvent @relation(fields: [activityEventId], references: [id], onDelete: Cascade)
+  readByAdmin     Admin?             @relation("AdminNotificationReadBy", fields: [readByAdminId], references: [id], onDelete: SetNull)
+
+  @@index([readAt])
+  @@index([createdAt(sort: Desc)])
+}
+
 model AuditLog {
   id         String    @id @default(cuid())
   adminId    String?
@@ -974,6 +1011,20 @@ enum AdminStatus {
   ACTIVE
   INACTIVE
   SUSPENDED
+}
+
+enum AdminActivityCategory {
+  CTV
+  CUSTOMER
+  ORDER
+  PAYMENT
+  WITHDRAWAL
+  PAYOUT_ACCOUNT
+  CTV_APPLICATION
+  COMMISSION
+  REWARD_POINTS
+  SUPPORT
+  SYSTEM
 }
 
 enum ProductStatus {

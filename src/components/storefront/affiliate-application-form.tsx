@@ -426,6 +426,7 @@ export function AffiliateApplicationForm(props: AffiliateApplicationFormProps): 
             <label className="block min-w-0 sm:col-span-2">
               <span className="text-sm font-medium text-slate-800">Họ tên</span>
               <input
+                id="affiliate-application-full-name"
                 name="fullName"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
@@ -437,6 +438,7 @@ export function AffiliateApplicationForm(props: AffiliateApplicationFormProps): 
             <label className="block min-w-0">
               <span className="text-sm font-medium text-slate-800">Số điện thoại</span>
               <input
+                id="affiliate-application-phone"
                 name="phone"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
@@ -449,6 +451,7 @@ export function AffiliateApplicationForm(props: AffiliateApplicationFormProps): 
             <label className="block min-w-0">
               <span className="text-sm font-medium text-slate-800">Email</span>
               <input
+                id="affiliate-application-email"
                 name="email"
                 type="email"
                 value={email}
@@ -462,6 +465,7 @@ export function AffiliateApplicationForm(props: AffiliateApplicationFormProps): 
               <span className="text-sm font-medium text-slate-800">Link mạng xã hội / kênh bán hàng</span>
               <span className="mt-0.5 block text-xs font-normal text-slate-500">Tùy chọn — dạng https://… (+ điểm nếu có URL hợp lệ)</span>
               <input
+                id="affiliate-application-social-link"
                 name="socialLink"
                 value={socialLink}
                 onChange={(e) => setSocialLink(e.target.value)}
@@ -473,6 +477,7 @@ export function AffiliateApplicationForm(props: AffiliateApplicationFormProps): 
               <span className="text-sm font-medium text-slate-800">Kinh nghiệm bán hàng</span>
               <span className="mt-0.5 block text-xs font-normal text-slate-500">Tùy chọn — mô tả ngắn kinh nghiệm của bạn</span>
               <textarea
+                id="affiliate-application-experience"
                 name="experience"
                 value={experience}
                 onChange={(e) => setExperience(e.target.value)}
@@ -484,6 +489,7 @@ export function AffiliateApplicationForm(props: AffiliateApplicationFormProps): 
               <span className="text-sm font-medium text-slate-800">Nguồn traffic chính</span>
               <span className="mt-0.5 block text-xs font-normal text-slate-500">Tùy chọn — chọn kênh chính bạn dùng để giới thiệu</span>
               <select
+                id="affiliate-application-traffic-source"
                 name="trafficSource"
                 value={trafficSource}
                 onChange={(e) => setTrafficSource(e.target.value)}
@@ -501,6 +507,7 @@ export function AffiliateApplicationForm(props: AffiliateApplicationFormProps): 
               <span className="text-sm font-medium text-slate-800">Số follower / người theo dõi</span>
               <span className="mt-0.5 block text-xs font-normal text-slate-500">Tùy chọn — số nguyên không âm</span>
               <input
+                id="affiliate-application-follower-count"
                 name="followerCount"
                 type="number"
                 min={0}
@@ -525,6 +532,7 @@ export function AffiliateApplicationForm(props: AffiliateApplicationFormProps): 
               <span className="text-sm font-medium text-slate-800">Ngành hàng muốn bán</span>
               <span className="mt-0.5 block text-xs font-normal text-slate-500">Tùy chọn — chọn ngành bạn muốn tập trung</span>
               <select
+                id="affiliate-application-selling-categories"
                 name="sellingCategories"
                 value={sellingCategories}
                 onChange={(e) => setSellingCategories(e.target.value)}
@@ -544,6 +552,7 @@ export function AffiliateApplicationForm(props: AffiliateApplicationFormProps): 
                 Tùy chọn — từ 30 ký tự trở lên được cộng điểm kế hoạch
               </span>
               <textarea
+                id="affiliate-application-note"
                 name="note"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}

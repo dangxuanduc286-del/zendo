@@ -1,10 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { CircleUser } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { signOut } from "next-auth/react";
+import { getSession, signOut, useSession } from "next-auth/react";
 import { signOutAdminVoluntary } from "@/lib/admin-voluntary-signout-client";
-import { useSession } from "next-auth/react";
+import {
+  fetchAuthSessionSnapshot,
+  logAuthTrace,
+} from "@/lib/auth-runtime-trace";
 
 interface AccountMenuProps {
   isAuthenticated: boolean;
@@ -50,9 +54,11 @@ export default function AccountMenu({
     return (
       <Link
         href={loginHref}
-        className="inline-flex h-10 items-center rounded-xl border border-zinc-300 bg-white px-3.5 text-sm font-semibold text-zinc-700 shadow-sm transition hover:border-zinc-400 hover:text-zinc-900 sm:h-11 sm:px-4"
+        className="inline-flex h-10 min-w-[118px] items-center justify-center gap-2 rounded-xl border border-zinc-300 bg-white px-3.5 text-sm font-semibold text-zinc-700 shadow-sm transition hover:border-[#2563EB] hover:bg-sky-50 hover:text-[#1D4ED8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/30 active:bg-sky-100 sm:h-11 sm:px-4"
+        aria-label="Đăng nhập tài khoản"
       >
-        Đăng nhập
+        <CircleUser className="h-5 w-5 shrink-0" strokeWidth={2} aria-hidden />
+        <span className="truncate">Đăng nhập</span>
       </Link>
     );
   }
@@ -62,11 +68,12 @@ export default function AccountMenu({
       <button
         type="button"
         onClick={() => setOpen((current) => !current)}
-        className="inline-flex h-10 max-w-[120px] items-center rounded-xl border border-zinc-300 bg-white px-3.5 text-sm font-semibold text-zinc-700 shadow-sm transition hover:border-zinc-400 hover:text-zinc-900 sm:h-11 sm:px-4"
-        aria-label="Tài khoản"
+        className="inline-flex h-10 min-w-[118px] max-w-[168px] cursor-pointer items-center justify-center gap-2 rounded-xl border border-zinc-300 bg-white px-3.5 text-sm font-semibold text-zinc-700 shadow-sm transition hover:border-[#2563EB] hover:bg-sky-50 hover:text-[#1D4ED8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/30 active:bg-sky-100 sm:h-11 sm:max-w-[190px] sm:px-4"
+        aria-label={`Tài khoản của ${preferredLabel}`}
         aria-expanded={open}
       >
-        <span className="truncate">{preferredLabel}</span>
+        <CircleUser className="h-5 w-5 shrink-0" strokeWidth={2} aria-hidden />
+        <span className="min-w-0 truncate">{preferredLabel}</span>
       </button>
       {open ? (
         <div className="absolute right-0 z-50 mt-2 w-52 rounded-xl border border-zinc-200 bg-white p-2 shadow-lg">
@@ -81,18 +88,38 @@ export default function AccountMenu({
             type="button"
             disabled={isSigningOut}
             onClick={() => {
-              setOpen(false);
-              if (isSigningOut) return;
-              setIsSigningOut(true);
-              if (isAdmin) {
-                signOutAdminVoluntary().catch(() => {
-                  setIsSigningOut(false);
+              void (async () => {
+                setOpen(false);
+                if (isSigningOut) return;
+                setIsSigningOut(true);
+
+                const beforeSnapshot = await fetchAuthSessionSnapshot();
+                logAuthTrace("account-menu.signOut:before", {
+                  isAdmin,
+                  useSessionStatus: sessionState.status,
+                  useSessionUserId: session?.user?.id ?? null,
+                  getSessionUserId: (await getSession())?.user?.id ?? null,
+                  serverSnapshot: beforeSnapshot,
                 });
-                return;
-              }
-              signOut({ callbackUrl: "/" }).catch(() => {
-                setIsSigningOut(false);
-              });
+
+                try {
+                  if (isAdmin) {
+                    await signOutAdminVoluntary();
+                    return;
+                  }
+
+                  // Giống production: redirect mặc định true → full navigation, không await sau redirect.
+                  logAuthTrace("account-menu.signOut:customer-call", {
+                    options: { callbackUrl: "/", redirectDefault: true },
+                  });
+                  await signOut({ callbackUrl: "/" });
+                } catch (error) {
+                  logAuthTrace("account-menu.signOut:error", {
+                    message: error instanceof Error ? error.message : String(error),
+                  });
+                  setIsSigningOut(false);
+                }
+              })();
             }}
             className="mt-1 block w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-rose-600 transition hover:bg-rose-50 disabled:opacity-60"
           >

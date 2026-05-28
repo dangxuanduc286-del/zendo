@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { resolveCustomerAffiliateProfile } from "@/lib/affiliate-customer-status";
 import { db } from "@/lib/db";
+import { AFFILIATE_DB_QUERY_CONCURRENCY, runQueriesInChunks } from "@/lib/server/run-queries-in-chunks";
 
 const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
 
@@ -32,11 +34,8 @@ export async function GET(): Promise<NextResponse> {
   const customerId = String(session.user.id);
 
   try {
-    const profile = await db.affiliateProfile.findFirst({
-      where: { customerId, status: "ACTIVE" },
-      select: { id: true },
-    });
-    if (!profile) {
+    const snapshot = await resolveCustomerAffiliateProfile(customerId);
+    if (!snapshot.active || !snapshot.profileId) {
       return NextResponse.json(
         {
           ok: true,
@@ -62,6 +61,7 @@ export async function GET(): Promise<NextResponse> {
     const dayStart = vnStartOfDay(now);
     const monthStart = vnStartOfMonth(now);
 
+    const profileId = snapshot.profileId;
     const [
       todayAgg,
       monthAgg,
@@ -73,45 +73,57 @@ export async function GET(): Promise<NextResponse> {
       availableRows,
       paidRows,
       cancelledRows,
-    ] = await Promise.all([
-      db.affiliateCommission.aggregate({
-        where: { affiliateProfileId: profile.id, createdAt: { gte: dayStart } },
-        _sum: { amount: true },
-      }),
-      db.affiliateCommission.aggregate({
-        where: { affiliateProfileId: profile.id, createdAt: { gte: monthStart } },
-        _sum: { amount: true },
-      }),
-      db.affiliateCommission.aggregate({
-        where: { affiliateProfileId: profile.id, status: "PENDING" },
-        _sum: { amount: true },
-      }),
-      db.affiliateCommission.aggregate({
-        where: { affiliateProfileId: profile.id, status: "PAID" },
-        _sum: { amount: true },
-      }),
-      db.order.count({ where: { affiliateProfileId: profile.id } }),
-      db.affiliateCommission.aggregate({
-        where: { affiliateProfileId: profile.id, status: "PENDING" },
-        _count: { _all: true },
-      }),
-      db.affiliateCommission.aggregate({
-        where: { affiliateProfileId: profile.id, status: "WAITING_RELEASE" },
-        _count: { _all: true },
-      }),
-      db.affiliateCommission.aggregate({
-        where: { affiliateProfileId: profile.id, status: "AVAILABLE" },
-        _count: { _all: true },
-      }),
-      db.affiliateCommission.aggregate({
-        where: { affiliateProfileId: profile.id, status: "PAID" },
-        _count: { _all: true },
-      }),
-      db.affiliateCommission.aggregate({
-        where: { affiliateProfileId: profile.id, status: "CANCELLED" },
-        _count: { _all: true },
-      }),
-    ]);
+    ] = await runQueriesInChunks(
+      [
+        () =>
+          db.affiliateCommission.aggregate({
+            where: { affiliateProfileId: profileId, createdAt: { gte: dayStart } },
+            _sum: { amount: true },
+          }),
+        () =>
+          db.affiliateCommission.aggregate({
+            where: { affiliateProfileId: profileId, createdAt: { gte: monthStart } },
+            _sum: { amount: true },
+          }),
+        () =>
+          db.affiliateCommission.aggregate({
+            where: { affiliateProfileId: profileId, status: "PENDING" },
+            _sum: { amount: true },
+          }),
+        () =>
+          db.affiliateCommission.aggregate({
+            where: { affiliateProfileId: profileId, status: "PAID" },
+            _sum: { amount: true },
+          }),
+        () => db.order.count({ where: { affiliateProfileId: profileId } }),
+        () =>
+          db.affiliateCommission.aggregate({
+            where: { affiliateProfileId: profileId, status: "PENDING" },
+            _count: { _all: true },
+          }),
+        () =>
+          db.affiliateCommission.aggregate({
+            where: { affiliateProfileId: profileId, status: "WAITING_RELEASE" },
+            _count: { _all: true },
+          }),
+        () =>
+          db.affiliateCommission.aggregate({
+            where: { affiliateProfileId: profileId, status: "AVAILABLE" },
+            _count: { _all: true },
+          }),
+        () =>
+          db.affiliateCommission.aggregate({
+            where: { affiliateProfileId: profileId, status: "PAID" },
+            _count: { _all: true },
+          }),
+        () =>
+          db.affiliateCommission.aggregate({
+            where: { affiliateProfileId: profileId, status: "CANCELLED" },
+            _count: { _all: true },
+          }),
+      ] as const,
+      AFFILIATE_DB_QUERY_CONCURRENCY,
+    );
 
     return NextResponse.json(
       {

@@ -5,12 +5,13 @@ import {
   CART_STORAGE_KEY,
   CART_UPDATED_EVENT,
   CART_COUPON_STORAGE_KEY,
+  CART_COUPON_SOURCE_STORAGE_KEY,
   calcSubtotal,
   type GuestCartItem,
   getUnitPrice,
   normalizeCartItem,
 } from "../lib/cart";
-import { computeGuestCoupon, type CouponResult } from "../lib/coupon";
+import { computeGuestCoupon, findBestGuestCoupon, type CouponResult } from "../lib/coupon";
 import { safeParseJson } from "../lib/safe-json";
 
 function readCart(): GuestCartItem[] {
@@ -34,23 +35,41 @@ function readSavedCouponCode(): string {
   return window.localStorage.getItem(CART_COUPON_STORAGE_KEY) ?? "";
 }
 
+type CouponSource = "" | "auto" | "manual";
+
+function readSavedCouponSource(): CouponSource {
+  if (typeof window === "undefined") return "";
+  const source = window.localStorage.getItem(CART_COUPON_SOURCE_STORAGE_KEY);
+  return source === "auto" || source === "manual" ? source : "";
+}
+
 export function useGuestCart() {
   const [items, setItems] = useState<GuestCartItem[]>([]);
-  const [couponCode, setCouponCode] = useState("");
+  const [couponCode, setCouponCodeState] = useState("");
+  const [couponSource, setCouponSource] = useState<CouponSource>("");
   const [appliedCoupon, setAppliedCoupon] = useState<CouponResult | null>(null);
 
   const refresh = useCallback(() => {
     setItems(readCart());
   }, []);
 
+  const refreshCoupon = useCallback(() => {
+    setCouponCodeState(readSavedCouponCode());
+    setCouponSource(readSavedCouponSource());
+  }, []);
+
   useEffect(() => {
     refresh();
-    setCouponCode(readSavedCouponCode());
+    refreshCoupon();
 
     const onStorage = (event: StorageEvent) => {
       if (event.key === CART_STORAGE_KEY) refresh();
+      if (event.key === CART_COUPON_STORAGE_KEY || event.key === CART_COUPON_SOURCE_STORAGE_KEY) refreshCoupon();
     };
-    const onCartUpdated = () => refresh();
+    const onCartUpdated = () => {
+      refresh();
+      refreshCoupon();
+    };
 
     window.addEventListener("storage", onStorage);
     window.addEventListener(CART_UPDATED_EVENT, onCartUpdated);
@@ -60,10 +79,13 @@ export function useGuestCart() {
       window.removeEventListener("storage", onStorage);
       window.removeEventListener(CART_UPDATED_EVENT, onCartUpdated);
     };
-  }, [refresh]);
+  }, [refresh, refreshCoupon]);
 
   const subtotal = useMemo(() => calcSubtotal(items), [items]);
-  const discount = useMemo(() => appliedCoupon?.amount ?? 0, [appliedCoupon]);
+  const discount = useMemo(
+    () => (appliedCoupon?.type === "FREE_SHIPPING" ? 0 : appliedCoupon?.amount ?? 0),
+    [appliedCoupon],
+  );
   const total = useMemo(() => Math.max(0, subtotal - discount), [subtotal, discount]);
   const totalQuantity = useMemo(
     () => items.reduce((sum, item) => sum + item.quantity, 0),
@@ -77,6 +99,32 @@ export function useGuestCart() {
     }
     setAppliedCoupon(computeGuestCoupon(couponCode, subtotal));
   }, [couponCode, subtotal]);
+
+  useEffect(() => {
+    if (subtotal <= 0 || couponSource === "manual") return;
+    const bestCoupon = findBestGuestCoupon(subtotal);
+    const currentCoupon = couponCode.trim() ? computeGuestCoupon(couponCode, subtotal) : null;
+    if (!bestCoupon) return;
+    if (currentCoupon?.code === bestCoupon.code && currentCoupon.amount === bestCoupon.amount) {
+      setAppliedCoupon(bestCoupon);
+      return;
+    }
+    setCouponCodeState(bestCoupon.code);
+    setCouponSource("auto");
+    setAppliedCoupon(bestCoupon);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(CART_COUPON_STORAGE_KEY, bestCoupon.code);
+      window.localStorage.setItem(CART_COUPON_SOURCE_STORAGE_KEY, "auto");
+    }
+  }, [couponCode, couponSource, subtotal]);
+
+  const setCouponCode = useCallback((nextCouponCode: string) => {
+    setCouponCodeState(nextCouponCode);
+    setCouponSource("manual");
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(CART_COUPON_SOURCE_STORAGE_KEY, "manual");
+    }
+  }, []);
 
   const setQuantity = useCallback((itemId: string, quantity: number) => {
     const next = readCart().map((item) =>
@@ -105,7 +153,9 @@ export function useGuestCart() {
   const applyCoupon = useCallback(() => {
     const coupon = computeGuestCoupon(couponCode, subtotal);
     setAppliedCoupon(coupon);
+    setCouponSource("manual");
     if (typeof window !== "undefined") {
+      window.localStorage.setItem(CART_COUPON_SOURCE_STORAGE_KEY, "manual");
       if (coupon?.code) {
         window.localStorage.setItem(CART_COUPON_STORAGE_KEY, coupon.code);
       } else {
@@ -117,9 +167,11 @@ export function useGuestCart() {
 
   const removeCoupon = useCallback(() => {
     setAppliedCoupon(null);
-    setCouponCode("");
+    setCouponCodeState("");
+    setCouponSource("manual");
     if (typeof window !== "undefined") {
       window.localStorage.removeItem(CART_COUPON_STORAGE_KEY);
+      window.localStorage.setItem(CART_COUPON_SOURCE_STORAGE_KEY, "manual");
     }
   }, []);
 
@@ -130,6 +182,7 @@ export function useGuestCart() {
     total,
     totalQuantity,
     couponCode,
+    couponSource,
     setCouponCode,
     appliedCoupon,
     setQuantity,

@@ -1,7 +1,8 @@
 import { db } from "@/lib/db";
 import { fetchCtvMembershipTiersFromDb } from "./ctv-membership-tier-repository";
 import { getCtvRankFromTiers, resolveCtvMembershipTierForRevenue } from "./ctv-membership-tier-logic";
-import { notifyCtvTierDemoted, notifyCtvTierPromoted } from "./ctv-tier-notifications";
+import type { CtvMembershipTierRecord } from "./ctv-membership-tier-types";
+import { isCtvLifecycleProfiling } from "./ctv-lifecycle-profile-stats";
 
 function money(n: unknown): number {
   const v =
@@ -22,8 +23,9 @@ export type CtvTierSyncResult = {
 export async function syncCtvTierForAffiliate(
   affiliateProfileId: string,
   qualifiedRevenue30d: number,
+  tiersPrefetched?: readonly CtvMembershipTierRecord[],
 ): Promise<CtvTierSyncResult> {
-  const tiers = await fetchCtvMembershipTiersFromDb(true);
+  const tiers = tiersPrefetched ?? (await fetchCtvMembershipTiersFromDb(true));
   const revenue = money(qualifiedRevenue30d);
   const resolved = resolveCtvMembershipTierForRevenue(revenue, tiers);
   const toTierId = resolved?.id ?? null;
@@ -86,14 +88,16 @@ export async function syncCtvTierForAffiliate(
   }
 
   const rank = getCtvRankFromTiers(revenue, tiers);
-  if (direction === "up") {
+  if (!isCtvLifecycleProfiling() && direction === "up") {
+    const { notifyCtvTierPromoted } = await import("./ctv-tier-notifications");
     await notifyCtvTierPromoted({
       affiliateProfileId,
       toTierId,
       toTierName: resolved.name,
       commissionPercent: rank.commissionPercent,
     }).catch((err) => console.error("[ctv-tier] promote notify", err));
-  } else {
+  } else if (!isCtvLifecycleProfiling()) {
+    const { notifyCtvTierDemoted } = await import("./ctv-tier-notifications");
     await notifyCtvTierDemoted({
       affiliateProfileId,
       toTierId,

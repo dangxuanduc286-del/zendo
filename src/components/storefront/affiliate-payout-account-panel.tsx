@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useAffiliateCtvRuntimeActive } from "@/hooks/use-affiliate-ctv-runtime-active";
 
 type ChangeReq = {
   id: string;
@@ -55,11 +56,108 @@ function changeStatusLabel(s: ChangeReq["status"]): string {
   return "Đã từ chối đổi TK";
 }
 
+type CccdUploadVisualState = "empty" | "selected" | "uploading" | "uploaded";
+
+function resolveCccdUploadState(file: File | null, objectKey: string, uploading: boolean): CccdUploadVisualState {
+  if (uploading) return "uploading";
+  if (objectKey) return "uploaded";
+  if (file) return "selected";
+  return "empty";
+}
+
+const CCCD_UPLOAD_STATUS: Record<CccdUploadVisualState, { label: string; className: string }> = {
+  empty: { label: "Chưa chọn ảnh", className: "border-[#E2E8F0] bg-white text-[#64748B]" },
+  selected: {
+    label: "Đã chọn ảnh — bấm 「Tải lên」 để gửi lên máy chủ",
+    className: "border-amber-200 bg-amber-50 text-amber-900",
+  },
+  uploading: { label: "Đang tải lên…", className: "border-sky-200 bg-sky-50 text-sky-900" },
+  uploaded: { label: "Đã tải lên thành công", className: "border-emerald-200 bg-emerald-50 text-emerald-900" },
+};
+
+function CccdUploadField({
+  label,
+  inputId,
+  file,
+  objectKey,
+  uploading,
+  onFileChange,
+  onUpload,
+}: {
+  label: string;
+  inputId: string;
+  file: File | null;
+  objectKey: string;
+  uploading: boolean;
+  onFileChange: (file: File | null) => void;
+  onUpload: () => void;
+}): JSX.Element {
+  const state = resolveCccdUploadState(file, objectKey, uploading);
+  const status = CCCD_UPLOAD_STATUS[state];
+
+  return (
+    <div className="flex min-h-0 min-w-0 flex-col rounded-lg border border-[#E2E8F0] p-3 sm:p-3.5">
+      <p className="text-xs font-semibold text-[#0F172A] sm:text-sm">{label}</p>
+      <p
+        className={`mt-2 rounded-md border px-2.5 py-2 text-[11px] leading-snug sm:text-xs ${status.className}`}
+        role="status"
+        aria-live="polite"
+      >
+        {status.label}
+        {file && state !== "empty" ? (
+          <span className="mt-1 block truncate font-normal opacity-90" title={file.name}>
+            {file.name}
+          </span>
+        ) : null}
+      </p>
+      <label htmlFor={inputId} className="mt-2 block w-full min-w-0">
+        <span className="sr-only">{label}</span>
+        <input
+          id={inputId}
+          name={inputId}
+          type="file"
+          accept="image/*"
+          onChange={(e) => onFileChange(e.target.files?.[0] ?? null)}
+          className="block w-full min-w-0 text-xs file:mr-2 file:rounded-md file:border-0 file:bg-[#F1F5F9] file:px-2.5 file:py-1.5 file:text-xs file:font-medium file:text-[#0F172A]"
+        />
+      </label>
+      <button
+        type="button"
+        disabled={!file || uploading}
+        onClick={onUpload}
+        className="mt-2 inline-flex min-h-[44px] w-full items-center justify-center rounded-lg bg-[#0F172A] px-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-[40px] sm:w-auto"
+      >
+        {uploading ? "Đang tải…" : objectKey ? "Tải lại" : "Tải lên"}
+      </button>
+    </div>
+  );
+}
+
+function CccdUploadSubmitHint({
+  show,
+  submitLabel,
+}: {
+  show: boolean;
+  submitLabel: "đăng ký" | "yêu cầu thay đổi";
+}): JSX.Element | null {
+  if (!show) return null;
+  const message =
+    submitLabel === "đăng ký"
+      ? "Bạn cần bấm Tải lên trước khi gửi đăng ký"
+      : "Bạn cần bấm Tải lên trước khi gửi yêu cầu thay đổi";
+  return (
+    <p className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900 sm:text-sm" role="alert">
+      {message}
+    </p>
+  );
+}
+
 export default function AffiliatePayoutAccountPanel({
   onChanged,
 }: {
   onChanged?: (account: PayoutAccount) => void;
 }): JSX.Element {
+  const runtimeActive = useAffiliateCtvRuntimeActive();
   const [state, setState] = useState<LoadState>({ loading: true, account: null, exists: false });
   const [bankName, setBankName] = useState("");
   const [bankAccountNumber, setBankAccountNumber] = useState("");
@@ -100,6 +198,16 @@ export default function AffiliatePayoutAccountPanel({
     return true;
   }, [changeDraftToken, chBackKey, chBankAccountHolder, chBankAccountNumber, chBankName, chFrontKey]);
 
+  const needsUploadHintInitial = useMemo(
+    () => Boolean((frontFile && !frontKey) || (backFile && !backKey)),
+    [backFile, backKey, frontFile, frontKey],
+  );
+
+  const needsUploadHintChange = useMemo(
+    () => Boolean((chFrontFile && !chFrontKey) || (chBackFile && !chBackKey)),
+    [chBackFile, chBackKey, chFrontFile, chFrontKey],
+  );
+
   const pendingChange =
     state.account?.changeRequests?.find((c) => c.status === "PENDING") ?? null;
 
@@ -122,12 +230,13 @@ export default function AffiliatePayoutAccountPanel({
   };
 
   useEffect(() => {
+    if (!runtimeActive) return;
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [runtimeActive]);
 
   useEffect(() => {
-    if (!state.account) return;
+    if (!runtimeActive || !state.account) return;
     if (state.account.verificationStatus !== "PENDING") {
       const pollPendingChange = pendingChange !== null;
       if (state.account.verificationStatus !== "APPROVED" || !pollPendingChange) return;
@@ -141,7 +250,7 @@ export default function AffiliatePayoutAccountPanel({
     }, 10000);
     return () => window.clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.account?.id, state.account?.verificationStatus, pendingChange?.id]);
+  }, [runtimeActive, state.account?.id, state.account?.verificationStatus, pendingChange?.id]);
 
   const submit = async () => {
     setError("");
@@ -385,12 +494,16 @@ export default function AffiliatePayoutAccountPanel({
 
                       <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
                         <input
+                          id="affiliate-payout-change-bank-name"
+                          name="bankName"
                           value={chBankName}
                           onChange={(e) => setChBankName(e.target.value)}
                           placeholder="Ngân hàng mới"
                           className="h-11 min-w-0 rounded-lg border border-[#E2E8F0] px-3 text-sm outline-none focus:border-[#2563EB]"
                         />
                         <input
+                          id="affiliate-payout-change-bank-account-number"
+                          name="bankAccountNumber"
                           value={chBankAccountNumber}
                           onChange={(e) => setChBankAccountNumber(e.target.value)}
                           placeholder="Số tài khoản mới"
@@ -398,6 +511,8 @@ export default function AffiliatePayoutAccountPanel({
                           className="h-11 min-w-0 rounded-lg border border-[#E2E8F0] px-3 text-sm outline-none focus:border-[#2563EB]"
                         />
                         <input
+                          id="affiliate-payout-change-bank-account-holder"
+                          name="bankAccountHolder"
                           value={chBankAccountHolder}
                           onChange={(e) => setChBankAccountHolder(e.target.value)}
                           placeholder="Tên chủ TK mới"
@@ -405,42 +520,34 @@ export default function AffiliatePayoutAccountPanel({
                         />
                       </div>
 
-                      <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
-                        <div className="rounded-lg border border-[#E2E8F0] p-3">
-                          <p className="text-xs font-semibold">CCCD mặt trước (mới)</p>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => setChFrontFile(e.target.files?.[0] ?? null)}
-                            className="mt-2 block w-full text-xs"
-                          />
-                          <button
-                            type="button"
-                            disabled={!chFrontFile || chFrontUploading}
-                            onClick={() => void uploadChFront()}
-                            className="mt-2 inline-flex h-9 items-center justify-center rounded-lg bg-[#0F172A] px-3 text-xs font-semibold text-white disabled:opacity-60"
-                          >
-                            {chFrontUploading ? "Đang tải…" : chFrontKey ? "Đã tải ✓" : "Tải lên"}
-                          </button>
-                        </div>
-                        <div className="rounded-lg border border-[#E2E8F0] p-3">
-                          <p className="text-xs font-semibold">CCCD mặt sau (mới)</p>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => setChBackFile(e.target.files?.[0] ?? null)}
-                            className="mt-2 block w-full text-xs"
-                          />
-                          <button
-                            type="button"
-                            disabled={!chBackFile || chBackUploading}
-                            onClick={() => void uploadChBack()}
-                            className="mt-2 inline-flex h-9 items-center justify-center rounded-lg bg-[#0F172A] px-3 text-xs font-semibold text-white disabled:opacity-60"
-                          >
-                            {chBackUploading ? "Đang tải…" : chBackKey ? "Đã tải ✓" : "Tải lên"}
-                          </button>
-                        </div>
+                      <div className="mt-3 grid grid-cols-1 gap-3 sm:gap-3.5 md:grid-cols-2">
+                        <CccdUploadField
+                          label="CCCD mặt trước (mới)"
+                          inputId="payout-ch-cccd-front"
+                          file={chFrontFile}
+                          objectKey={chFrontKey}
+                          uploading={chFrontUploading}
+                          onFileChange={(f) => {
+                            setChFrontFile(f);
+                            if (f) setChFrontKey("");
+                          }}
+                          onUpload={() => void uploadChFront()}
+                        />
+                        <CccdUploadField
+                          label="CCCD mặt sau (mới)"
+                          inputId="payout-ch-cccd-back"
+                          file={chBackFile}
+                          objectKey={chBackKey}
+                          uploading={chBackUploading}
+                          onFileChange={(f) => {
+                            setChBackFile(f);
+                            if (f) setChBackKey("");
+                          }}
+                          onUpload={() => void uploadChBack()}
+                        />
                       </div>
+
+                      <CccdUploadSubmitHint show={needsUploadHintChange} submitLabel="yêu cầu thay đổi" />
 
                       <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
                         <button
@@ -471,19 +578,24 @@ export default function AffiliatePayoutAccountPanel({
         </div>
       ) : (
         <>
-          <p className="mt-2 text-sm text-[#64748B]">
-            Vui lòng đăng ký tài khoản ngân hàng nhận tiền và tải ảnh CCCD (trước/sau). Sau khi gửi sẽ ở trạng thái{" "}
+          <p className="mt-2 text-sm leading-relaxed text-[#64748B]">
+            Vui lòng đăng ký tài khoản ngân hàng nhận tiền và tải ảnh CCCD (trước/sau). Sau khi chọn ảnh, bấm{" "}
+            <span className="font-semibold">Tải lên</span> cho từng mặt rồi mới gửi đăng ký. Sau khi gửi sẽ ở trạng thái{" "}
             <span className="font-semibold">chờ duyệt</span>.
           </p>
 
           <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
             <input
+              id="affiliate-payout-bank-name"
+              name="bankName"
               value={bankName}
               onChange={(e) => setBankName(e.target.value)}
               placeholder="Ngân hàng"
               className="h-11 min-w-0 rounded-lg border border-[#E2E8F0] px-3 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
             />
             <input
+              id="affiliate-payout-bank-account-number"
+              name="bankAccountNumber"
               value={bankAccountNumber}
               onChange={(e) => setBankAccountNumber(e.target.value)}
               placeholder="Số tài khoản"
@@ -491,6 +603,8 @@ export default function AffiliatePayoutAccountPanel({
               className="h-11 min-w-0 rounded-lg border border-[#E2E8F0] px-3 text-sm text-[#0F172A] outline-none focus:border-[#2563EB]"
             />
             <input
+              id="affiliate-payout-bank-account-holder"
+              name="bankAccountHolder"
               value={bankAccountHolder}
               onChange={(e) => setBankAccountHolder(e.target.value)}
               placeholder="Tên chủ tài khoản"
@@ -498,49 +612,40 @@ export default function AffiliatePayoutAccountPanel({
             />
           </div>
 
-          <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
-            <div className="rounded-lg border border-[#E2E8F0] p-3">
-              <p className="text-xs font-semibold text-[#0F172A]">CCCD mặt trước</p>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => setFrontFile(e.target.files?.[0] ?? null)}
-                className="mt-2 block w-full text-xs"
-              />
-              <button
-                type="button"
-                disabled={!frontFile || frontUploading}
-                onClick={() => void uploadFront()}
-                className="mt-2 inline-flex h-9 items-center justify-center rounded-lg bg-[#0F172A] px-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {frontUploading ? "Đang tải…" : frontKey ? "Đã tải ✓" : "Tải lên"}
-              </button>
-            </div>
-
-            <div className="rounded-lg border border-[#E2E8F0] p-3">
-              <p className="text-xs font-semibold text-[#0F172A]">CCCD mặt sau</p>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => setBackFile(e.target.files?.[0] ?? null)}
-                className="mt-2 block w-full text-xs"
-              />
-              <button
-                type="button"
-                disabled={!backFile || backUploading}
-                onClick={() => void uploadBack()}
-                className="mt-2 inline-flex h-9 items-center justify-center rounded-lg bg-[#0F172A] px-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {backUploading ? "Đang tải…" : backKey ? "Đã tải ✓" : "Tải lên"}
-              </button>
-            </div>
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:gap-3.5 md:grid-cols-2">
+            <CccdUploadField
+              label="CCCD mặt trước"
+              inputId="payout-cccd-front"
+              file={frontFile}
+              objectKey={frontKey}
+              uploading={frontUploading}
+              onFileChange={(f) => {
+                setFrontFile(f);
+                if (f) setFrontKey("");
+              }}
+              onUpload={() => void uploadFront()}
+            />
+            <CccdUploadField
+              label="CCCD mặt sau"
+              inputId="payout-cccd-back"
+              file={backFile}
+              objectKey={backKey}
+              uploading={backUploading}
+              onFileChange={(f) => {
+                setBackFile(f);
+                if (f) setBackKey("");
+              }}
+              onUpload={() => void uploadBack()}
+            />
           </div>
+
+          <CccdUploadSubmitHint show={needsUploadHintInitial} submitLabel="đăng ký" />
 
           <button
             type="button"
             disabled={!canSubmitInitial || submitting}
             onClick={() => void submit()}
-            className="mt-3 rounded-lg bg-[#2563EB] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-3 inline-flex min-h-[44px] w-full items-center justify-center rounded-lg bg-[#2563EB] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
           >
             {submitting ? "Đang gửi…" : "Gửi đăng ký"}
           </button>

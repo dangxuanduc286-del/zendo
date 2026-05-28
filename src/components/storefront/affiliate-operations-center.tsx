@@ -20,7 +20,9 @@ import CreatorRealtimeSparklineLazy from "@/components/storefront/affiliate-crea
 import type { RtPoint } from "@/components/storefront/affiliate-creator-charts/creator-realtime-sparkline-inner";
 import type { AffiliateTrackingStreamTickV1 } from "@/lib/affiliate-tracking-stream-types";
 import type { OpsAlertV1, OpsRollingCounts } from "@/lib/affiliate-ops-anomaly-types";
+import { useAffiliateCtvRuntimeActive } from "@/hooks/use-affiliate-ctv-runtime-active";
 import { scheduleIdleWork } from "@/lib/next-dev-stability";
+import { sanitizeCtvDisplayText } from "./ctv/sanitize-ctv-display-text";
 
 const ACK_KEY = "affiliate_ops_alert_ack_v1";
 const SNOOZE_KEY = "affiliate_ops_alert_snooze_v1";
@@ -86,34 +88,36 @@ function fmtVnd(n: number): string {
 
 function tickToFeedLine(t: AffiliateTrackingStreamTickV1): { id: string; label: string; sub: string; tone: "blue" | "emerald" | "amber" | "violet" } {
   const ch = t.channel;
+  let row: { id: string; label: string; sub: string; tone: "blue" | "emerald" | "amber" | "violet" };
   if (ch === "tracking.converted") {
-    return { id: `${ch}-${t.ts}`, label: "Chuyển đổi", sub: "Đơn thanh toán (ẩn mã)", tone: "emerald" };
-  }
-  if (ch === "tracking.attributed") {
-    return { id: `${ch}-${t.ts}`, label: "Attribution", sub: "Cập nhật touch chain", tone: "violet" };
-  }
-  if (ch === "tracking.attribution_resolved") {
-    return { id: `${ch}-${t.ts}`, label: "Attribution engine", sub: "Conversion match + touch chain", tone: "violet" };
-  }
-  if (ch === "tracking.conversion_dispatch") {
+    row = { id: `${ch}-${t.ts}`, label: "Chuyển đổi", sub: "Đơn thanh toán (ẩn mã)", tone: "emerald" };
+  } else if (ch === "tracking.attributed") {
+    row = { id: `${ch}-${t.ts}`, label: "Gán CTV", sub: "Cập nhật chuỗi touchpoint", tone: "violet" };
+  } else if (ch === "tracking.attribution_resolved") {
+    row = { id: `${ch}-${t.ts}`, label: "Gán đơn hoàn tất", sub: "Khớp chuyển đổi · chuỗi touchpoint", tone: "violet" };
+  } else if (ch === "tracking.conversion_dispatch") {
     const ev = t.trafficEventType ?? "CAPI";
-    return {
+    row = {
       id: `${ch}-${t.ts}`,
       label: "CAPI dispatch",
       sub: `${ev}${t.pathname ? ` · ${t.pathname}` : ""}`,
       tone: "amber",
     };
-  }
-  if (ch === "fraud.alert") {
+  } else if (ch === "fraud.alert") {
     const ev = t.trafficEventType ?? "FRAUD";
-    return { id: `${ch}-${t.ts}`, label: "Fraud alert", sub: `${ev}${t.pathname ? ` · ${t.pathname}` : ""}`, tone: "amber" };
+    row = { id: `${ch}-${t.ts}`, label: "Fraud alert", sub: `${ev}${t.pathname ? ` · ${t.pathname}` : ""}`, tone: "amber" };
+  } else if (ch === "tracking.received") {
+    row = { id: `${ch}-${t.ts}`, label: "Pipeline", sub: "Tracking đã nhận", tone: "blue" };
+  } else {
+    const path = t.pathname?.trim() || "Trang";
+    const ev = t.trafficEventType ?? "EVENT";
+    row = { id: `${ch}-${t.ts}-${path.slice(0, 24)}`, label: ev.replace(/_/g, " "), sub: path, tone: "blue" };
   }
-  if (ch === "tracking.received") {
-    return { id: `${ch}-${t.ts}`, label: "Pipeline", sub: "Tracking đã nhận", tone: "blue" };
-  }
-  const path = t.pathname?.trim() || "Trang";
-  const ev = t.trafficEventType ?? "EVENT";
-  return { id: `${ch}-${t.ts}-${path.slice(0, 24)}`, label: ev.replace(/_/g, " "), sub: path, tone: "blue" };
+  return {
+    ...row,
+    label: sanitizeCtvDisplayText(row.label),
+    sub: sanitizeCtvDisplayText(row.sub),
+  };
 }
 
 const KpiPill = memo(function KpiPill(props: {
@@ -146,6 +150,43 @@ const KpiPill = memo(function KpiPill(props: {
   );
 });
 
+const OPS_PANEL_TITLE = "text-[11px] font-semibold uppercase tracking-wide text-slate-700";
+/** Source/Campaign ~58% · Health ~42% — desktop full width, equal-height cards. */
+const OPS_DUAL_ROW =
+  "grid w-full min-w-0 grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:items-stretch lg:gap-4";
+const OPS_DUAL_COL = "flex min-h-0 min-w-0 flex-col md:min-h-[17.5rem] lg:min-h-[18rem] lg:h-full";
+const OPS_DUAL_CARD =
+  "mt-2 flex min-h-0 flex-1 flex-col rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-3 lg:h-full";
+const OPS_DUAL_BODY = "flex min-h-0 flex-1 flex-col gap-2";
+const OPS_DUAL_SCROLL =
+  "min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain pr-0.5 [-webkit-overflow-scrolling:touch]";
+const OPS_EMPTY_CENTER =
+  "flex min-h-[4.5rem] flex-1 flex-col items-center justify-center px-2 py-3 text-center sm:min-h-[5rem]";
+const OPS_SPLIT_ROW = "grid min-h-0 flex-1 grid-cols-1 gap-2 sm:grid-cols-2 sm:items-stretch [&>:only-child]:sm:col-span-2";
+const OPS_SPLIT_COL = "flex min-h-0 min-w-0 flex-col rounded-xl border border-slate-100 bg-slate-50/40 p-2";
+const OPS_SPLIT_TITLE = "flex shrink-0 items-center gap-1.5 text-[11px] font-semibold text-slate-600";
+const OPS_HEALTH_GRID = "grid shrink-0 grid-cols-2 gap-2 sm:gap-2.5";
+const OPS_HEALTH_CELL =
+  "flex min-h-[3.5rem] flex-col justify-between rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 sm:min-h-[3.75rem]";
+const OPS_META_BLOCK = "shrink-0 space-y-1.5 text-[10px] leading-snug text-slate-500";
+const OPS_ALERTS_WRAP = "mt-1 flex min-h-0 flex-1 flex-col border-t border-slate-200 pt-2";
+const OPS_ALERTS_SCROLL =
+  "min-h-0 flex-1 space-y-2 overflow-y-auto overflow-x-hidden overscroll-y-contain pr-0.5 [-webkit-overflow-scrolling:touch] max-h-[min(28vh,14rem)] lg:max-h-none";
+/** Cặp Activity Feed + Nguồn (top) — desktop cùng chiều cao cố định; danh sách scroll bên trong. */
+const OPS_FEED_PAIR_ROW =
+  "grid w-full min-w-0 grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-2 lg:items-stretch lg:gap-4";
+const OPS_FEED_PAIR_COL = "flex min-h-0 min-w-0 flex-col";
+const OPS_FEED_PAIR_CARD = [
+  "flex min-h-0 w-full flex-col rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-3",
+  "lg:h-[15.75rem] lg:min-h-[15.75rem] lg:max-h-[15.75rem] lg:flex-none",
+].join(" ");
+const OPS_FEED_CARD_HEADER =
+  "flex shrink-0 items-center justify-between gap-2 border-b border-slate-200/60 pb-2.5";
+const OPS_FEED_SCROLL = [
+  "min-h-0 flex-1 space-y-1.5 overflow-y-auto overflow-x-hidden overscroll-y-contain pr-0.5",
+  "max-lg:max-h-[min(52vh,22rem)] max-lg:min-h-[10rem] [-webkit-overflow-scrolling:touch]",
+].join(" ");
+
 export default function AffiliateOperationsCenter(props: {
   enabled: boolean;
   activity: AffiliateRealtimeActivityClient | null;
@@ -158,6 +199,7 @@ export default function AffiliateOperationsCenter(props: {
   deviceRows: DeviceRow[];
   rtHistory: RtPoint[];
 }): JSX.Element | null {
+  const runtimeActive = useAffiliateCtvRuntimeActive();
   const [snapshot, setSnapshot] = useState<OpsSnapshot | null>(null);
   const [snapErr, setSnapErr] = useState<string | null>(null);
   const [compact, setCompact] = useState(false);
@@ -187,8 +229,7 @@ export default function AffiliateOperationsCenter(props: {
   }, []);
 
   const pollSnapshot = useCallback(async () => {
-    if (!props.enabled) return;
-    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+    if (!props.enabled || !runtimeActive) return;
     try {
       const res = await fetch("/api/account/affiliate/operations/snapshot", { credentials: "same-origin", cache: "no-store" });
       const j = (await res.json()) as OpsSnapshot & { ok?: boolean; message?: string };
@@ -198,10 +239,10 @@ export default function AffiliateOperationsCenter(props: {
     } catch {
       setSnapErr("Không tải health");
     }
-  }, [props.enabled]);
+  }, [props.enabled, runtimeActive]);
 
   useEffect(() => {
-    if (!props.enabled) return;
+    if (!props.enabled || !runtimeActive) return;
     let intervalId: NodeJS.Timeout | number | null = null;
     let cancelled = false;
     const cancelIdle = scheduleIdleWork(() => {
@@ -214,7 +255,7 @@ export default function AffiliateOperationsCenter(props: {
       cancelIdle();
       if (intervalId != null) window.clearInterval(intervalId);
     };
-  }, [props.enabled, pollSnapshot]);
+  }, [props.enabled, runtimeActive, pollSnapshot]);
 
   useEffect(() => {
     const now = Date.now();
@@ -290,8 +331,8 @@ export default function AffiliateOperationsCenter(props: {
       .slice(0, 3)
       .map((a) => ({
         id: `alert-feed-${a.id}`,
-        label: a.title,
-        sub: a.detail,
+        label: sanitizeCtvDisplayText(a.title),
+        sub: sanitizeCtvDisplayText(a.detail),
         tone: (a.severity === "critical" || a.severity === "warning" ? "amber" : "violet") as "blue" | "emerald" | "amber" | "violet",
       }));
     const fromTicks = props.streamTicks.slice(0, 24).map(tickToFeedLine);
@@ -442,253 +483,321 @@ export default function AffiliateOperationsCenter(props: {
         ) : null}
       </div>
 
-      <div className="grid gap-3 p-3 sm:gap-4 sm:p-4 lg:grid-cols-12">
-        <div className="lg:col-span-4">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-700">Activity feed</p>
-            <span className="text-[10px] text-slate-400">{feedLines.length} dòng</span>
-          </div>
-          <div className="mt-2 max-h-[min(52vh,22rem)] space-y-1.5 overflow-y-auto pr-0.5 sm:max-h-[26rem]">
-            {feedLines.length === 0 ? (
-              <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 px-3 py-6 text-center text-xs text-slate-400">
-                Chờ sự kiện từ stream hoặc click gần đây…
-              </p>
-            ) : (
-              feedLines.map((row, idx) => (
-                <div
-                  key={row.id}
-                  className={clsx(
-                    "affiliate-ops-feed-in flex items-start justify-between gap-2 rounded-2xl border border-slate-200 bg-white px-2.5 py-2 shadow-sm transition-shadow duration-200 hover:shadow-md sm:px-3",
-                    !compact && idx === 0 && "ring-1 ring-blue-200",
-                  )}
-                  style={{ animationDelay: compact ? "0ms" : `${Math.min(idx, 8) * 28}ms` }}
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-xs font-semibold text-slate-900">{row.label}</p>
-                    <p className="mt-0.5 truncate text-[11px] text-slate-500">{row.sub}</p>
-                  </div>
-                  <ArrowUpRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        <div className="lg:col-span-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-700">Source & campaign flow</p>
-          <div className="mt-2 space-y-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
-              <Globe2 className="h-3.5 w-3.5" aria-hidden />
-              Nguồn (top)
-            </div>
-            <div className="space-y-1.5">
-              {(compact ? props.sourcesRows.slice(0, 4) : props.sourcesRows.slice(0, 6)).map((r) => (
-                <div key={r.source} className="flex items-center gap-2">
-                  <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-100">
+      <div className="flex flex-col gap-3 p-3 sm:gap-4 sm:p-4">
+        <div className={OPS_FEED_PAIR_ROW}>
+          <div className={OPS_FEED_PAIR_COL}>
+            <div className={OPS_FEED_PAIR_CARD}>
+              <div className={OPS_FEED_CARD_HEADER}>
+                <p className={OPS_PANEL_TITLE}>Activity feed</p>
+                <span className="text-[10px] text-slate-400">{feedLines.length} dòng</span>
+              </div>
+              <div className={clsx("mt-2.5 flex min-h-0 flex-1 flex-col", OPS_FEED_SCROLL)}>
+                {feedLines.length === 0 ? (
+                  <p className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 px-3 py-6 text-center text-xs text-slate-400">
+                    Chờ sự kiện từ stream hoặc click gần đây…
+                  </p>
+                ) : (
+                  feedLines.map((row, idx) => (
                     <div
-                      className="h-full rounded-full bg-gradient-to-r from-blue-400 to-blue-500"
-                      style={{ width: `${Math.min(100, Math.round(((r.clicks + r.visitors) / maxSource) * 100))}%` }}
-                    />
-                  </div>
-                  <span className="w-24 shrink-0 truncate text-right text-[10px] text-slate-500">{r.source || "—"}</span>
-                </div>
-              ))}
-              {!props.sourcesRows.length ? <p className="text-[11px] text-slate-400">Chưa có dữ liệu nguồn trong kỳ.</p> : null}
-            </div>
-            <div className="border-t border-slate-200 pt-2">
-              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
-                <Layers className="h-3.5 w-3.5" aria-hidden />
-                Campaign
-              </div>
-              <div className="mt-1.5 space-y-1.5">
-                {(compact ? props.campaignRows.slice(0, 3) : props.campaignRows.slice(0, 5)).map((c) => (
-                  <div key={c.id} className="flex items-center gap-2">
-                    <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-100">
-                      <div
-                        className="h-full rounded-full bg-gradient-to-r from-violet-400 to-violet-500"
-                        style={{ width: `${Math.min(100, Math.round((c.clicks / maxCamp) * 100))}%` }}
-                      />
+                      key={row.id}
+                      className={clsx(
+                        "affiliate-ops-feed-in flex items-start justify-between gap-2 rounded-2xl border border-slate-200 bg-white px-2.5 py-2 shadow-sm transition-shadow duration-200 hover:shadow-md sm:px-3",
+                        !compact && idx === 0 && "ring-1 ring-blue-200",
+                      )}
+                      style={{ animationDelay: compact ? "0ms" : `${Math.min(idx, 8) * 28}ms` }}
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-xs font-semibold text-slate-900">{row.label}</p>
+                        <p className="mt-0.5 truncate text-[11px] text-slate-500">{row.sub}</p>
+                      </div>
+                      <ArrowUpRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />
                     </div>
-                    <span className="w-28 shrink-0 truncate text-right text-[10px] text-slate-500">{c.name}</span>
-                  </div>
-                ))}
-                {!props.campaignRows.length ? <p className="text-[11px] text-slate-400">Chưa có campaign.</p> : null}
+                  ))
+                )}
               </div>
             </div>
-            {!compact ? (
-              <div className="border-t border-slate-200 pt-2">
-                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
-                  <Cpu className="h-3.5 w-3.5" aria-hidden />
-                  Thiết bị
+          </div>
+
+          <div className={OPS_FEED_PAIR_COL}>
+            <div className={OPS_FEED_PAIR_CARD}>
+              <div className={OPS_FEED_CARD_HEADER}>
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <Globe2 className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
+                  <p className={OPS_PANEL_TITLE}>Nguồn (top)</p>
                 </div>
-                <div className="mt-1.5 space-y-1.5">
-                  {props.deviceRows.slice(0, 5).map((d) => (
-                    <div key={d.device} className="flex items-center gap-2">
+                <span className="shrink-0 text-[10px] text-slate-400">
+                  {props.sourcesRows.length ? `${Math.min(compact ? 4 : 6, props.sourcesRows.length)} nguồn` : "—"}
+                </span>
+              </div>
+              <div className={clsx("mt-2.5 flex min-h-0 flex-1 flex-col", OPS_FEED_SCROLL)}>
+                <div className="space-y-1.5">
+                  {(compact ? props.sourcesRows.slice(0, 4) : props.sourcesRows.slice(0, 6)).map((r) => (
+                    <div key={r.source} className="flex items-center gap-2">
                       <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-100">
                         <div
-                          className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-500"
-                          style={{ width: `${Math.min(100, Math.round(((d.clicks + d.visitors) / maxDev) * 100))}%` }}
+                          className="h-full rounded-full bg-gradient-to-r from-blue-400 to-blue-500"
+                          style={{ width: `${Math.min(100, Math.round(((r.clicks + r.visitors) / maxSource) * 100))}%` }}
                         />
                       </div>
-                      <span className="w-24 shrink-0 truncate text-right text-[10px] text-slate-500">{d.device}</span>
+                      <span className="w-24 shrink-0 truncate text-right text-[10px] text-slate-500">{r.source || "—"}</span>
                     </div>
                   ))}
-                  {!props.deviceRows.length ? <p className="text-[11px] text-slate-400">Chưa có phân tích thiết bị.</p> : null}
+                  {!props.sourcesRows.length ? (
+                    <p className="text-[11px] text-slate-400">Chưa có dữ liệu nguồn trong kỳ.</p>
+                  ) : null}
                 </div>
               </div>
-            ) : null}
-            <p className="text-[10px] leading-snug text-slate-400">Geo: sẵn sàng mở rộng khi có dữ liệu quốc gia.</p>
+            </div>
           </div>
         </div>
 
-        <div className="lg:col-span-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-700">Health & alerts</p>
-          <div className="mt-2 space-y-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-            <div className="grid grid-cols-2 gap-2 text-[11px]">
-              <div className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5">
-                <p className="flex items-center gap-1 text-slate-500">
-                  <Server className="h-3 w-3" aria-hidden />
-                  Redis
-                </p>
-                <p className={clsx("mt-0.5 font-semibold", snapshot?.redis.ok ? "text-emerald-700" : "text-rose-700")}>
-                  {snapshot ? (snapshot.redis.ok ? `${snapshot.redis.ms}ms` : "Lỗi") : "…"}
-                </p>
-              </div>
-              <div className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5">
-                <p className="flex items-center gap-1 text-slate-500">
-                  <Radio className="h-3 w-3" aria-hidden />
-                  SSE (global)
-                </p>
-                <p className="mt-0.5 font-semibold text-slate-900">{snapshot ? snapshot.sse.activeConnections : "…"}</p>
-              </div>
-              <div className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5">
-                <p className="flex items-center gap-1 text-slate-500">
-                  <Shield className="h-3 w-3" aria-hidden />
-                  DLQ 24h
-                </p>
-                <p className="mt-0.5 font-semibold text-amber-700">{snapshot?.dlq24h ?? "…"}</p>
-                {snapshot?.dlq1h != null ? <p className="mt-0.5 text-[9px] text-slate-400">1h: {snapshot.dlq1h}</p> : null}
-              </div>
-              <div className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5">
-                <p className="flex items-center gap-1 text-slate-500">
-                  <Activity className="h-3 w-3" aria-hidden />
-                  Ingest latency
-                </p>
-                <p className="mt-0.5 font-semibold text-slate-900">
-                  p50 {snapshot?.ingestLatencyP50Ms != null ? `${snapshot.ingestLatencyP50Ms}ms` : "—"}
-                  <span className="font-normal text-slate-400"> · </span>
-                  p90 {snapshot?.ingestLatencyP90Ms != null ? `${snapshot.ingestLatencyP90Ms}ms` : "—"}
+        <div className={OPS_DUAL_ROW}>
+          <div className={OPS_DUAL_COL}>
+            <p className={OPS_PANEL_TITLE}>Source & campaign flow</p>
+            <div className={OPS_DUAL_CARD}>
+              <div className={OPS_DUAL_BODY}>
+                <div className={OPS_SPLIT_ROW}>
+                  <div className={OPS_SPLIT_COL}>
+                    <p className={OPS_SPLIT_TITLE}>
+                      <Layers className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                      Campaign
+                    </p>
+                    <div className={clsx("mt-1.5 flex min-h-0 flex-1 flex-col", props.campaignRows.length ? OPS_DUAL_SCROLL : OPS_EMPTY_CENTER)}>
+                      {props.campaignRows.length ? (
+                        <div className="space-y-1.5">
+                          {(compact ? props.campaignRows.slice(0, 3) : props.campaignRows.slice(0, 8)).map((c) => (
+                            <div key={c.id} className="flex items-center gap-2">
+                              <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-100">
+                                <div
+                                  className="h-full rounded-full bg-gradient-to-r from-violet-400 to-violet-500"
+                                  style={{ width: `${Math.min(100, Math.round((c.clicks / maxCamp) * 100))}%` }}
+                                />
+                              </div>
+                              <span className="w-[5.5rem] shrink-0 truncate text-right text-[10px] text-slate-500 sm:w-28">
+                                {c.name}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-slate-400">Chưa có campaign.</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {!compact ? (
+                    <div className={OPS_SPLIT_COL}>
+                      <p className={OPS_SPLIT_TITLE}>
+                        <Cpu className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                        Thiết bị
+                      </p>
+                      <div className={clsx("mt-1.5 flex min-h-0 flex-1 flex-col", props.deviceRows.length ? OPS_DUAL_SCROLL : OPS_EMPTY_CENTER)}>
+                        {props.deviceRows.length ? (
+                          <div className="space-y-1.5">
+                            {props.deviceRows.slice(0, 8).map((d) => (
+                              <div key={d.device} className="flex items-center gap-2">
+                                <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-100">
+                                  <div
+                                    className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-500"
+                                    style={{
+                                      width: `${Math.min(100, Math.round(((d.clicks + d.visitors) / maxDev) * 100))}%`,
+                                    }}
+                                  />
+                                </div>
+                                <span className="w-[5.5rem] shrink-0 truncate text-right text-[10px] text-slate-500 sm:w-24">
+                                  {d.device}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-[11px] text-slate-400">Chưa có phân tích thiết bị.</p>
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+                <p className="shrink-0 border-t border-slate-100 pt-1.5 text-[10px] leading-snug text-slate-400">
+                  Geo: sẵn sàng mở rộng khi có dữ liệu quốc gia.
                 </p>
               </div>
             </div>
-            {snapshot?.rolling ? (
-              <p className="text-[10px] leading-snug text-slate-500">
-                Rolling {snapshot.rolling.source === "redis" ? "Redis" : "DB"}: click 1m {snapshot.rolling.clicks1m} (baseline{" "}
-                {snapshot.rolling.clicks1mBaseline}) · 5m {snapshot.rolling.clicks5m} (baseline {snapshot.rolling.clicks5mBaseline}) · 15m{" "}
-                {snapshot.rolling.clicks15m} (baseline {snapshot.rolling.clicks15mBaseline})
-                {snapshot.rolling.rollMeta?.writerLagMs != null
-                  ? ` · ghi trễ ~${Math.round(snapshot.rolling.rollMeta.writerLagMs / 1000)}s`
-                  : ""}
-                {typeof snapshot.alertsSuppressedCount === "number" && snapshot.alertsSuppressedCount > 0
-                  ? ` · server ẩn ${snapshot.alertsSuppressedCount} cảnh báo (cooldown)`
-                  : ""}
-              </p>
-            ) : null}
-            {snapshot?.trackingQueues ? (
-              <div className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 text-[10px] text-slate-600">
-                <p className="font-semibold text-slate-700">Queue depth</p>
-                <p className="mt-1 font-mono leading-relaxed">
-                  in:{snapshot.trackingQueues.ingest?.waiting ?? "—"} / at:{snapshot.trackingQueues.attribution?.waiting ?? "—"} / rt:
-                  {snapshot.trackingQueues.realtime?.waiting ?? "—"}
-                  {snapshot.conversionDispatchQueue ? (
-                    <>
-                      {" "}
-                      / capi:{snapshot.conversionDispatchQueue.waiting ?? "—"}
-                    </>
-                  ) : null}
-                </p>
-                {snapshot.capiJobs24h && Object.keys(snapshot.capiJobs24h).length > 0 ? (
-                  <p className="mt-1 font-mono text-[9px] leading-relaxed text-slate-500">
-                    CAPI 24h:{" "}
-                    {Object.entries(snapshot.capiJobs24h)
-                      .map(([k, v]) => `${k}=${v}`)
-                      .join(" · ")}
-                  </p>
-                ) : null}
-              </div>
-            ) : (
-              <p className="text-[10px] text-slate-400">{snapshot && !snapshot.bullMqEnabled ? "BullMQ tắt — không có queue depth." : "Đang tải queue…"}</p>
-            )}
-            {snapErr ? <p className="text-[11px] text-rose-700">{snapErr}</p> : null}
-            {allVisibleAlerts.length > 0 ? (
-              <div className="space-y-2 border-t border-slate-200 pt-2">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-700">Smart alerts</p>
-                {groupKeys.map((gk) => {
-                  const list = groupedAlerts[gk];
-                  if (!list?.length) return null;
-                  return (
-                    <div key={gk} className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5">
-                      <p className="text-[10px] font-semibold text-slate-600">{groupLabel[gk] ?? gk}</p>
-                      <ul className="mt-1 space-y-1.5">
-                        {list.map((a) => (
-                          <li
-                            key={a.id}
-                            className={clsx(
-                              "rounded-md border px-2 py-1.5 text-[11px] shadow-none",
-                              a.severity === "critical"
-                                ? "border-rose-200 bg-rose-50 text-rose-800"
-                                : a.severity === "warning"
-                                  ? "border-amber-200 bg-amber-50 text-amber-900"
-                                  : "border-sky-200 bg-sky-50 text-sky-900",
-                            )}
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex min-w-0 flex-1 items-start gap-2">
-                                <div className="mt-0.5 shrink-0 text-slate-500">
-                                  {a.severity === "critical" || a.severity === "warning" ? (
-                                    <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
-                                  ) : (
-                                    <span className="block h-3.5 w-3.5 rounded-full bg-sky-400/70" aria-hidden />
-                                  )}
-                                </div>
-                                <div className="min-w-0">
-                                  <p className="font-semibold leading-snug text-slate-900">{a.title}</p>
-                                  <p className="mt-0.5 text-[10px] leading-snug text-slate-600">{a.detail}</p>
-                                  {a.ai?.features && !compact ? (
-                                    <p className="mt-1 font-mono text-[9px] text-slate-500">
-                                      AI-ready: {Object.entries(a.ai.features)
-                                        .slice(0, 4)
-                                        .map(([k, v]) => `${k}=${typeof v === "number" ? v.toFixed(2) : v}`)
-                                        .join(" · ")}
-                                    </p>
-                                  ) : null}
-                                </div>
-                              </div>
-                              <div className="flex shrink-0 flex-col gap-0.5">
-                                <button
-                                  type="button"
-                                  onClick={() => onAckAlert(a.id)}
-                                  className="rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[9px] font-semibold text-slate-700 hover:bg-slate-50"
-                                >
-                                  Đã đọc
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => onSnoozeAlert(a.id)}
-                                  className="rounded-md border border-transparent bg-transparent px-1.5 py-0.5 text-[9px] text-slate-500 hover:bg-slate-100"
-                                >
-                                  Ẩn 8p
-                                </button>
-                              </div>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
+          </div>
+
+          <div className={OPS_DUAL_COL}>
+            <p className={OPS_PANEL_TITLE}>Health & alerts</p>
+            <div className={OPS_DUAL_CARD}>
+              <div className={OPS_DUAL_BODY}>
+                <div className={clsx(OPS_HEALTH_GRID, "text-[11px]")}>
+                  <div className={OPS_HEALTH_CELL}>
+                    <p className="flex items-center gap-1 text-slate-500">
+                      <Server className="h-3 w-3 shrink-0" aria-hidden />
+                      Redis
+                    </p>
+                    <p className={clsx("truncate font-semibold tabular-nums", snapshot?.redis.ok ? "text-emerald-700" : "text-rose-700")}>
+                      {snapshot ? (snapshot.redis.ok ? `${snapshot.redis.ms}ms` : "Lỗi") : "…"}
+                    </p>
+                  </div>
+                  <div className={OPS_HEALTH_CELL}>
+                    <p className="flex items-center gap-1 text-slate-500">
+                      <Radio className="h-3 w-3 shrink-0" aria-hidden />
+                      SSE (global)
+                    </p>
+                    <p className="truncate font-semibold tabular-nums text-slate-900">
+                      {snapshot ? snapshot.sse.activeConnections : "…"}
+                    </p>
+                  </div>
+                  <div className={OPS_HEALTH_CELL}>
+                    <p className="flex items-center gap-1 text-slate-500">
+                      <Shield className="h-3 w-3 shrink-0" aria-hidden />
+                      DLQ 24h
+                    </p>
+                    <div>
+                      <p className="truncate font-semibold tabular-nums text-amber-700">{snapshot?.dlq24h ?? "…"}</p>
+                      {snapshot?.dlq1h != null ? (
+                        <p className="truncate text-[9px] text-slate-400">1h: {snapshot.dlq1h}</p>
+                      ) : (
+                        <span className="block h-[0.875rem]" aria-hidden />
+                      )}
                     </div>
-                  );
-                })}
+                  </div>
+                  <div className={OPS_HEALTH_CELL}>
+                    <p className="flex items-center gap-1 text-slate-500">
+                      <Activity className="h-3 w-3 shrink-0" aria-hidden />
+                      Latency
+                    </p>
+                    <div className="space-y-0.5 font-semibold tabular-nums leading-tight text-slate-900">
+                      <p className="truncate">
+                        p50 {snapshot?.ingestLatencyP50Ms != null ? `${snapshot.ingestLatencyP50Ms}ms` : "—"}
+                      </p>
+                      <p className="truncate text-[10px] font-medium text-slate-600">
+                        p90 {snapshot?.ingestLatencyP90Ms != null ? `${snapshot.ingestLatencyP90Ms}ms` : "—"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className={OPS_META_BLOCK}>
+                  {snapshot?.rolling ? (
+                    <p className="line-clamp-3">
+                      Rolling {snapshot.rolling.source === "redis" ? "Redis" : "DB"}: click 1m {snapshot.rolling.clicks1m} (baseline{" "}
+                      {snapshot.rolling.clicks1mBaseline}) · 5m {snapshot.rolling.clicks5m} (baseline {snapshot.rolling.clicks5mBaseline}) · 15m{" "}
+                      {snapshot.rolling.clicks15m} (baseline {snapshot.rolling.clicks15mBaseline})
+                      {snapshot.rolling.rollMeta?.writerLagMs != null
+                        ? ` · ghi trễ ~${Math.round(snapshot.rolling.rollMeta.writerLagMs / 1000)}s`
+                        : ""}
+                      {typeof snapshot.alertsSuppressedCount === "number" && snapshot.alertsSuppressedCount > 0
+                        ? ` · server ẩn ${snapshot.alertsSuppressedCount} cảnh báo (cooldown)`
+                        : ""}
+                    </p>
+                  ) : null}
+                  {snapshot?.trackingQueues ? (
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-slate-600">
+                      <p className="font-semibold text-slate-700">Queue depth</p>
+                      <p className="mt-0.5 truncate font-mono text-[9px] sm:text-[10px]">
+                        in:{snapshot.trackingQueues.ingest?.waiting ?? "—"} / gd:{snapshot.trackingQueues.attribution?.waiting ?? "—"} / rt:
+                        {snapshot.trackingQueues.realtime?.waiting ?? "—"}
+                        {snapshot.conversionDispatchQueue
+                          ? ` / capi:${snapshot.conversionDispatchQueue.waiting ?? "—"}`
+                          : ""}
+                      </p>
+                      {snapshot.capiJobs24h && Object.keys(snapshot.capiJobs24h).length > 0 ? (
+                        <p className="mt-0.5 truncate font-mono text-[9px] text-slate-500">
+                          CAPI 24h:{" "}
+                          {Object.entries(snapshot.capiJobs24h)
+                            .map(([k, v]) => `${k}=${v}`)
+                            .join(" · ")}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <p className="text-slate-400">
+                      {snapshot && !snapshot.bullMqEnabled ? "BullMQ tắt — không có queue depth." : "Đang tải queue…"}
+                    </p>
+                  )}
+                  {snapErr ? <p className="text-rose-700">{snapErr}</p> : null}
+                </div>
+
+                <div className={OPS_ALERTS_WRAP}>
+                  <p className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-slate-700">Smart alerts</p>
+                  {allVisibleAlerts.length > 0 ? (
+                    <div className={OPS_ALERTS_SCROLL}>
+                      {groupKeys.map((gk) => {
+                        const list = groupedAlerts[gk];
+                        if (!list?.length) return null;
+                        return (
+                          <div key={gk} className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5">
+                            <p className="text-[10px] font-semibold text-slate-600">{groupLabel[gk] ?? gk}</p>
+                            <ul className="mt-1 space-y-1.5">
+                              {list.map((a) => (
+                                <li
+                                  key={a.id}
+                                  className={clsx(
+                                    "rounded-md border px-2 py-1.5 text-[11px] shadow-none",
+                                    a.severity === "critical"
+                                      ? "border-rose-200 bg-rose-50 text-rose-800"
+                                      : a.severity === "warning"
+                                        ? "border-amber-200 bg-amber-50 text-amber-900"
+                                        : "border-sky-200 bg-sky-50 text-sky-900",
+                                  )}
+                                >
+                                  <div className="flex items-start gap-2">
+                                    <div className="mt-0.5 shrink-0 text-slate-500">
+                                      {a.severity === "critical" || a.severity === "warning" ? (
+                                        <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
+                                      ) : (
+                                        <span className="block h-3.5 w-3.5 rounded-full bg-sky-400/70" aria-hidden />
+                                      )}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <p className="line-clamp-2 font-semibold leading-snug text-slate-900">
+                                        {sanitizeCtvDisplayText(a.title)}
+                                      </p>
+                                      <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-slate-600">
+                                        {sanitizeCtvDisplayText(a.detail)}
+                                      </p>
+                                      {a.ai?.features && !compact ? (
+                                        <p className="mt-1 truncate font-mono text-[9px] text-slate-500">
+                                          AI-ready:{" "}
+                                          {Object.entries(a.ai.features)
+                                            .slice(0, 4)
+                                            .map(([k, v]) => `${k}=${typeof v === "number" ? v.toFixed(2) : v}`)
+                                            .join(" · ")}
+                                        </p>
+                                      ) : null}
+                                    </div>
+                                    <div className="flex shrink-0 items-center gap-1 self-start">
+                                      <button
+                                        type="button"
+                                        onClick={() => onAckAlert(a.id)}
+                                        className="whitespace-nowrap rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[9px] font-semibold text-slate-700 hover:bg-slate-50"
+                                      >
+                                        Đã đọc
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => onSnoozeAlert(a.id)}
+                                        className="whitespace-nowrap rounded-md border border-slate-200 bg-white/80 px-1.5 py-0.5 text-[9px] font-semibold text-slate-600 hover:bg-slate-100"
+                                      >
+                                        Ẩn 8p
+                                      </button>
+                                    </div>
+                                  </div>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className={clsx(OPS_EMPTY_CENTER, "min-h-[3.5rem] py-2")}>
+                      <p className="text-[11px] text-slate-400">Không có cảnh báo đang hiển thị.</p>
+                    </div>
+                  )}
+                </div>
               </div>
-            ) : null}
+            </div>
           </div>
         </div>
       </div>

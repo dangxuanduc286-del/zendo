@@ -1390,9 +1390,11 @@ export type AffiliateWithdrawalRow = {
   id: string;
   affiliateDisplayName: string;
   refCode: string;
+  customerPhone: string | null;
   amount: number;
   availableAmount: number | null;
   paymentMethod: string;
+  paymentInfo: string;
   paymentInfoPreview: string;
   status: AffiliateWithdrawalStatus;
   createdAt: Date;
@@ -1424,6 +1426,7 @@ function buildAffiliateWithdrawalSearchWhere(
       { paymentMethod: { contains: q, mode: "insensitive" } },
       { affiliateProfile: { refCode: { contains: q, mode: "insensitive" } } },
       { affiliateProfile: { customer: { fullName: { contains: q, mode: "insensitive" } } } },
+      { affiliateProfile: { customer: { phone: { contains: q, mode: "insensitive" } } } },
       { affiliateProfile: { admin: { fullName: { contains: q, mode: "insensitive" } } } },
       { paymentInfo: { contains: q, mode: "insensitive" } },
     ],
@@ -1490,7 +1493,7 @@ export async function getAffiliateWithdrawals(
         affiliateProfile: {
           select: {
             refCode: true,
-            customer: { select: { fullName: true } },
+            customer: { select: { fullName: true, phone: true } },
             admin: { select: { fullName: true } },
           },
         },
@@ -1503,14 +1506,17 @@ export async function getAffiliateWithdrawals(
     const a = r.affiliateProfile.admin;
     const affiliateDisplayName =
       c?.fullName?.trim() || a?.fullName?.trim() || r.affiliateProfile.refCode;
+    const paymentInfo = r.paymentInfo ?? "";
     return {
       id: r.id,
       affiliateDisplayName,
       refCode: r.affiliateProfile.refCode,
+      customerPhone: c?.phone?.trim() || null,
       amount: Number(r.amount),
       availableAmount: r.availableAmount != null ? Number(r.availableAmount) : null,
       paymentMethod: r.paymentMethod,
-      paymentInfoPreview: truncateWithdrawalPaymentPreview(r.paymentInfo ?? ""),
+      paymentInfo,
+      paymentInfoPreview: truncateWithdrawalPaymentPreview(paymentInfo),
       status: r.status,
       createdAt: r.createdAt,
       adminNote: r.adminNote,
@@ -1545,9 +1551,16 @@ export async function updateAffiliateWithdrawalStatus(
 
   const row = await db.affiliateWithdrawalRequest.findUnique({
     where: { id: withdrawalId },
-    select: { id: true, status: true },
+    select: {
+      id: true,
+      status: true,
+      amount: true,
+      affiliateProfile: { select: { customerId: true } },
+    },
   });
   if (!row) throw new Error("Không tìm thấy yêu cầu rút tiền.");
+  const customerId = row.affiliateProfile.customerId;
+  const amountVnd = Number(row.amount ?? 0);
 
   const rawNote = options?.adminNote;
   const note =
@@ -1564,6 +1577,10 @@ export async function updateAffiliateWithdrawalStatus(
       where: { id: withdrawalId },
       data: { status: "APPROVED", approvedAt: now },
     });
+    if (customerId) {
+      const { publishAffiliateWithdrawalApproved } = await import("@/lib/affiliate/customer-payout-notifications");
+      await publishAffiliateWithdrawalApproved({ customerId, withdrawalId, amountVnd });
+    }
     return;
   }
 
@@ -1575,6 +1592,10 @@ export async function updateAffiliateWithdrawalStatus(
       "@/lib/affiliate/affiliate-withdrawal-ledger"
     );
     await markAffiliateWithdrawalPaidInTransaction(withdrawalId);
+    if (customerId) {
+      const { publishAffiliateWithdrawalPaid } = await import("@/lib/affiliate/customer-payout-notifications");
+      await publishAffiliateWithdrawalPaid({ customerId, withdrawalId, amountVnd });
+    }
     return;
   }
 
@@ -1593,6 +1614,15 @@ export async function updateAffiliateWithdrawalStatus(
         adminNote: note,
       },
     });
+    if (customerId) {
+      const { publishAffiliateWithdrawalRejected } = await import("@/lib/affiliate/customer-payout-notifications");
+      await publishAffiliateWithdrawalRejected({
+        customerId,
+        withdrawalId,
+        amountVnd,
+        rejectionReason: note,
+      });
+    }
     return;
   }
 
@@ -2207,6 +2237,55 @@ export async function getAffiliateApplicationPendingCountForAdmin(): Promise<num
   return db.affiliateApplication.count({
     where: { status: "PENDING" },
   });
+}
+
+export async function getAffiliateWithdrawalPendingCountForAdmin(): Promise<number> {
+  await assertAdminAccess();
+  const db = await getDbClient();
+  if (!db) return 0;
+  return db.affiliateWithdrawalRequest.count({
+    where: { status: "PENDING" },
+  });
+}
+
+/** Số tài khoản nhận tiền CTV đang chờ xác minh (badge tab admin). */
+export async function getAffiliatePayoutAccountPendingCountForAdmin(): Promise<number> {
+  await assertAdminAccess();
+  const db = await getDbClient();
+  if (!db) return 0;
+  return db.affiliatePayoutAccount.count({
+    where: { verificationStatus: "PENDING" },
+  });
+}
+
+export type AffiliateAdminPendingBadgeCounts = {
+  applications: number;
+  withdrawals: number;
+  payoutAccounts: number;
+};
+
+let pendingBadgeCountsCache:
+  | { at: number; value: AffiliateAdminPendingBadgeCounts }
+  | null = null;
+
+export async function getAffiliateAdminPendingBadgeCounts(
+  ttlMs = 5_000,
+): Promise<AffiliateAdminPendingBadgeCounts> {
+  await assertAdminAccess();
+  const now = Date.now();
+  if (pendingBadgeCountsCache && now - pendingBadgeCountsCache.at < ttlMs) {
+    return pendingBadgeCountsCache.value;
+  }
+  const db = await getDbClient();
+  if (!db) return { applications: 0, withdrawals: 0, payoutAccounts: 0 };
+  const [applications, withdrawals, payoutAccounts] = await Promise.all([
+    db.affiliateApplication.count({ where: { status: "PENDING" } }),
+    db.affiliateWithdrawalRequest.count({ where: { status: "PENDING" } }),
+    db.affiliatePayoutAccount.count({ where: { verificationStatus: "PENDING" } }),
+  ]);
+  const value = { applications, withdrawals, payoutAccounts };
+  pendingBadgeCountsCache = { at: now, value };
+  return value;
 }
 
 /** Sidebar / layout: tái dùng count chuẩn; mọi lỗi (quyền, DB, schema) → 0, không crash admin. */

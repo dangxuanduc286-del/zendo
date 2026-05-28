@@ -330,6 +330,8 @@ export default function AdminPayoutAccountsTable({ status, query }: { status: St
                       <div className="flex-1">
                         <label className="text-xs font-medium text-[#64748B]">Reject reason (bắt buộc khi Reject)</label>
                         <textarea
+                          id={`admin-affiliate-payout-account-${detail.id}-reject-reason`}
+                          name="rejectReason"
                           value={rejectReason}
                           onChange={(e) => setRejectReason(e.target.value)}
                           rows={2}

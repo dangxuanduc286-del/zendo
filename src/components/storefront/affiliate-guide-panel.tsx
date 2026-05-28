@@ -50,7 +50,7 @@ export default function AffiliateGuidePanel({
   })();
 
   return (
-    <section className="mt-4 rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 min-w-0">
+    <section className="min-w-0">
       <h4 className="text-base font-semibold text-[#0F172A]">{title}</h4>
       <p className="mt-1.5 text-sm text-[#64748B]">{intro}</p>
 

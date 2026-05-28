@@ -21,33 +21,74 @@ import AffiliateAnalyticsBarChartLazy from "./affiliate-analytics-bar-chart-lazy
 import AffiliateConversionFunnelVisual from "./affiliate-conversion-funnel-visual";
 import { CreatorEmptyState, CreatorMetricCard, CreatorSectionShell } from "./affiliate-creator-metric-card";
 import {
+  clickLabelForAnalyticsRange,
+  CTV_ANALYTICS_CLICK_PERIOD_HINT,
+} from "@/lib/ctv/ctv-click-display";
+import {
+  CTV_ANALYTICS_ORDER_PERIOD_HINT,
+  CTV_PAID_ORDER_KPI_HINT,
+  orderLabelForAnalyticsRange,
+  paidOrderLabelForAnalyticsRange,
+} from "@/lib/ctv/ctv-order-display";
+import {
+  conversionLabelForAnalyticsRange,
+  CTV_CONVERSION_FORMULA_HINT,
+} from "@/lib/ctv/ctv-conversion-month-kpi";
+import {
   affiliateAnalyticsFiltersToSearchParams,
   type AffiliateAnalyticsFilters,
   type AffiliateRealtimeActivityClient,
   useAffiliateAnalyticsOverview,
   useAffiliateCampaignList,
   useAffiliateChart,
-  useAffiliateConversionTimeline,
   useAffiliateDeviceAnalytics,
   useAffiliateFunnel,
-  useAffiliateLandingAnalytics,
   useAffiliateRealtime,
   useAffiliateTopPages,
   useAffiliateTopProducts,
   useAffiliateTrafficSources,
   type RangeKey,
 } from "./use-affiliate-analytics-hooks";
+import { AccountPageTabPanel } from "./account-page-tab-panel";
+import { ACCOUNT_PAGE_HEADER_SELECT } from "./account-page-header-tokens";
 import {
-  CTV_DASHBOARD_HEADER_BORDER,
-  CTV_DASHBOARD_HEADER_ICON,
-  CTV_DASHBOARD_SHELL,
-  CTV_TYPE_BODY,
-  CTV_TYPE_TITLE,
+  CTV_ANALYTICS_OVERVIEW_STACK,
+  CTV_ANALYTICS_TAB_CONTENT,
+  CTV_TRAFFIC_TAB_BODY,
+  CTV_TRAFFIC_TAB_BODY_CENTER,
+  CTV_TRAFFIC_TAB_BODY_FILL,
+  CTV_TRAFFIC_TAB_CHART_BOX,
+  CTV_TRAFFIC_TAB_CHART_COL,
+  CTV_TRAFFIC_TAB_EMPTY_STATE,
+  CTV_TRAFFIC_TAB_LANDING_COL,
+  CTV_TRAFFIC_TAB_LOADING_FILL,
+  CTV_TRAFFIC_TAB_MOBILE_LIST,
+  CTV_TRAFFIC_TAB_PAIR_ROW,
+  CTV_TRAFFIC_TAB_SHELL,
+  CTV_TRAFFIC_TAB_SHELL_BODY,
+  CTV_TRAFFIC_TAB_TABLE_AREA,
+  CTV_TRAFFIC_TAB_TABLE_COL_LANDING,
+  CTV_TRAFFIC_TAB_TABLE_COL_METRIC,
+  CTV_TRAFFIC_TAB_TABLE_SCROLL,
+  CTV_TRAFFIC_TAB_TABLE_TD,
+  CTV_TRAFFIC_TAB_TABLE_TH,
+  CTV_COLOR_ACCENT_BORDER,
+  CTV_COLOR_ACCENT_RING,
+  CTV_COLOR_ACCENT_SURFACE,
+  CTV_COLOR_BORDER,
+  CTV_COLOR_BORDER_STRONG,
+  CTV_COLOR_SURFACE_ROW_HOVER,
+  CTV_COLOR_SURFACE_TABLE_HEAD,
+  CTV_ANALYTICS_TAB_SCROLL,
+  CTV_DASHBOARD_HEADER_STICKY,
 } from "./affiliate/affiliate-ctv-account-ui-tokens";
 import {
-  AFFILIATE_ANALYTICS_MAIN_TAB_ACTIVE,
-  AFFILIATE_ANALYTICS_MAIN_TAB_INACTIVE,
-  AFFILIATE_ANALYTICS_TAB_ROW_SURFACE,
+  CTV_SEGMENTED_ITEM,
+  CTV_SEGMENTED_ITEM_ACTIVE,
+  CTV_TAB_IDLE_HOVER,
+  CTV_V2_SELECT,
+} from "./ctv/ctv-ui-tokens";
+import {
   AFFILIATE_ANALYTICS_TOOLBAR_BTN_PRIMARY,
   AFFILIATE_ANALYTICS_TOOLBAR_BTN_SECONDARY,
 } from "@/lib/affiliate-analytics-ui-tokens";
@@ -56,16 +97,33 @@ import { useAffiliateTrackingSse } from "@/hooks/use-affiliate-tracking-sse";
 import { mergeAffiliateStreamTicksIntoActivity } from "@/lib/affiliate-tracking-stream-client-merge";
 import type { AffiliateTrackingStreamTickV1 } from "@/lib/affiliate-tracking-stream-types";
 import type { RtPoint } from "./affiliate-creator-charts/creator-realtime-sparkline-inner";
+const AffiliateAnalyticsOverviewSection = dynamic(
+  () => import("./affiliate-analytics-widgets/affiliate-analytics-overview-section"),
+  {
+    loading: () => <div className="min-h-[24rem] animate-pulse rounded-2xl bg-slate-100/90" aria-hidden />,
+    ssr: false,
+  },
+);
 
-const AffiliateCreatorChartsSection = dynamic(() => import("./affiliate-creator-charts/affiliate-creator-charts-section"), {
-  loading: () => <div className="min-h-[8rem] animate-pulse rounded-2xl bg-[#F1F5F9]/90" />,
-  ssr: false,
-});
-
-const AffiliateTrackingWorkspace = dynamic(() => import("./affiliate-tracking-workspace"), {
-  loading: () => <div className="min-h-[14rem] w-full animate-pulse rounded-2xl bg-[#EFF6FF]/60 ring-1 ring-[#DBEAFE]/80" />,
-  ssr: false,
-});
+const AffiliateTrackingWorkspace = dynamic(
+  () => import("./affiliate-tracking-workspace").then((mod) => mod.default),
+  {
+    loading: () => (
+      <div
+        className={clsx(
+          "min-h-[14rem] w-full animate-pulse rounded-2xl ring-1",
+          CTV_COLOR_ACCENT_SURFACE,
+          "bg-blue-50/60",
+          CTV_COLOR_ACCENT_RING,
+          "ring-blue-100/80",
+        )}
+        aria-busy
+        aria-label="Đang tải Pixel / Tracking"
+      />
+    ),
+    ssr: false,
+  },
+);
 
 const AffiliateAnalyticsTrafficInsights = dynamic(() => import("./affiliate-analytics-traffic-insights"), {
   loading: () => <div className="min-h-[12rem] animate-pulse rounded-2xl bg-[#F1F5F9]/90" />,
@@ -84,24 +142,6 @@ function fmtVnd(n: number): string {
 function fmtPct(n: number): string {
   if (!Number.isFinite(n)) return "0%";
   return `${(n * 100).toFixed(n < 0.1 ? 1 : 0)}%`;
-}
-
-function rangeViLabel(r: RangeKey): string {
-  if (r === "today") return "Hôm nay";
-  if (r === "7d") return "7 ngày";
-  if (r === "30d") return "30 ngày";
-  return "Tháng này";
-}
-
-function formatRelativeVi(iso: string): string {
-  const t = new Date(iso).getTime();
-  if (!Number.isFinite(t)) return "";
-  let diffSec = Math.round((Date.now() - t) / 1000);
-  if (diffSec < 0) diffSec = 0;
-  if (diffSec < 45) return "vừa xong";
-  if (diffSec < 3600) return `${Math.floor(diffSec / 60)} phút trước`;
-  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)} giờ trước`;
-  return new Date(iso).toLocaleString("vi-VN");
 }
 
 function Skeleton({ className }: { className: string }): JSX.Element {
@@ -161,6 +201,15 @@ export default function AffiliateAnalyticsDashboard({
   });
   const filterQs = useMemo(() => affiliateAnalyticsFiltersToSearchParams(trafficFilters), [trafficFilters]);
 
+  const analyticsTabScrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const scroller = analyticsTabScrollRef.current;
+    if (!scroller) return;
+    const activeBtn = scroller.querySelector<HTMLButtonElement>(`[data-analytics-tab="${active}"]`);
+    activeBtn?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }, [active]);
+
   const [overviewHeavyReady, setOverviewHeavyReady] = useState(false);
   useEffect(() => {
     if (active !== "overview") {
@@ -194,28 +243,22 @@ export default function AffiliateAnalyticsDashboard({
    */
   const [overviewCampaignsIdleReady, setOverviewCampaignsIdleReady] = useState(false);
   const [overviewDevicesIdleReady, setOverviewDevicesIdleReady] = useState(false);
-  const [overviewLandingIdleReady, setOverviewLandingIdleReady] = useState(false);
   useEffect(() => {
     if (active !== "overview") {
       setOverviewCampaignsIdleReady(false);
       setOverviewDevicesIdleReady(false);
-      setOverviewLandingIdleReady(false);
       return;
     }
     setOverviewCampaignsIdleReady(false);
     setOverviewDevicesIdleReady(false);
-    setOverviewLandingIdleReady(false);
     let devicesTimer: number | null = null;
-    let landingTimer: number | null = null;
     const cancelIdle = scheduleIdleWork(() => {
       setOverviewCampaignsIdleReady(true);
       devicesTimer = window.setTimeout(() => setOverviewDevicesIdleReady(true), 140);
-      landingTimer = window.setTimeout(() => setOverviewLandingIdleReady(true), 300);
     }, 520);
     return () => {
       cancelIdle();
       if (devicesTimer != null) window.clearTimeout(devicesTimer);
-      if (landingTimer != null) window.clearTimeout(landingTimer);
     };
   }, [active, range]);
 
@@ -293,6 +336,37 @@ export default function AffiliateAnalyticsDashboard({
 
   const activity = streamOverlay ?? baseActivity;
 
+  const [opsRtHistory, setOpsRtHistory] = useState<RtPoint[]>([]);
+  useEffect(() => {
+    setOpsRtHistory([]);
+  }, [range]);
+
+  const opsRtPollSignature = useMemo(() => {
+    if (baseActivityFromServer?.realtime) {
+      const r = baseActivityFromServer.realtime;
+      return `b:${baseActivityFromServer.activeVisitors}|${r.clicksLast5m}|${r.conversionsLast5m}|${r.revenueLast5m}`;
+    }
+    const d = realtime.data;
+    if (d?.realtime) {
+      const r = d.realtime;
+      return `f:${d.activeVisitors}|${r.clicksLast5m}|${r.conversionsLast5m}|${r.revenueLast5m}`;
+    }
+    return "";
+  }, [baseActivityFromServer, realtime.data]);
+
+  const activityRef = useRef(activity);
+  activityRef.current = activity;
+
+  useEffect(() => {
+    if (active !== "overview" || !opsRtPollSignature) return;
+    const act = activityRef.current;
+    if (!act?.realtime) return;
+    const r = act.realtime;
+    setOpsRtHistory((prev) =>
+      [...prev, { t: Date.now(), clicks: r.clicksLast5m, online: act.activeVisitors, conv: r.conversionsLast5m }].slice(-120),
+    );
+  }, [active, opsRtPollSignature]);
+
   const realtimePanelLoading = !activity && (overview.loading || (useRealtimeFallback && realtime.loading));
   const realtimePanelRefreshing = overview.refreshing || (useRealtimeFallback && realtime.refreshing);
 
@@ -305,36 +379,26 @@ export default function AffiliateAnalyticsDashboard({
     return "Realtime";
   })();
 
-  const chartTrafficEnabled =
-    active === "traffic" || (active === "overview" && overviewHeavyReady && overviewHeavyPhase >= 1);
-  const chart = useAffiliateChart({ range, type: "traffic", enabled: chartTrafficEnabled });
+  const chart = useAffiliateChart({ range, type: "traffic", enabled: active === "traffic" });
   const topProducts = useAffiliateTopProducts({
     range,
-    enabled: active === "top" || (active === "overview" && overviewHeavyReady && overviewHeavyPhase >= 3),
+    enabled: active === "top",
     sort: productSort,
     filterQs: active === "top" ? filterQs : "",
   });
   const topPages = useAffiliateTopPages({
     range,
-    enabled: active === "traffic" || (active === "overview" && overviewHeavyReady && overviewHeavyPhase >= 2),
+    enabled: active === "traffic",
   });
   const funnel = useAffiliateFunnel({
     range,
-    enabled: active === "traffic" || (active === "overview" && overviewHeavyReady && overviewHeavyPhase >= 2),
+    enabled: active === "traffic",
   });
 
-  const creatorTimeline = useAffiliateConversionTimeline({ range, enabled: active === "overview", filterQs: "", live: false });
   const creatorSources = useAffiliateTrafficSources({ range, enabled: active === "overview", filterQs: "", live: false });
   const creatorCampaigns = useAffiliateCampaignList({
     range,
     enabled: active === "overview" && overviewCampaignsIdleReady,
-  });
-  const creatorLanding = useAffiliateLandingAnalytics({
-    range,
-    enabled: active === "overview" && overviewLandingIdleReady,
-    filterQs: "",
-    page: 1,
-    live: false,
   });
   const creatorDevices = useAffiliateDeviceAnalytics({
     range,
@@ -356,37 +420,6 @@ export default function AffiliateAnalyticsDashboard({
       })),
     [creatorCampaigns.data?.campaigns],
   );
-
-  const [rtHistory, setRtHistory] = useState<RtPoint[]>([]);
-  useEffect(() => {
-    setRtHistory([]);
-  }, [range]);
-
-  /** Chỉ đổi khi payload server poll — tránh spam điểm sparkline khi merge SSE. */
-  const rtPollSignature = useMemo(() => {
-    if (baseActivityFromServer?.realtime) {
-      const r = baseActivityFromServer.realtime;
-      return `b:${baseActivityFromServer.activeVisitors}|${r.clicksLast5m}|${r.conversionsLast5m}|${r.revenueLast5m}`;
-    }
-    const d = realtime.data;
-    if (d?.realtime) {
-      const r = d.realtime;
-      return `f:${d.activeVisitors}|${r.clicksLast5m}|${r.conversionsLast5m}|${r.revenueLast5m}`;
-    }
-    return "";
-  }, [baseActivityFromServer, realtime.data]);
-
-  const activityRef = useRef(activity);
-  activityRef.current = activity;
-
-  useEffect(() => {
-    if (active !== "overview" || !rtPollSignature) return;
-    const act = activityRef.current;
-    if (!act?.realtime) return;
-    const r = act.realtime;
-    const online = act.activeVisitors;
-    setRtHistory((prev) => [...prev, { t: Date.now(), clicks: r.clicksLast5m, online, conv: r.conversionsLast5m }].slice(-120));
-  }, [active, rtPollSignature]);
 
   const buckets = useMemo(() => {
     const b = chart.data?.buckets ?? [];
@@ -435,99 +468,100 @@ export default function AffiliateAnalyticsDashboard({
 
   return (
     <AnalyticsErrorBoundary title="Dashboard analytics tạm thời không khả dụng.">
-      <div className={CTV_DASHBOARD_SHELL}>
-        <section className="flex w-full min-w-0 flex-1 flex-col gap-5 overflow-x-hidden sm:gap-6 lg:gap-7">
-              <header
-                className={`flex w-full min-w-0 shrink-0 flex-col gap-5 ${CTV_DASHBOARD_HEADER_BORDER} lg:flex-row lg:items-end lg:justify-between lg:gap-8`}
-              >
-                <div className="flex min-w-0 items-start gap-3 sm:gap-4">
-                  <span className={CTV_DASHBOARD_HEADER_ICON}>
-                    <BarChart3 className="h-5 w-5" strokeWidth={1.75} aria-hidden />
-                  </span>
-                  <div className="min-w-0 space-y-1.5">
-                    <h1 className={CTV_TYPE_TITLE}>Bảng số CTV</h1>
-                    <p className={`${CTV_TYPE_BODY} w-full min-w-0`}>
-                      Theo dõi hiệu quả theo thời gian thực. Mã ref{" "}
-                      <span className="rounded-md bg-[#F1F5F9] px-1.5 py-0.5 font-mono text-[13px] font-semibold text-[#1E293B]">
-                        {affiliateRefCode}
-                      </span>
-                    </p>
-                  </div>
-                </div>
-                <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
-                  <label className="sr-only" htmlFor="affiliate-analytics-range">
-                    Chọn khoảng thời gian
-                  </label>
-                  <select
-                    id="affiliate-analytics-range"
-                    value={range}
-                    onChange={(e) => setRange(e.target.value as RangeKey)}
-                    className="h-10 min-w-[9.5rem] cursor-pointer rounded-xl border border-[#BFDBFE]/90 bg-white px-3.5 text-sm font-medium text-[#1E293B] shadow-[0_1px_2px_rgba(37,99,235,0.06)] outline-none transition-shadow focus-visible:border-[#93C5FD] focus-visible:ring-2 focus-visible:ring-[#60A5FA]/25"
-                    aria-label="Chọn khoảng thời gian"
-                  >
-                    <option value="today">Hôm nay</option>
-                    <option value="7d">7 ngày</option>
-                    <option value="30d">30 ngày</option>
-                    <option value="month">Tháng này</option>
-                  </select>
-                  <span
-                    title={
-                      lastHeartbeatAt
-                        ? `Heartbeat: ${new Date(lastHeartbeatAt).toLocaleTimeString("vi-VN")}`
-                        : sseLive
-                          ? "Đang nhận sự kiện tracking qua SSE."
-                          : undefined
-                    }
-                    className={clsx(
-                      "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold tabular-nums transition-colors",
-                      realtimePanelLoading
-                        ? "border-[#DBEAFE]/90 bg-[#EFF6FF]/50 text-[#64748B]"
-                        : sseLive
-                          ? "border-emerald-300/80 bg-emerald-50/95 text-emerald-900"
-                          : realtimePanelRefreshing
-                            ? "border-[#93C5FD]/70 bg-[#DBEAFE]/60 text-[#1D4ED8] motion-safe:animate-pulse"
-                            : "border-[#BFDBFE]/90 bg-[#EFF6FF]/90 text-[#1D4ED8]",
-                    )}
-                  >
-                    <Zap className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
-                    {realtimeStatusLabel}
-                  </span>
-                </div>
-              </header>
-
+      <AccountPageTabPanel
+        id="affiliate-analytics"
+        title="Bảng số CTV"
+        headingLevel="h1"
+        description={
+          <>
+            Theo dõi hiệu quả theo thời gian thực. Mã ref{" "}
+            <span className="rounded-md bg-[#F1F5F9] px-1.5 py-0.5 font-mono text-[13px] font-semibold text-[#1E293B]">
+              {affiliateRefCode}
+            </span>
+          </>
+        }
+        icon={<BarChart3 className="h-5 w-5" strokeWidth={1.75} aria-hidden />}
+        contentClassName="flex min-w-0 max-w-full flex-col max-lg:flex-1 max-lg:min-h-0 lg:h-auto lg:flex-none lg:grow-0"
+        toolbar={
+          <>
+            <label className="sr-only" htmlFor="affiliate-analytics-range">
+              Chọn khoảng thời gian
+            </label>
+            <select
+              id="affiliate-analytics-range"
+              name="range"
+              value={range}
+              onChange={(e) => setRange(e.target.value as RangeKey)}
+              className={ACCOUNT_PAGE_HEADER_SELECT}
+              aria-label="Chọn khoảng thời gian"
+            >
+              <option value="today">Hôm nay</option>
+              <option value="7d">7 ngày</option>
+              <option value="30d">30 ngày</option>
+              <option value="month">Tháng này</option>
+            </select>
+            <span
+              title={
+                lastHeartbeatAt
+                  ? `Heartbeat: ${new Date(lastHeartbeatAt).toLocaleTimeString("vi-VN")}`
+                  : sseLive
+                    ? "Đang nhận sự kiện tracking qua SSE."
+                    : undefined
+              }
+              className={clsx(
+                "inline-flex h-10 min-h-10 items-center gap-1.5 rounded-xl border px-3 text-xs font-semibold tabular-nums transition-colors",
+                realtimePanelLoading
+                  ? clsx(CTV_COLOR_ACCENT_BORDER, "border-blue-100/90", CTV_COLOR_ACCENT_SURFACE, "bg-blue-50/50 text-[#64748B]")
+                  : sseLive
+                    ? "border-emerald-300/80 bg-emerald-50/95 text-emerald-900"
+                    : realtimePanelRefreshing
+                      ? "border-[#93C5FD]/70 bg-blue-100/60 text-[#1D4ED8] motion-safe:animate-pulse"
+                      : clsx("border-[#BFDBFE]/90", CTV_COLOR_ACCENT_SURFACE, "bg-blue-50/90 text-[#1D4ED8]"),
+              )}
+            >
+              <Zap className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
+              {realtimeStatusLabel}
+            </span>
+          </>
+        }
+      >
               <nav
                 aria-label="Mục analytics"
-                className="sticky top-0 z-10 w-full shrink-0 border-b border-[#DBEAFE]/70 bg-[#EFF6FF]/45 py-3 backdrop-blur-[2px] lg:static lg:z-0 lg:border-0 lg:bg-transparent lg:py-0 lg:backdrop-blur-none"
+                className={clsx(
+                  "sticky top-0 z-10 w-full min-w-0 max-w-full shrink-0 py-3 lg:static lg:z-0 lg:border-0 lg:bg-transparent lg:py-0 lg:backdrop-blur-none",
+                  CTV_DASHBOARD_HEADER_STICKY,
+                )}
               >
-                <div className="overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] lg:overflow-visible [&::-webkit-scrollbar]:hidden">
-                  <div
-                    className={clsx(
-                      AFFILIATE_ANALYTICS_TAB_ROW_SURFACE,
-                      "w-max min-w-full touch-pan-x snap-x snap-mandatory flex-nowrap pb-0.5 lg:w-full lg:min-w-0 lg:flex-wrap lg:justify-start lg:snap-none",
-                    )}
-                  >
-                    {menu.map((m) => (
-                      <button
-                        key={m.key}
-                        type="button"
-                        onClick={() => setActive(m.key)}
-                        className={active === m.key ? AFFILIATE_ANALYTICS_MAIN_TAB_ACTIVE : AFFILIATE_ANALYTICS_MAIN_TAB_INACTIVE}
-                      >
-                        {m.label}
-                      </button>
-                    ))}
-                  </div>
+                <div
+                  ref={analyticsTabScrollRef}
+                  role="tablist"
+                  aria-label="Chức năng analytics"
+                  className={CTV_ANALYTICS_TAB_SCROLL}
+                >
+                  {menu.map((m) => (
+                    <button
+                      key={m.key}
+                      type="button"
+                      data-analytics-tab={m.key}
+                      role="tab"
+                      aria-selected={active === m.key}
+                      onClick={() => setActive(m.key)}
+                      className={
+                        active === m.key
+                          ? clsx(CTV_SEGMENTED_ITEM, CTV_SEGMENTED_ITEM_ACTIVE)
+                          : clsx(CTV_SEGMENTED_ITEM, CTV_TAB_IDLE_HOVER)
+                      }
+                    >
+                      {m.label}
+                    </button>
+                  ))}
                 </div>
               </nav>
 
-              <div
-                className="flex w-full flex-1 flex-col gap-5 sm:gap-6 lg:gap-7"
-                role="tabpanel"
-                aria-label="Nội dung tab analytics"
-              >
+              <div className={CTV_ANALYTICS_TAB_CONTENT} role="tabpanel" aria-label="Nội dung tab analytics">
 
               {active === "overview" ? (
-                <div className="flex w-full flex-col gap-5 sm:gap-6 lg:gap-7">
+                <div className={CTV_ANALYTICS_OVERVIEW_STACK}>
                   <AffiliateOperationsCenter
                     enabled={Boolean(activity)}
                     activity={activity}
@@ -538,13 +572,14 @@ export default function AffiliateAnalyticsDashboard({
                     sourcesRows={creatorSources.data?.rows ?? []}
                     campaignRows={campaignBarRows}
                     deviceRows={creatorDevices.data?.rows ?? []}
-                    rtHistory={rtHistory}
+                    rtHistory={opsRtHistory}
                   />
 
-                  <div className="grid w-full min-w-0 auto-rows-fr items-stretch grid-cols-2 gap-3 sm:gap-3.5 md:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))] lg:gap-4 [&>*]:min-h-0 [&>*]:min-w-0">
+                  <div className="grid w-full min-w-0 auto-rows-fr items-stretch grid-cols-2 gap-2.5 max-md:gap-2.5 sm:gap-3.5 md:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))] lg:auto-rows-auto lg:items-start lg:gap-4 [&>*]:min-h-0 [&>*]:min-w-0">
             <CreatorMetricCard
               icon={MousePointer2}
-              label="Tổng click"
+              label={clickLabelForAnalyticsRange(range)}
+              labelTitle={CTV_ANALYTICS_CLICK_PERIOD_HINT}
               value={`${ov?.totalClicks ?? 0}`}
               loading={overview.loading && !overview.data}
               tone="blue"
@@ -567,16 +602,24 @@ export default function AffiliateAnalyticsDashboard({
             />
             <CreatorMetricCard
               icon={Percent}
-              label="Conversion rate"
+              label={conversionLabelForAnalyticsRange(range)}
+              labelTitle={CTV_CONVERSION_FORMULA_HINT}
               value={fmtPct(ov?.conversionRate ?? 0)}
               loading={overview.loading && !overview.data}
               tone="emerald"
               trendPct={ovTrends.conv ?? null}
             />
-            <CreatorMetricCard icon={ShoppingBag} label="Tổng đơn" value={`${ov?.orders ?? 0}`} loading={overview.loading && !overview.data} />
+            <CreatorMetricCard
+              icon={ShoppingBag}
+              label={orderLabelForAnalyticsRange(range)}
+              labelTitle={CTV_ANALYTICS_ORDER_PERIOD_HINT}
+              value={`${ov?.orders ?? 0}`}
+              loading={overview.loading && !overview.data}
+            />
             <CreatorMetricCard
               icon={CreditCard}
-              label="Đơn đã thanh toán"
+              label={paidOrderLabelForAnalyticsRange(range)}
+              labelTitle={CTV_PAID_ORDER_KPI_HINT}
               value={`${ov?.paidOrders ?? 0}`}
               loading={overview.loading && !overview.data}
               tone="emerald"
@@ -610,243 +653,137 @@ export default function AffiliateAnalyticsDashboard({
             <CreatorMetricCard label="AOV" value={fmtVnd(ov?.AOV ?? 0)} loading={overview.loading && !overview.data} />
                   </div>
 
-                  <AffiliateCreatorChartsSection
-              rangeLabel={rangeViLabel(range)}
-              timelineBuckets={creatorTimeline.data?.buckets ?? []}
-              sourcesRows={creatorSources.data?.rows ?? []}
-              campaignRows={campaignBarRows}
-              landingRows={creatorLanding.data?.rows ?? []}
-              rtHistory={rtHistory}
-              loadingTimeline={creatorTimeline.loading && !creatorTimeline.data}
-              loadingSources={creatorSources.loading && !creatorSources.data}
-              loadingCampaigns={creatorCampaigns.loading && !creatorCampaigns.data}
-              loadingLanding={creatorLanding.loading && !creatorLanding.data}
+                  <AffiliateAnalyticsOverviewSection
+                    range={range}
+                    tabEnabled={active === "overview"}
+                    dailyTrafficEnabled={overviewHeavyReady && overviewHeavyPhase >= 1}
+                    funnelEnabled={overviewHeavyReady && overviewHeavyPhase >= 2}
+                    topProductsEnabled={overviewHeavyReady && overviewHeavyPhase >= 3}
+                    sharedOverview={overview}
+                    sharedSources={creatorSources}
                   />
 
-                  <div className="grid w-full min-w-0 gap-4 lg:grid-cols-5 lg:gap-5">
-            <CreatorSectionShell
-              className="lg:col-span-3"
-              title="Traffic theo ngày"
-              hint={range === "today" ? "Hôm nay" : "Theo khoảng"}
-            >
-              {chart.loading && !chart.data ? (
-                <Skeleton className="mt-3 h-44 min-h-[11rem] w-full rounded-xl" />
-              ) : !chartHasTraffic ? (
-                <div className="mt-3 min-h-[11rem]">
-                  <CreatorEmptyState
-                    icon={BarChart3}
-                    title="Chưa có traffic trong kỳ"
-                    hint="Khi có click theo ngày, biểu đồ sẽ hiển thị. Hãy chia sẻ link ref và quay lại sau."
-                  />
-                </div>
-              ) : (
-                <div className={`mt-3 min-h-[11rem] transition-opacity duration-300 ${chart.refreshing ? "opacity-75" : "opacity-100"}`}>
-                  <AnalyticsErrorBoundary title="Biểu đồ traffic lỗi.">
-                    <AffiliateAnalyticsBarChartLazy buckets={buckets} />
-                  </AnalyticsErrorBoundary>
-                </div>
-              )}
-              {chart.error ? (
-                <div className="mt-2 rounded-xl border border-rose-200 bg-rose-50 p-2 text-sm text-rose-700">
-                  {chart.error}{" "}
-                  <button type="button" className="font-semibold underline" onClick={chart.refetch}>
-                    Thử lại
-                  </button>
-                </div>
-              ) : null}
-            </CreatorSectionShell>
-
-            <CreatorSectionShell
-              className="lg:col-span-2"
-              title="Realtime"
-              hint={useRealtimeFallback ? "API tổng quan cũ — dùng endpoint realtime riêng" : "Đồng bộ tổng quan — ít request hơn"}
-            >
-              {realtimePanelLoading ? (
-                <Skeleton className="mt-3 h-40 w-full" />
-              ) : (
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <CreatorMetricCard
-                    icon={Users}
-                    label="Online"
-                    value={`${activity?.activeVisitors ?? 0}`}
-                    tone="emerald"
-                    pulse={realtimePanelRefreshing}
-                  />
-                  <CreatorMetricCard
-                    icon={MousePointer2}
-                    label="Click 5 phút"
-                    value={`${activity?.realtime?.clicksLast5m ?? 0}`}
-                    pulse={realtimePanelRefreshing}
-                  />
-                  <CreatorMetricCard
-                    icon={Percent}
-                    label="Chuyển đổi 5 phút"
-                    value={`${activity?.realtime?.conversionsLast5m ?? 0}`}
-                    tone="emerald"
-                  />
-                  <CreatorMetricCard
-                    icon={CircleDollarSign}
-                    label="Doanh thu 5 phút"
-                    value={fmtVnd(activity?.realtime?.revenueLast5m ?? 0)}
-                    tone="fuchsia"
-                  />
-                </div>
-              )}
-              {activity?.recentClicks?.length ? (
-                <div className="mt-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-[#64748B]">Click gần đây</p>
-                  <div className="mt-2 space-y-2">
-                    {activity.recentClicks.slice(0, 6).map((c) => (
-                      <div key={c.id} className="rounded-xl border border-[#E2E8F0]/70 bg-[#F8FAFC]/90 px-3 py-2">
-                        <p className="text-sm font-semibold text-[#0F172A]">{c.pathname || "Trang"}</p>
-                        <p className="mt-0.5 text-[11px] text-[#64748B]">
-                          {formatRelativeVi(c.createdAt)}
-                          {c.trafficSource ? (
-                            <>
-                              {" · "}
-                              <span className="font-semibold text-[#1E293B]">{c.trafficSource}</span>
-                            </>
-                          ) : null}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-            </CreatorSectionShell>
-                  </div>
-
-                  <div className="grid gap-4 lg:grid-cols-2 lg:gap-5 lg:items-stretch">
-            <CreatorSectionShell className="flex flex-col lg:min-h-[min(36dvh,22rem)]" title="Top sản phẩm">
-              {topProducts.loading && !topProducts.data ? (
-                <Skeleton className="mt-4 h-44 w-full rounded-xl" />
-              ) : topProducts.data?.rows?.length ? (
-                <div className="mt-4 overflow-x-auto rounded-xl border border-[#F1F5F9]">
-                  <table className="w-full min-w-[560px] text-left text-sm">
-                    <thead className="bg-[#F8FAFC]/90 text-[11px] font-semibold uppercase tracking-wide text-[#64748B]">
-                      <tr>
-                        <th className="px-3 py-2.5 pr-3">Sản phẩm</th>
-                        <th className="px-3 py-2.5 pr-3">Click</th>
-                        <th className="px-3 py-2.5 pr-3">Visitor</th>
-                        <th className="px-3 py-2.5 pr-3">Conv</th>
-                        <th className="px-3 py-2.5 pr-3">Doanh thu</th>
-                        <th className="px-3 py-2.5">Commission</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#F1F5F9]">
-                      {topProducts.data.rows.slice(0, 8).map((r) => (
-                        <tr key={r.productId} className="bg-white hover:bg-[#F8FAFC]/60">
-                          <td className="px-3 py-2.5 pr-3">
-                            <div className="flex min-w-0 items-center gap-2">
-                              <SafeProductThumbnail
-                                src={r.imageUrl}
-                                alt=""
-                                size={32}
-                                className="h-8 w-8 shrink-0 rounded-lg object-cover"
-                              />
-                              <span className="min-w-0 font-medium text-[#0F172A]">{r.productName}</span>
-                            </div>
-                          </td>
-                          <td className="px-3 py-2.5 pr-3 tabular-nums text-[#1E293B]">{r.clicks}</td>
-                          <td className="px-3 py-2.5 pr-3 tabular-nums text-[#1E293B]">{r.visitors ?? "—"}</td>
-                          <td className="px-3 py-2.5 pr-3 tabular-nums text-emerald-700">{fmtPct(r.conversionRate)}</td>
-                          <td className="px-3 py-2.5 pr-3 tabular-nums text-[#1E293B]">{fmtVnd(r.revenue)}</td>
-                          <td className="px-3 py-2.5 tabular-nums text-emerald-700">{fmtVnd(r.commission)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="mt-4 flex min-h-[min(32dvh,18rem)] flex-1 flex-col justify-center lg:min-h-[min(38dvh,22rem)]">
-                  <CreatorEmptyState
-                    icon={ShoppingBag}
-                    title="Chưa có top sản phẩm"
-                    hint="Khi có traffic và click vào sản phẩm, bảng xếp hạng sẽ hiện tại đây. Hãy chia sẻ link ref của bạn."
-                  />
-                </div>
-              )}
-            </CreatorSectionShell>
-
-            <CreatorSectionShell title="Funnel chuyển đổi">
-              <div className="mt-2 min-h-[10rem]">
-                {funnel.loading && !funnel.data ? (
-                  <Skeleton className="h-40 w-full rounded-xl" />
-                ) : !(funnel.data?.steps?.length ?? 0) || (funnel.data?.steps ?? []).every((s) => s.count === 0) ? (
-                  <CreatorEmptyState
-                    icon={Percent}
-                    title="Chưa đủ dữ liệu funnel"
-                    hint="Khi có luồng click → đơn trong kỳ, các bước funnel sẽ hiển thị rõ hơn."
-                  />
-                ) : (
-                  <AffiliateConversionFunnelVisual loading={false} steps={funnel.data?.steps ?? []} variant="compact" />
-                )}
-              </div>
-            </CreatorSectionShell>
-                  </div>
                 </div>
               ) : null}
 
               {active === "traffic" ? (
                 <div className="flex w-full flex-col gap-5 sm:gap-6 lg:gap-7">
-                  <div className="grid gap-4 lg:grid-cols-5 lg:items-stretch lg:gap-5">
+                  <div className={CTV_TRAFFIC_TAB_PAIR_ROW}>
             <CreatorSectionShell
-              className="flex flex-col lg:col-span-3"
+              className={clsx(CTV_TRAFFIC_TAB_SHELL, CTV_TRAFFIC_TAB_CHART_COL)}
+              bodyClassName={CTV_TRAFFIC_TAB_SHELL_BODY}
               title="Biểu đồ traffic / conversions"
               hint="Gọn trên mobile, tự làm mềm khi đang tải lại."
             >
               {chart.loading && !chart.data ? (
-                <Skeleton className="mt-2 h-56 min-h-[14rem] w-full rounded-xl sm:h-64" />
+                <div className={clsx(CTV_TRAFFIC_TAB_BODY, CTV_TRAFFIC_TAB_BODY_CENTER)}>
+                  <Skeleton className={clsx(CTV_TRAFFIC_TAB_LOADING_FILL, "bg-slate-100/90")} />
+                </div>
               ) : !chartHasTraffic ? (
-                <div className="mt-2 min-h-[14rem]">
+                <div className={clsx(CTV_TRAFFIC_TAB_BODY, CTV_TRAFFIC_TAB_BODY_CENTER)}>
                   <CreatorEmptyState
                     icon={BarChart3}
+                    className={CTV_TRAFFIC_TAB_EMPTY_STATE}
                     title="Chưa có traffic trong kỳ"
                     hint="Thử đổi khoảng thời gian hoặc tăng chia sẻ link — dữ liệu sẽ tự cập nhật khi có sự kiện."
                   />
                 </div>
               ) : (
-                <div className={`mt-2 min-h-[14rem] transition-opacity duration-300 ${chart.refreshing ? "opacity-75" : "opacity-100"}`}>
-                  <AnalyticsErrorBoundary title="Biểu đồ traffic lỗi.">
-                    <AffiliateAnalyticsBarChartLazy buckets={buckets} size="tall" />
-                  </AnalyticsErrorBoundary>
+                <div
+                  className={clsx(
+                    CTV_TRAFFIC_TAB_BODY,
+                    CTV_TRAFFIC_TAB_BODY_FILL,
+                    "transition-opacity duration-300",
+                    chart.refreshing ? "opacity-75" : "opacity-100",
+                  )}
+                >
+                  <div className={CTV_TRAFFIC_TAB_CHART_BOX}>
+                    <AnalyticsErrorBoundary title="Biểu đồ traffic lỗi.">
+                      <AffiliateAnalyticsBarChartLazy buckets={buckets} size="tall" />
+                    </AnalyticsErrorBoundary>
+                  </div>
                 </div>
               )}
-              {chart.error ? (
-                <div className="mt-2 rounded-xl border border-rose-200 bg-rose-50 p-2 text-sm text-rose-700">
-                  {chart.error}{" "}
-                  <button type="button" className="font-semibold underline" onClick={chart.refetch}>
-                    Thử lại
-                  </button>
-                </div>
-              ) : null}
             </CreatorSectionShell>
 
-            <CreatorSectionShell className="flex flex-col lg:col-span-2 lg:min-h-[min(36dvh,22rem)]" title="Top landing pages" hint="Theo visits trong kỳ">
+            <CreatorSectionShell
+              className={clsx(CTV_TRAFFIC_TAB_SHELL, CTV_TRAFFIC_TAB_LANDING_COL)}
+              bodyClassName={CTV_TRAFFIC_TAB_SHELL_BODY}
+              title="Top landing pages"
+              hint="Theo visits trong kỳ"
+            >
               {topPages.loading && !topPages.data ? (
-                <Skeleton className="mt-2 h-52 min-h-[13rem] w-full rounded-xl sm:h-60" />
+                <div className={clsx(CTV_TRAFFIC_TAB_BODY, CTV_TRAFFIC_TAB_BODY_CENTER)}>
+                  <Skeleton className={clsx(CTV_TRAFFIC_TAB_LOADING_FILL, "bg-slate-100/90")} />
+                </div>
               ) : topPages.data?.rows?.length ? (
-                <div className="mt-2 space-y-2">
-                  {topPages.data.rows.slice(0, 10).map((r) => (
-                    <div
-                      key={r.pathname}
-                      className="rounded-xl border border-[#E2E8F0]/80 bg-white/90 p-2 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
-                    >
-                      <p className="text-sm font-bold tracking-tight text-[#0F172A]">{r.pathname}</p>
-                      <p className="mt-1 text-[11px] text-[#64748B]">
-                        Visits: <span className="font-semibold tabular-nums text-[#1E293B]">{r.visits}</span>
-                        {" · "}
-                        Conv: <span className="font-semibold tabular-nums text-emerald-700">{fmtPct(r.conversionRate)}</span>
-                        {" · "}
-                        Revenue: <span className="font-semibold tabular-nums text-[#1E293B]">{fmtVnd(r.revenue)}</span>
-                      </p>
+                <div className={clsx(CTV_TRAFFIC_TAB_BODY, CTV_TRAFFIC_TAB_BODY_FILL)}>
+                  <div className={clsx(CTV_TRAFFIC_TAB_MOBILE_LIST, "max-lg:flex lg:hidden")}>
+                    {topPages.data.rows.slice(0, 10).map((r) => (
+                      <div
+                        key={r.pathname}
+                        className={clsx("rounded-xl border bg-white/90 p-2.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]", CTV_COLOR_BORDER_STRONG)}
+                      >
+                        <p className="text-sm font-bold tracking-tight text-[#0F172A]">{r.pathname}</p>
+                        <p className="mt-1 text-[11px] text-[#64748B]">
+                          Visits: <span className="font-semibold tabular-nums text-[#1E293B]">{r.visits}</span>
+                          {" · "}
+                          Conv: <span className="font-semibold tabular-nums text-emerald-700">{fmtPct(r.conversionRate)}</span>
+                          {" · "}
+                          Revenue: <span className="font-semibold tabular-nums text-[#1E293B]">{fmtVnd(r.revenue)}</span>
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className={clsx(CTV_TRAFFIC_TAB_TABLE_AREA, "max-lg:hidden")}>
+                    <div className={CTV_TRAFFIC_TAB_TABLE_SCROLL}>
+                      <table className="h-full w-full min-w-0 table-fixed text-left text-[11px] lg:text-xs">
+                        <thead className={clsx(CTV_COLOR_SURFACE_TABLE_HEAD, "sticky top-0 z-[1] text-[10px] font-semibold uppercase tracking-wide text-[#64748B] lg:text-[11px]")}>
+                          <tr>
+                            <th className={clsx(CTV_TRAFFIC_TAB_TABLE_COL_LANDING, CTV_TRAFFIC_TAB_TABLE_TH, "pr-1 text-left")}>
+                              Landing page
+                            </th>
+                            <th className={clsx(CTV_TRAFFIC_TAB_TABLE_COL_METRIC, CTV_TRAFFIC_TAB_TABLE_TH, "text-right")}>Visits</th>
+                            <th className={clsx(CTV_TRAFFIC_TAB_TABLE_COL_METRIC, CTV_TRAFFIC_TAB_TABLE_TH, "text-right")}>
+                              Conversions
+                            </th>
+                            <th className={clsx(CTV_TRAFFIC_TAB_TABLE_COL_METRIC, CTV_TRAFFIC_TAB_TABLE_TH, "text-right")}>CR%</th>
+                            <th className={clsx(CTV_TRAFFIC_TAB_TABLE_COL_METRIC, CTV_TRAFFIC_TAB_TABLE_TH, "text-right")}>EPC</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#F1F5F9]">
+                          {topPages.data.rows.slice(0, 10).map((r) => (
+                            <tr key={r.pathname} className={clsx("bg-white", CTV_COLOR_SURFACE_ROW_HOVER)}>
+                              <td
+                                className={clsx(CTV_TRAFFIC_TAB_TABLE_COL_LANDING, CTV_TRAFFIC_TAB_TABLE_TD, "truncate pr-1 font-medium text-[#0F172A]")}
+                                title={r.pathname}
+                              >
+                                {r.pathname}
+                              </td>
+                              <td className={clsx(CTV_TRAFFIC_TAB_TABLE_COL_METRIC, CTV_TRAFFIC_TAB_TABLE_TD, "text-right tabular-nums text-[#1E293B]")}>
+                                {r.visits}
+                              </td>
+                              <td className={clsx(CTV_TRAFFIC_TAB_TABLE_COL_METRIC, CTV_TRAFFIC_TAB_TABLE_TD, "text-right tabular-nums text-[#1E293B]")}>
+                                {r.paidOrders}
+                              </td>
+                              <td className={clsx(CTV_TRAFFIC_TAB_TABLE_COL_METRIC, CTV_TRAFFIC_TAB_TABLE_TD, "text-right tabular-nums text-emerald-700")}>
+                                {fmtPct(r.conversionRate)}
+                              </td>
+                              <td className={clsx(CTV_TRAFFIC_TAB_TABLE_COL_METRIC, CTV_TRAFFIC_TAB_TABLE_TD, "text-right tabular-nums text-[#1E293B]")}>
+                                {r.visits > 0 ? fmtVnd(r.revenue / r.visits) : "—"}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
-                  ))}
+                  </div>
                 </div>
               ) : (
-                <div className="mt-2 flex flex-col justify-center lg:min-h-[min(28dvh,16rem)]">
+                <div className={clsx(CTV_TRAFFIC_TAB_BODY, CTV_TRAFFIC_TAB_BODY_CENTER)}>
                   <CreatorEmptyState
                     icon={BarChart3}
+                    className={CTV_TRAFFIC_TAB_EMPTY_STATE}
                     title="Chưa có dữ liệu pages"
                     hint="Chia sẻ link ref và quay lại sau khi có visits — danh sách landing sẽ tự điền."
                   />
@@ -855,7 +792,7 @@ export default function AffiliateAnalyticsDashboard({
             </CreatorSectionShell>
                   </div>
                   <CreatorSectionShell className="mt-1 lg:mt-0" title="Funnel chi tiết" hint="Từ click đến thanh toán (mobile-friendly)">
-                    <div className="mt-4 min-h-[12rem]">
+                    <div className="mt-4 min-h-[12rem] max-lg:min-h-[12rem] lg:min-h-0">
                       {funnel.loading && !funnel.data ? (
                         <Skeleton className="h-56 w-full rounded-xl" />
                       ) : !(funnel.data?.steps?.length ?? 0) || (funnel.data?.steps ?? []).every((s) => s.count === 0) ? (
@@ -877,9 +814,15 @@ export default function AffiliateAnalyticsDashboard({
                   <CreatorSectionShell title="Lọc nhanh" hint="Áp dụng cho bảng top sản phẩm">
                     <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
                       <select
+                        id="affiliate-analytics-traffic-source"
+                        name="trafficSource"
                         value={trafficFilters.source}
                         onChange={(e) => setTrafficFilters((f) => ({ ...f, source: e.target.value }))}
-                        className="h-10 w-full min-w-0 rounded-xl border border-[#E2E8F0] bg-white px-3 text-sm font-medium text-[#0F172A] shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none focus-visible:ring-2 focus-visible:ring-[#0F172A]/10"
+                        className={clsx(
+                          CTV_V2_SELECT,
+                          "w-full border bg-white px-4 font-medium text-[#0F172A] shadow-[0_1px_2px_rgba(15,23,42,0.04)] focus-visible:ring-2 focus-visible:ring-[#0F172A]/10",
+                          CTV_COLOR_BORDER,
+                        )}
                       >
                         <option value="ALL">Nguồn: tất cả</option>
                         <option value="TIKTOK">TikTok</option>
@@ -890,9 +833,15 @@ export default function AffiliateAnalyticsDashboard({
                         <option value="UNKNOWN">Unknown</option>
                       </select>
                       <select
+                        id="affiliate-analytics-traffic-device"
+                        name="trafficDevice"
                         value={trafficFilters.device}
                         onChange={(e) => setTrafficFilters((f) => ({ ...f, device: e.target.value }))}
-                        className="h-10 w-full min-w-0 rounded-xl border border-[#E2E8F0] bg-white px-3 text-sm font-medium text-[#0F172A] shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none focus-visible:ring-2 focus-visible:ring-[#0F172A]/10"
+                        className={clsx(
+                          CTV_V2_SELECT,
+                          "w-full border bg-white px-4 font-medium text-[#0F172A] shadow-[0_1px_2px_rgba(15,23,42,0.04)] focus-visible:ring-2 focus-visible:ring-[#0F172A]/10",
+                          CTV_COLOR_BORDER,
+                        )}
                       >
                         <option value="ALL">Thiết bị: tất cả</option>
                         <option value="mobile">Mobile</option>
@@ -900,9 +849,15 @@ export default function AffiliateAnalyticsDashboard({
                         <option value="tablet">Tablet</option>
                       </select>
                       <select
+                        id="affiliate-analytics-product-sort"
+                        name="productSort"
                         value={productSort}
                         onChange={(e) => setProductSort(e.target.value as typeof productSort)}
-                        className="h-10 w-full min-w-0 rounded-xl border border-[#E2E8F0] bg-white px-3 text-sm font-medium text-[#0F172A] shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none focus-visible:ring-2 focus-visible:ring-[#0F172A]/10"
+                        className={clsx(
+                          CTV_V2_SELECT,
+                          "w-full border bg-white px-4 font-medium text-[#0F172A] shadow-[0_1px_2px_rgba(15,23,42,0.04)] focus-visible:ring-2 focus-visible:ring-[#0F172A]/10",
+                          CTV_COLOR_BORDER,
+                        )}
                       >
                         <option value="clicks">Sort: Click</option>
                         <option value="revenue">Sort: Doanh thu</option>
@@ -930,18 +885,20 @@ export default function AffiliateAnalyticsDashboard({
                     </div>
                   </CreatorSectionShell>
 
-                  <CreatorSectionShell className="flex flex-1 flex-col lg:min-h-[min(44dvh,26rem)]" title="Top sản phẩm" hint="Theo bộ lọc và khoảng thời gian">
+                  <CreatorSectionShell className="flex flex-col max-lg:flex-1" title="Top sản phẩm" hint="Theo bộ lọc và khoảng thời gian">
                     {topProducts.loading && !topProducts.data ? (
                       <Skeleton className="mt-4 h-72 w-full rounded-xl" />
                     ) : topProducts.data?.rows?.length ? (
                       <div className="mt-4 overflow-x-auto rounded-xl border border-[#F1F5F9]">
                         <table className="w-full min-w-[820px] text-left text-sm">
-                          <thead className="bg-[#F8FAFC]/90 text-[11px] font-semibold uppercase tracking-wide text-[#64748B]">
+                          <thead className={clsx(CTV_COLOR_SURFACE_TABLE_HEAD, "text-[11px] font-semibold uppercase tracking-wide text-[#64748B]")}>
                             <tr>
                               <th className="px-3 py-2.5 pr-3">Sản phẩm</th>
                               <th className="px-3 py-2.5 pr-3">Click</th>
                               <th className="px-3 py-2.5 pr-3">Visitor</th>
-                              <th className="px-3 py-2.5 pr-3">Đơn trả</th>
+                              <th className="px-3 py-2.5 pr-3" title={CTV_PAID_ORDER_KPI_HINT}>
+                                {paidOrderLabelForAnalyticsRange(range)}
+                              </th>
                               <th className="px-3 py-2.5 pr-3">Conv</th>
                               <th className="px-3 py-2.5 pr-3">Doanh thu</th>
                               <th className="px-3 py-2.5">Commission</th>
@@ -949,7 +906,7 @@ export default function AffiliateAnalyticsDashboard({
                           </thead>
                           <tbody className="divide-y divide-[#F1F5F9]">
                             {topProducts.data.rows.map((r) => (
-                              <tr key={r.productId} className="bg-white hover:bg-[#F8FAFC]/60">
+                              <tr key={r.productId} className={clsx("bg-white", CTV_COLOR_SURFACE_ROW_HOVER)}>
                                 <td className="px-3 py-2.5 pr-3">
                                   <div className="flex min-w-0 items-center gap-2">
                                     <SafeProductThumbnail src={r.imageUrl} alt="" size={40} />
@@ -968,7 +925,7 @@ export default function AffiliateAnalyticsDashboard({
                         </table>
                       </div>
                     ) : (
-                      <div className="mt-4 flex min-h-[min(36dvh,20rem)] flex-1 flex-col justify-center lg:min-h-[min(42dvh,24rem)]">
+                      <div className="mt-4 flex max-lg:min-h-[min(36dvh,20rem)] max-lg:flex-1 flex-col justify-center">
                         <CreatorEmptyState
                           icon={ShoppingBag}
                           title="Chưa có dữ liệu top sản phẩm"
@@ -987,13 +944,10 @@ export default function AffiliateAnalyticsDashboard({
               ) : null}
 
               {active === "pixel" ? (
-                <div className="flex w-full min-w-0 flex-1 flex-col lg:min-h-[min(58dvh,36rem)]">
-                  <AffiliateTrackingWorkspace />
-                </div>
+                <AffiliateTrackingWorkspace />
               ) : null}
               </div>
-        </section>
-      </div>
+      </AccountPageTabPanel>
     </AnalyticsErrorBoundary>
   );
 }

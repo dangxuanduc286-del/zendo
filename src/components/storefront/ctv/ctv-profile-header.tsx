@@ -1,7 +1,6 @@
 "use client";
 
-import { memo, useMemo } from "react";
-import { getCtvRankFromTiers } from "@/lib/ctv/ctv-membership-tier-logic";
+import { memo } from "react";
 import { useCtvMembershipTiers } from "@/lib/ctv/use-ctv-membership-tiers";
 import type { CtvProfileIdentityCardProps } from "./ctv-profile-identity-card";
 import { CtvProfileIdentityCard } from "./ctv-profile-identity-card";
@@ -11,16 +10,17 @@ import { CtvPerformanceSection } from "./ctv-performance-section";
 import { CtvTierProgressWidget } from "./ctv-tier-progress-widget";
 import type { CtvTierProgressSummary } from "@/lib/ctv/ctv-affiliate-lifecycle";
 import type { CtvAffiliateMetrics } from "@/lib/ctv/use-ctv-affiliate-metrics";
+import { AccountPageTabPanel } from "../account-page-tab-panel";
 import {
   CTV_HUB_ACCOUNT_RANK_GROUP,
   CTV_HUB_LAYOUT_STACK,
   CTV_HUB_MAIN_WRAP,
+  CTV_HUB_PAGE_PANEL,
   CTV_HUB_MOBILE_ORDER_IDENTITY,
   CTV_HUB_MOBILE_ORDER_PERFORMANCE,
   CTV_HUB_MOBILE_ORDER_RANK,
   CTV_HUB_MOBILE_ORDER_TIER,
   CTV_HUB_MOBILE_ORDER_WALLET,
-  CTV_HUB_SECTION_SHELL,
 } from "./ctv-ui-tokens";
 
 export type CtvProfileHeaderProps = CtvProfileIdentityCardProps & {
@@ -29,7 +29,6 @@ export type CtvProfileHeaderProps = CtvProfileIdentityCardProps & {
   grantedCtvTierIds?: string[];
   withdrawableBalance: number;
   waitingReleaseCommission: number;
-  conversionRatePercent: number | null;
   metrics: CtvAffiliateMetrics;
   withdrawalEnabled: boolean;
   onWithdraw: () => void;
@@ -44,7 +43,6 @@ function CtvProfileHeaderInner(props: CtvProfileHeaderProps): JSX.Element {
     grantedCtvTierIds = [],
     withdrawableBalance,
     waitingReleaseCommission,
-    conversionRatePercent,
     metrics,
     withdrawalEnabled,
     onWithdraw,
@@ -55,31 +53,18 @@ function CtvProfileHeaderInner(props: CtvProfileHeaderProps): JSX.Element {
 
   const { tiers, loading: tiersLoading, error: tiersError } = useCtvMembershipTiers();
 
-  const tiersReady = !tiersLoading && tiers.length > 0;
-
-  const rankCardGradient = useMemo(() => {
-    if (!tiersReady) return "from-slate-100 via-slate-50 to-white";
-    return getCtvRankFromTiers(ctvRankRevenue, tiers).color.gradient;
-  }, [ctvRankRevenue, tiers, tiersReady]);
-
   const showRankCard = !tiersError;
 
   return (
     <main className={CTV_HUB_MAIN_WRAP} aria-label="Trung tâm CTV — kiếm tiền và hiệu suất">
-      <section className={CTV_HUB_SECTION_SHELL} aria-labelledby="ctv-hub-title">
-        <header className="mb-6">
-          <h1
-            id="ctv-hub-title"
-            className="text-lg font-semibold leading-tight tracking-tight text-[#111827] sm:text-xl"
-          >
-            Trung tâm CTV
-          </h1>
-          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600">
-            Xem hoa hồng, cấp bậc và hiệu suất kiếm tiền của bạn
-          </p>
-        </header>
-
-        <div className={CTV_HUB_LAYOUT_STACK}>
+      <AccountPageTabPanel
+        id="ctv-hub"
+        title="Trung tâm CTV"
+        description="Xem hoa hồng, cấp bậc và hiệu suất kiếm tiền của bạn"
+        headingLevel="h1"
+        className={CTV_HUB_PAGE_PANEL}
+        contentClassName={CTV_HUB_LAYOUT_STACK}
+      >
           <div className={CTV_HUB_ACCOUNT_RANK_GROUP}>
             <div className={CTV_HUB_MOBILE_ORDER_IDENTITY}>
               <CtvProfileIdentityCard {...identityProps} />
@@ -115,15 +100,13 @@ function CtvProfileHeaderInner(props: CtvProfileHeaderProps): JSX.Element {
               waitingReleaseCommission={waitingReleaseCommission}
               withdrawalEnabled={withdrawalEnabled}
               onWithdraw={onWithdraw}
-              cardGradient={rankCardGradient}
             />
           </div>
 
           <div className={CTV_HUB_MOBILE_ORDER_PERFORMANCE}>
-            <CtvPerformanceSection metrics={metrics} conversionRatePercent={conversionRatePercent} />
+            <CtvPerformanceSection metrics={metrics} />
           </div>
-        </div>
-      </section>
+      </AccountPageTabPanel>
     </main>
   );
 }

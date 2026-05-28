@@ -11,8 +11,10 @@ import {
 import { usePathname } from "next/navigation";
 
 import { useSupportChatStore } from "@/stores/supportChatStore";
+import type { PublicSupportAudience, RoleSupportConfig } from "@/lib/support-contact-config";
 
 import { useStorefrontSupportDisabledOnAdminRoute } from "../../lib/use-storefront-support-disabled-on-admin";
+import FloatingSupportMenu from "./floating-support-menu";
 import SupportChatPopup from "./support-chat-popup";
 import StorefrontSupportUnreadBootstrap from "./storefront-support-unread-bootstrap";
 
@@ -34,7 +36,15 @@ export function useSupportPanel(): SupportPanelContextValue {
   return ctx;
 }
 
-export function StorefrontSupportProvider({ children }: { children: ReactNode }): JSX.Element {
+export function StorefrontSupportProvider({
+  children,
+  supportConfig,
+  supportAudience,
+}: {
+  children: ReactNode;
+  supportConfig: RoleSupportConfig;
+  supportAudience: PublicSupportAudience;
+}): JSX.Element {
   const pathname = usePathname();
   const disabledOnAdminRoute = useStorefrontSupportDisabledOnAdminRoute();
   const open = useSupportChatStore((s) => s.isOpen);
@@ -98,6 +108,7 @@ export function StorefrontSupportProvider({ children }: { children: ReactNode })
       {disabledOnAdminRoute ? null : (
         <>
           <StorefrontSupportUnreadBootstrap />
+          <FloatingSupportMenu supportConfig={supportConfig} supportAudience={supportAudience} />
           <SupportChatPopup />
         </>
       )}

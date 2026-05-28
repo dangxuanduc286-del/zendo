@@ -4,6 +4,7 @@ import { memo } from "react";
 import {
   CtvDataTable,
   CTV_TABLE_ROW,
+  CTV_TABLE_ROW_LABEL,
   CTV_TABLE_TD,
   CTV_TABLE_TH,
 } from "./ctv-data-table";
@@ -42,7 +43,7 @@ function CtvMetricsDetailTableInner({
     >
       {rows.map((row) => (
         <tr key={row.id} className={CTV_TABLE_ROW}>
-          <th scope="row" className={`${CTV_TABLE_TD} font-medium text-[#6B7280]`}>
+          <th scope="row" className={CTV_TABLE_ROW_LABEL}>
             {row.label}
           </th>
           <td className={`${CTV_TABLE_TD} text-right`}>

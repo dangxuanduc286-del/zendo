@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { getActiveAffiliateProfileId } from "@/lib/affiliate-customer-status";
 import { db } from "@/lib/db";
 import { publishAffiliatePayoutAccountSubmitted } from "@/lib/affiliate/customer-payout-notifications";
 
@@ -11,14 +12,6 @@ function maskAccountNumber(value: string): string {
   if (!raw) return "";
   if (raw.length <= 4) return raw;
   return `${"*".repeat(Math.min(8, raw.length - 4))}${raw.slice(-4)}`;
-}
-
-async function getActiveAffiliateProfileId(customerId: string): Promise<string | null> {
-  const profile = await db.affiliateProfile.findFirst({
-    where: { customerId, status: "ACTIVE" },
-    select: { id: true },
-  });
-  return profile?.id ?? null;
 }
 
 export async function GET(): Promise<NextResponse> {
@@ -161,6 +154,12 @@ export async function POST(request: Request): Promise<NextResponse> {
       customerId: session.user.id,
       payoutAccountId: created.id,
     });
+    void import("@/lib/admin/admin-operational-publish").then(({ notifyAdminPayoutAccountSubmitted }) =>
+      notifyAdminPayoutAccountSubmitted({
+        payoutAccountId: created.id,
+        customerId: session.user.id,
+      }),
+    );
     return NextResponse.json({
       ok: true,
       message: "Đã gửi thông tin tài khoản nhận tiền. Vui lòng chờ xác minh.",

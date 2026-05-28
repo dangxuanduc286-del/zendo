@@ -20,8 +20,8 @@ function ConfirmApproveForm({
         if (!confirm("Duyệt yêu cầu rút tiền này?")) e.preventDefault();
       }}
     >
-      <input type="hidden" name="withdrawalAction" value="approve" />
-      <input type="hidden" name="redirectTo" value={redirectTo} />
+      <input id={`affiliate-withdrawal-${withdrawalId}-approve-action`} type="hidden" name="withdrawalAction" value="approve" />
+      <input id={`affiliate-withdrawal-${withdrawalId}-approve-redirect-to`} type="hidden" name="redirectTo" value={redirectTo} />
       <button
         type="submit"
         className="inline-flex rounded-xl border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800 transition hover:bg-emerald-100"
@@ -48,8 +48,8 @@ function ConfirmMarkPaidForm({
         if (!confirm("Xác nhận đã thanh toán cho yêu cầu này?")) e.preventDefault();
       }}
     >
-      <input type="hidden" name="withdrawalAction" value="mark_paid" />
-      <input type="hidden" name="redirectTo" value={redirectTo} />
+      <input id={`affiliate-withdrawal-${withdrawalId}-mark-paid-action`} type="hidden" name="withdrawalAction" value="mark_paid" />
+      <input id={`affiliate-withdrawal-${withdrawalId}-mark-paid-redirect-to`} type="hidden" name="redirectTo" value={redirectTo} />
       <button
         type="submit"
         className="inline-flex rounded-xl border border-[#2563EB] bg-sky-50 px-2.5 py-1 text-xs font-semibold text-[#1D4ED8] transition hover:bg-sky-100"
@@ -78,8 +78,8 @@ function RejectWithdrawalForm({
         if (!confirm("Từ chối yêu cầu rút tiền này?")) e.preventDefault();
       }}
     >
-      <input type="hidden" name="withdrawalAction" value="reject" />
-      <input type="hidden" name="redirectTo" value={redirectTo} />
+      <input id={`affiliate-withdrawal-${withdrawalId}-reject-action`} type="hidden" name="withdrawalAction" value="reject" />
+      <input id={`affiliate-withdrawal-${withdrawalId}-reject-redirect-to`} type="hidden" name="redirectTo" value={redirectTo} />
       <label htmlFor={noteFieldId} className="text-[10px] font-medium text-[#64748B]">
         Ghi chú admin (tùy chọn)
       </label>
