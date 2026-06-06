@@ -455,6 +455,10 @@ export default async function ProductDetailPage({
     "returnPolicyText",
   ]);
 
+  const reviewCount = product.reviews.length;
+  const reviewAverage = reviewCount
+    ? Math.round((product.reviews.reduce((sum, item) => sum + item.rating, 0) / reviewCount) * 10) / 10
+    : 0;
   const productSchema = buildProductJsonLd({
     name: product.name,
     description: product.shortDescription ?? product.description ?? "",
@@ -462,8 +466,31 @@ export default async function ProductDetailPage({
     images: product.images.map((image) => resolveMediaUrl(image.url)),
     brand: product.brand?.name,
     price: priceForDisplay(product),
+    currency: websiteAff.currency || "VND",
     inStock: product.stockQuantity > 0,
     path: `/san-pham/${product.slug}`,
+    aggregateRating: reviewCount > 0 ? { ratingValue: reviewAverage, reviewCount } : undefined,
+    reviews: product.reviews.slice(0, 5).map((review) => ({
+      authorName: review.guestName || "Khách hàng Zendo",
+      rating: review.rating,
+      title: review.title,
+      content: review.content,
+      datePublished: review.createdAt,
+    })),
+    seller: websiteAff.siteName || "Zendo.vn",
+    shippingDetails: {
+      shippingRate: 0,
+      currency: websiteAff.currency || "VND",
+      minValue: websiteAff.shippingPromoFreeMin,
+      country: "VN",
+    },
+    returnPolicy: {
+      url: websiteAff.customerAccountSettings.returnPolicyUrl || undefined,
+      name: returnPolicy ?? "Chính sách đổi trả",
+      days: 7,
+    },
+    itemCondition: "https://schema.org/NewCondition",
+    priceValidUntil: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString().slice(0, 10),
   });
   const breadcrumbJsonLd = buildBreadcrumbJsonLd([
     { name: "Trang chủ", path: "/" },
@@ -474,10 +501,6 @@ export default async function ProductDetailPage({
   const detailSettings = storefrontSettings.website.productDetailSettings;
   const themeSettings = storefrontSettings.theme;
   const soldCount = Math.max(0, Number(product.soldCount ?? 0));
-  const reviewCount = product.reviews.length;
-  const reviewAverage = reviewCount
-    ? Math.round((product.reviews.reduce((sum, item) => sum + item.rating, 0) / reviewCount) * 10) / 10
-    : 0;
   const policyItems = [
     detailSettings.policyOfficialLabel,
     detailSettings.policyReturnLabel,

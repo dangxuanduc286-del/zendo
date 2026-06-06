@@ -1,5 +1,5 @@
 import { memo } from "react";
-import ProductCard, { type ProductCardData } from "./product-card";
+import ProductCard, { type ProductCardData, type ProductCardMobileCtaSize } from "./product-card";
 
 interface ProductGridProps {
   products: ProductCardData[];
@@ -10,6 +10,9 @@ interface ProductGridProps {
   buttonMode?: "solid" | "outline";
   primaryColor?: string;
   secondaryColor?: string;
+  compactMobile?: boolean;
+  singleItemMobileFullWidth?: boolean;
+  mobileCtaSize?: ProductCardMobileCtaSize;
 }
 
 function ProductGrid({
@@ -21,6 +24,9 @@ function ProductGrid({
   buttonMode,
   primaryColor,
   secondaryColor,
+  compactMobile = false,
+  singleItemMobileFullWidth = false,
+  mobileCtaSize = "default",
 }: ProductGridProps): JSX.Element {
   if (!products.length) {
     return (
@@ -65,9 +71,12 @@ function ProductGrid({
         ? "xl:grid-cols-5 2xl:grid-cols-5"
         : "xl:grid-cols-6 2xl:grid-cols-6";
 
+  const mobileColumnsClass = singleItemMobileFullWidth && dedupedProducts.length === 1 ? "grid-cols-1" : "grid-cols-2";
+  const mobileGapClass = compactMobile ? "gap-2 min-[390px]:gap-2.5" : "gap-2.5 min-[390px]:gap-3";
+
   return (
     <div
-      className={`grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-3 lg:grid-cols-4 lg:gap-4 ${desktopColumnsClass} xl:gap-4 2xl:gap-4 ${className}`.trim()}
+      className={`grid ${mobileColumnsClass} ${mobileGapClass} md:grid-cols-3 md:gap-3 lg:grid-cols-4 lg:gap-4 ${desktopColumnsClass} xl:gap-4 2xl:gap-4 ${className}`.trim()}
     >
       {dedupedProducts.map((product, index) => {
         const hrefCandidate = product.href?.trim() || (product.slug ? `/san-pham/${product.slug}` : "");
@@ -80,15 +89,16 @@ function ProductGrid({
         const renderKey = `${baseKey}-${index}`;
 
         return (
-        <ProductCard
-          key={renderKey}
-          product={product}
-          buyNowLabel={buyNowLabel}
-          addToCartLabel={addToCartLabel}
-          buttonMode={buttonMode}
-          primaryColor={primaryColor}
-          secondaryColor={secondaryColor}
-        />
+          <ProductCard
+            key={renderKey}
+            product={product}
+            buyNowLabel={buyNowLabel}
+            addToCartLabel={addToCartLabel}
+            buttonMode={buttonMode}
+            primaryColor={primaryColor}
+            secondaryColor={secondaryColor}
+            mobileCtaSize={mobileCtaSize}
+          />
         );
       })}
     </div>

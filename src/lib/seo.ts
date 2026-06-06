@@ -128,6 +128,96 @@ export function buildBreadcrumbJsonLd(
   };
 }
 
+export function buildOrganizationJsonLd(input: {
+  name: string;
+  url?: string;
+  logo?: string;
+  description?: string;
+  email?: string;
+  telephone?: string;
+  address?: string;
+  sameAs?: string[];
+}): Record<string, unknown> {
+  const url = input.url || absoluteUrl("/");
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "@id": `${url.replace(/\/+$/, "")}/#organization`,
+    name: input.name,
+    url,
+    logo: input.logo || undefined,
+    description: input.description || undefined,
+    email: input.email || undefined,
+    telephone: input.telephone || undefined,
+    address: input.address
+      ? {
+          "@type": "PostalAddress",
+          streetAddress: input.address,
+          addressCountry: "VN",
+        }
+      : undefined,
+    sameAs: input.sameAs?.filter((item) => /^https?:\/\//i.test(item)) ?? undefined,
+  };
+}
+
+export function buildWebSiteJsonLd(input: {
+  name: string;
+  url?: string;
+  description?: string;
+  searchPath?: string;
+}): Record<string, unknown> {
+  const url = input.url || absoluteUrl("/");
+  const trimmedUrl = url.replace(/\/+$/, "");
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "@id": `${trimmedUrl}/#website`,
+    name: input.name,
+    url,
+    description: input.description || undefined,
+    inLanguage: "vi-VN",
+    potentialAction: {
+      "@type": "SearchAction",
+      target: `${trimmedUrl}${input.searchPath ?? "/cua-hang"}?q={search_term_string}`,
+      "query-input": "required name=search_term_string",
+    },
+  };
+}
+
+export function buildItemListJsonLd(input: {
+  name: string;
+  path: string;
+  items: Array<{ name: string; path: string; image?: string; price?: number | null; currency?: string }>;
+}): Record<string, unknown> {
+  return {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: input.name,
+    url: absoluteUrl(input.path),
+    itemListElement: input.items.map((item, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      url: absoluteUrl(item.path),
+      item: {
+        "@type": "Product",
+        name: item.name,
+        url: absoluteUrl(item.path),
+        image: item.image || undefined,
+        offers:
+          typeof item.price === "number"
+            ? {
+                "@type": "Offer",
+                price: item.price,
+                priceCurrency: item.currency ?? "VND",
+              }
+            : undefined,
+      },
+    })),
+  };
+}
+
 export function buildProductJsonLd(input: {
   name: string;
   description: string;
@@ -138,7 +228,16 @@ export function buildProductJsonLd(input: {
   currency?: string;
   inStock: boolean;
   path: string;
+  aggregateRating?: { ratingValue: number; reviewCount: number };
+  reviews?: Array<{ authorName: string; rating: number; title?: string | null; content?: string | null; datePublished?: string | Date | null }>;
+  seller?: string;
+  shippingDetails?: { shippingRate?: number; currency?: string; minValue?: number; country?: string };
+  returnPolicy?: { url?: string; name?: string; days?: number };
+  itemCondition?: string;
+  priceValidUntil?: string;
 }): Record<string, unknown> {
+  const currency = input.currency ?? "VND";
+
   return {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -147,14 +246,70 @@ export function buildProductJsonLd(input: {
     sku: input.sku,
     image: input.images,
     brand: input.brand ? { "@type": "Brand", name: input.brand } : undefined,
+    aggregateRating:
+      input.aggregateRating && input.aggregateRating.reviewCount > 0
+        ? {
+            "@type": "AggregateRating",
+            ratingValue: input.aggregateRating.ratingValue,
+            reviewCount: input.aggregateRating.reviewCount,
+          }
+        : undefined,
+    review: input.reviews?.map((review) => ({
+      "@type": "Review",
+      author: { "@type": "Person", name: review.authorName || "Khách hàng Zendo" },
+      name: review.title || undefined,
+      reviewBody: review.content || undefined,
+      datePublished: review.datePublished ? new Date(review.datePublished).toISOString() : undefined,
+      reviewRating: {
+        "@type": "Rating",
+        ratingValue: review.rating,
+        bestRating: 5,
+        worstRating: 1,
+      },
+    })),
     offers: {
       "@type": "Offer",
-      priceCurrency: input.currency ?? "VND",
+      priceCurrency: currency,
       price: input.price,
       availability: input.inStock
         ? "https://schema.org/InStock"
         : "https://schema.org/OutOfStock",
       url: absoluteUrl(input.path),
+      seller: input.seller ? { "@type": "Organization", name: input.seller } : undefined,
+      itemCondition: input.itemCondition ?? "https://schema.org/NewCondition",
+      priceValidUntil: input.priceValidUntil,
+      shippingDetails: input.shippingDetails
+        ? {
+            "@type": "OfferShippingDetails",
+            shippingDestination: {
+              "@type": "DefinedRegion",
+              addressCountry: input.shippingDetails.country ?? "VN",
+            },
+            shippingRate: {
+              "@type": "MonetaryAmount",
+              value: input.shippingDetails.shippingRate ?? 0,
+              currency: input.shippingDetails.currency ?? currency,
+            },
+            freeShippingThreshold:
+              typeof input.shippingDetails.minValue === "number"
+                ? {
+                    "@type": "MonetaryAmount",
+                    value: input.shippingDetails.minValue,
+                    currency: input.shippingDetails.currency ?? currency,
+                  }
+                : undefined,
+          }
+        : undefined,
+      hasMerchantReturnPolicy: input.returnPolicy
+        ? {
+            "@type": "MerchantReturnPolicy",
+            applicableCountry: "VN",
+            returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
+            merchantReturnDays: input.returnPolicy.days ?? 7,
+            name: input.returnPolicy.name,
+            url: input.returnPolicy.url,
+          }
+        : undefined,
     },
   };
 }

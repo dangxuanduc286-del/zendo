@@ -12,6 +12,9 @@ export const metadata: Metadata = {
     index: false,
     follow: true,
   },
+  alternates: {
+    canonical: "/gio-hang",
+  },
 };
 
 export default async function CartRoutePage(): Promise<JSX.Element> {

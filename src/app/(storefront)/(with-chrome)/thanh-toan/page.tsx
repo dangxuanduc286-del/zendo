@@ -14,6 +14,9 @@ export const metadata: Metadata = {
     index: false,
     follow: false,
   },
+  alternates: {
+    canonical: "/thanh-toan",
+  },
 };
 
 export default async function CheckoutPage(): Promise<JSX.Element> {

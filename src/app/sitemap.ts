@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { resolveSiteUrl } from "../lib/utils";
 
 type SitemapItem = MetadataRoute.Sitemap[number];
 
@@ -12,8 +13,10 @@ async function getDbClient() {
   }
 }
 
+const SITEMAP_PAGE_SLUG_BLACKLIST = new Set(["gio-hang", "thanh-toan"]);
+
 function appUrl(): string {
-  return (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/+$/, "");
+  return resolveSiteUrl().replace(/\/+$/, "");
 }
 
 /** Mỗi URL một lần; mục sau cùng thắng (pageRoutes từ DB ghi đè staticRoutes nếu trùng). */
@@ -30,9 +33,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
   const staticRoutes: SitemapItem[] = [
     { url: `${base}/`, lastModified: now, changeFrequency: "daily", priority: 1 },
+    { url: `${base}/cua-hang`, lastModified: now, changeFrequency: "daily", priority: 0.85 },
+    { url: `${base}/san-pham-moi`, lastModified: now, changeFrequency: "daily", priority: 0.8 },
+    { url: `${base}/ban-chay`, lastModified: now, changeFrequency: "daily", priority: 0.8 },
+    { url: `${base}/flash-deal`, lastModified: now, changeFrequency: "daily", priority: 0.8 },
     { url: `${base}/bai-viet`, lastModified: now, changeFrequency: "daily", priority: 0.8 },
-    { url: `${base}/gio-hang`, lastModified: now, changeFrequency: "weekly", priority: 0.4 },
-    { url: `${base}/thanh-toan`, lastModified: now, changeFrequency: "weekly", priority: 0.4 },
     { url: `${base}/tra-cuu-don-hang`, lastModified: now, changeFrequency: "weekly", priority: 0.5 },
     { url: `${base}/gioi-thieu`, lastModified: now, changeFrequency: "monthly", priority: 0.6 },
     { url: `${base}/lien-he`, lastModified: now, changeFrequency: "monthly", priority: 0.6 },
@@ -61,7 +66,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .findMany({ where: { status: "PUBLISHED" }, select: { slug: true, updatedAt: true } })
       .catch((): Array<{ slug: string; updatedAt: Date }> => []),
     db.page
-      .findMany({ where: { status: "PUBLISHED" }, select: { slug: true, updatedAt: true } })
+      .findMany({
+        where: { status: "PUBLISHED", slug: { notIn: [...SITEMAP_PAGE_SLUG_BLACKLIST] } },
+        select: { slug: true, updatedAt: true },
+      })
       .catch((): Array<{ slug: string; updatedAt: Date }> => []),
   ]);
 

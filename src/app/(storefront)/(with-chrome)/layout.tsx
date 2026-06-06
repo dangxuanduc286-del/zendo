@@ -6,6 +6,7 @@ import MobileBottomNav from "../../../components/storefront/mobile-bottom-nav";
 import AnalyticsPageViewTracker from "../../../components/storefront/analytics-page-view-tracker";
 import StorefrontPopup from "../../../components/storefront/storefront-popup";
 import { resolveMediaUrl } from "../../../lib/media";
+import { buildOrganizationJsonLd, buildWebSiteJsonLd } from "../../../lib/seo";
 import { MARKETING_FRAME } from "../../../lib/storefront-frame";
 import {
   getHeaderCategories,
@@ -68,9 +69,42 @@ export default async function StorefrontChromeLayout({ children }: Props): Promi
     session?.user?.email?.trim() ||
     ""
   ).trim();
+  const siteUrl = (websiteSettings.canonicalBaseUrl || websiteSettings.siteUrl).replace(/\/+$/, "") || "https://zendo.vn";
+  const organizationJsonLd = buildOrganizationJsonLd({
+    name: siteName,
+    url: siteUrl,
+    logo: logoUrl,
+    description: websiteSettings.shortDescription || websiteSettings.slogan,
+    email: websiteSettings.email,
+    telephone: websiteSettings.hotline,
+    address: websiteSettings.address,
+    sameAs: [
+      ...websiteSettings.socialLinks.map((item) => item.url),
+      websiteSettings.footerFacebookUrl,
+      websiteSettings.footerInstagramUrl,
+      websiteSettings.footerTiktokUrl,
+      websiteSettings.footerYoutubeUrl,
+      websiteSettings.footerZaloUrl,
+    ],
+  });
+  const websiteJsonLd = buildWebSiteJsonLd({
+    name: siteName,
+    url: siteUrl,
+    description: websiteSettings.shortDescription || websiteSettings.defaultSeoDescription,
+  });
 
   return (
     <>
+      <link rel="preconnect" href="https://media.zendo.vn" />
+      <link rel="dns-prefetch" href="//media.zendo.vn" />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+      />
       <Script id="zendo-analytics-config" strategy="beforeInteractive">
         {`window.__ZENDO_ANALYTICS_CONFIG__ = { trackingEnabled: ${trackingEnabled ? "true" : "false"}, remarketingEventsEnabled: ${remarketingEnabled ? "true" : "false"} };`}
       </Script>

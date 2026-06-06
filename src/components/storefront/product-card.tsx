@@ -28,6 +28,8 @@ export interface ProductCardData {
   discountEndAt?: string | Date | null;
 }
 
+export type ProductCardMobileCtaSize = "default" | "comfortable";
+
 interface ProductCardProps {
   product: ProductCardData;
   buyNowLabel?: string;
@@ -35,6 +37,7 @@ interface ProductCardProps {
   buttonMode?: "solid" | "outline";
   primaryColor?: string;
   secondaryColor?: string;
+  mobileCtaSize?: ProductCardMobileCtaSize;
 }
 
 function toNumber(value: number | string | null | undefined): number {
@@ -49,6 +52,7 @@ export default function ProductCard({
   buttonMode = "solid",
   primaryColor = "#2563EB",
   secondaryColor = "#0F172A",
+  mobileCtaSize = "default",
 }: ProductCardProps): JSX.Element {
   const outlineAccent = buttonMode === "outline" ? secondaryColor : undefined;
   const basePrice = toNumber(product.basePrice);
@@ -88,12 +92,15 @@ export default function ProductCard({
     }
     return [selected[0], selected[1], discountBadge];
   })();
+  const isComfortableMobileCta = mobileCtaSize === "comfortable";
+  const buyNowSizeClass = isComfortableMobileCta ? "h-9 min-[390px]:h-10 md:h-9" : "h-8 sm:h-9";
+  const addToCartSizeClass = isComfortableMobileCta ? "h-9 w-9 min-[390px]:h-10 min-[390px]:w-10 md:h-9 md:w-9" : "h-8 w-8 sm:h-9 sm:w-9";
   const buyNowButtonClass =
     buttonMode === "outline"
-      ? "inline-flex h-8 min-w-0 flex-1 items-center justify-center overflow-hidden rounded-lg border px-2 text-[11px] font-semibold transition sm:h-9 sm:rounded-xl sm:px-3 sm:text-sm whitespace-nowrap text-ellipsis"
-      : "inline-flex h-8 min-w-0 flex-1 items-center justify-center overflow-hidden rounded-lg border border-transparent bg-[var(--z-cta,#F59E0B)] px-2 text-[11px] font-semibold text-white shadow-sm transition hover:bg-[#D97706] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F59E0B]/30 sm:h-9 sm:rounded-xl sm:px-3 sm:text-sm whitespace-nowrap text-ellipsis";
+      ? `inline-flex ${buyNowSizeClass} min-w-0 flex-1 items-center justify-center overflow-hidden text-ellipsis whitespace-nowrap rounded-lg border px-1.5 text-[11px] font-semibold leading-none transition min-[390px]:px-2 sm:rounded-xl sm:px-3 sm:text-sm`
+      : `inline-flex ${buyNowSizeClass} min-w-0 flex-1 items-center justify-center overflow-hidden text-ellipsis whitespace-nowrap rounded-lg border border-transparent bg-[var(--z-cta,#F59E0B)] px-1.5 text-[11px] font-semibold leading-none text-white shadow-sm transition hover:bg-[#D97706] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F59E0B]/30 min-[390px]:px-2 sm:rounded-xl sm:px-3 sm:text-sm`;
   const addToCartButtonClass =
-    "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[var(--z-primary)] bg-white text-[var(--z-primary)] transition hover:bg-[#EFF6FF] sm:h-9 sm:w-9 sm:rounded-xl";
+    `inline-flex ${addToCartSizeClass} shrink-0 items-center justify-center rounded-lg border border-[var(--z-primary)] bg-white text-[var(--z-primary)] transition hover:bg-[#EFF6FF] sm:rounded-xl`;
 
   return (
     <article className="group w-full min-w-0 overflow-hidden rounded-xl border border-[#E2E8F0] bg-white shadow-sm transition hover:shadow-md">
@@ -113,11 +120,11 @@ export default function ProductCard({
           </div>
         )}
 
-        <div className="pointer-events-none absolute left-1.5 top-1.5 flex max-w-[calc(100%-0.75rem)] flex-wrap gap-1 sm:left-2 sm:top-2">
+        <div className="pointer-events-none absolute left-1 top-1 flex max-w-[calc(100%-0.5rem)] flex-wrap gap-0.5 sm:left-2 sm:top-2 sm:max-w-[calc(100%-1rem)] sm:gap-1">
           {badges.map((badge) => (
             <span
               key={badge.key}
-              className={`rounded-full ${badge.className} px-1.5 py-0.5 text-[9px] font-semibold text-white shadow-sm`}
+              className={`max-w-full truncate rounded-full ${badge.className} px-1.5 py-0.5 text-[9px] font-semibold leading-none text-white shadow-sm sm:leading-normal`}
             >
               {badge.label}
             </span>
@@ -125,14 +132,14 @@ export default function ProductCard({
         </div>
       </Link>
 
-      <div className="space-y-1.5 p-2 sm:space-y-2 sm:p-3">
+      <div className="min-w-0 space-y-1.5 p-2 sm:space-y-2 sm:p-3">
         <h3 className="line-clamp-2 min-h-8 text-xs font-semibold leading-4 text-[#0F172A] sm:min-h-10 sm:text-sm sm:leading-5">
           <Link href={detailsHref} className="transition hover:text-[var(--z-primary)]">
             {product.name}
           </Link>
         </h3>
 
-        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] text-[#64748B] sm:text-[11px]">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5 text-[10px] text-[#64748B] sm:gap-x-1.5 sm:text-[11px]">
           {hasReview ? (
             <>
               <span className="font-semibold text-[#F59E0B]">★ {ratingAverage.toFixed(1)}</span>
@@ -143,11 +150,11 @@ export default function ProductCard({
             <span>Chưa có đánh giá</span>
           )}
           <span>·</span>
-          <span>{product.soldLabel?.trim() || "Đã bán"} {numberFormat.format(soldCount)}</span>
+          <span className="min-w-0 truncate">{product.soldLabel?.trim() || "Đã bán"} {numberFormat.format(soldCount)}</span>
         </div>
 
-        <div className="flex flex-wrap items-end gap-1 sm:gap-2">
-          <span className="text-sm font-bold text-[#2563EB] sm:text-base">
+        <div className="flex min-w-0 flex-wrap items-end gap-1 sm:gap-2">
+          <span className="min-w-0 break-words text-[13px] font-bold leading-5 text-[#2563EB] min-[390px]:text-sm sm:text-base">
             {formatVnd(hasSale ? salePrice ?? basePrice : basePrice)}
           </span>
           {hasSale ? (
@@ -167,7 +174,7 @@ export default function ProductCard({
           </div>
         ) : null}
 
-        <div data-product-card-cta="true" className="flex min-w-0 items-center gap-2 pt-0.5">
+        <div data-product-card-cta="true" className="flex min-w-0 items-center gap-1.5 pt-0.5 min-[390px]:gap-2">
           <ProductCardActions
             item={{
               id: product.id,

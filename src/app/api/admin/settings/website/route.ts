@@ -29,7 +29,17 @@ async function revalidateStorefrontPaths(
     db.page.findMany({ where: { status: "PUBLISHED" }, select: { slug: true }, take: 80 }),
     db.post.findMany({ where: { status: "PUBLISHED" }, select: { slug: true }, take: 80 }),
   ]);
-  const paths = new Set<string>(["/", "/cua-hang", "/bai-viet", "/lien-he", "/gioi-thieu", "/tra-cuu-don-hang"]);
+  const paths = new Set<string>([
+    "/",
+    "/cua-hang",
+    "/san-pham-moi",
+    "/ban-chay",
+    "/flash-deal",
+    "/bai-viet",
+    "/lien-he",
+    "/gioi-thieu",
+    "/tra-cuu-don-hang",
+  ]);
   for (const row of categoryRows) paths.add(`/danh-muc/${row.slug}`);
   for (const row of pageRows) paths.add(`/${row.slug}`);
   for (const row of postRows) paths.add(`/bai-viet/${row.slug}`);

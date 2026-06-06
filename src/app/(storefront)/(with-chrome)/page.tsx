@@ -8,7 +8,7 @@ import SiteFooter from "../../../components/storefront/site-footer";
 import MediaImage from "../../../components/shared/media-image";
 import type { ProductCardData } from "../../../components/storefront/product-card";
 import { getThemeSettings, getWebsiteSettings } from "../../../lib/settings";
-import { buildBreadcrumbJsonLd, buildDynamicMetadata } from "../../../lib/seo";
+import { buildBreadcrumbJsonLd, buildDynamicMetadata, buildItemListJsonLd } from "../../../lib/seo";
 import { MARKETING_FRAME } from "../../../lib/storefront-frame";
 import {
   loadStorefrontHomeData,
@@ -119,6 +119,21 @@ export default async function StorefrontHomePage(): Promise<JSX.Element> {
   );
   const flashProducts = flash.map((product) => ({ ...product, isFlashSale: true }));
 
+  const homeItemListJsonLd = buildItemListJsonLd({
+    name: "Sản phẩm nổi bật Zendo.vn",
+    path: "/",
+    items: [...featured, ...newest, ...bestSeller, ...flashProducts]
+      .filter((product, index, list) => list.findIndex((item) => item.id === product.id) === index)
+      .slice(0, 24)
+      .map((product) => ({
+        name: product.name,
+        path: `/san-pham/${product.slug}`,
+        image: product.imageUrl,
+        price: Number(product.salePrice ?? product.basePrice),
+        currency: websiteSettings.currency || "VND",
+      })),
+  });
+
   const posts = postRows.map((row) => ({
     id: row.id,
     title: row.title,
@@ -134,7 +149,8 @@ export default async function StorefrontHomePage(): Promise<JSX.Element> {
 
   const socialLinks = websiteSettings.socialLinks;
 
-  const productSectionClass = "rounded-[18px] border border-[#E2E8F0] bg-white p-3 shadow-sm sm:p-5 lg:p-7";
+  const productSectionClass = "rounded-[18px] border border-[#E2E8F0] bg-white p-2.5 shadow-sm min-[390px]:p-3 sm:p-5 lg:p-7";
+  const compactMobileProductSectionClass = "rounded-[18px] border border-[#E2E8F0] bg-white p-2.5 shadow-sm min-[390px]:p-3 sm:p-5 lg:p-7";
   const sharedProductGridProps = {
     buyNowLabel: themeSettings.productDetailPrimaryButtonText?.trim() || "Mua ngay",
     addToCartLabel: "",
@@ -147,7 +163,7 @@ export default async function StorefrontHomePage(): Promise<JSX.Element> {
 
   return (
     <div className="min-h-screen bg-[var(--z-bg)] text-[var(--z-text-main)]">
-      <main className={`${MARKETING_FRAME} space-y-8 pb-10 pt-3 sm:space-y-10 sm:pb-12 sm:pt-5 lg:space-y-12 lg:pb-12 lg:pt-6`}>
+      <main className={`${MARKETING_FRAME} space-y-7 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-3 sm:space-y-10 sm:pb-12 sm:pt-5 lg:space-y-12 lg:pb-12 lg:pt-6`}>
         {themeSettings.showHeroBanner ? (
           <HomeHeroMarketplace
             themeSettings={themeSettings}
@@ -179,7 +195,7 @@ export default async function StorefrontHomePage(): Promise<JSX.Element> {
         {themeSettings.enableNewSection ? (
         <section
           aria-labelledby="new-products-heading"
-          className={productSectionClass}
+          className={compactMobileProductSectionClass}
         >
           <SectionHeading
             id="new-products-heading"
@@ -188,14 +204,20 @@ export default async function StorefrontHomePage(): Promise<JSX.Element> {
             actionLabel="Xem thêm →"
             actionHref="/san-pham-moi"
           />
-          <ProductGrid products={newest} {...sharedProductGridProps} />
+          <ProductGrid
+            products={newest}
+            {...sharedProductGridProps}
+            compactMobile
+            singleItemMobileFullWidth
+            mobileCtaSize="comfortable"
+          />
         </section>
         ) : null}
 
         {themeSettings.enableBestSellerSection ? (
         <section
           aria-labelledby="best-seller-products-heading"
-          className={productSectionClass}
+          className={compactMobileProductSectionClass}
         >
           <SectionHeading
             id="best-seller-products-heading"
@@ -204,12 +226,18 @@ export default async function StorefrontHomePage(): Promise<JSX.Element> {
             actionLabel="Xem thêm →"
             actionHref="/ban-chay"
           />
-          <ProductGrid products={bestSeller} {...sharedProductGridProps} />
+          <ProductGrid
+            products={bestSeller}
+            {...sharedProductGridProps}
+            compactMobile
+            singleItemMobileFullWidth
+            mobileCtaSize="comfortable"
+          />
         </section>
         ) : null}
 
         {themeSettings.enableFlashSaleSection ? (
-          <section aria-labelledby="flash-sale-products-heading" className={productSectionClass}>
+          <section aria-labelledby="flash-sale-products-heading" className={compactMobileProductSectionClass}>
             <SectionHeading
               id="flash-sale-products-heading"
               title="Flash Sale"
@@ -217,7 +245,13 @@ export default async function StorefrontHomePage(): Promise<JSX.Element> {
               actionLabel="Xem thêm →"
               actionHref="/flash-deal"
             />
-            <ProductGrid products={flashProducts} {...sharedProductGridProps} />
+            <ProductGrid
+              products={flashProducts}
+              {...sharedProductGridProps}
+              compactMobile
+              singleItemMobileFullWidth
+              mobileCtaSize="comfortable"
+            />
           </section>
         ) : null}
 
@@ -278,6 +312,10 @@ export default async function StorefrontHomePage(): Promise<JSX.Element> {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(homeItemListJsonLd) }}
       />
     </div>
   );

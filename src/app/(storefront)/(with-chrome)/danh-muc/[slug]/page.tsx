@@ -6,7 +6,7 @@ import Pagination from "../../../../../components/storefront/pagination";
 import ProductGrid from "../../../../../components/storefront/product-grid";
 import type { ProductCardData } from "../../../../../components/storefront/product-card";
 import { resolveMediaUrl } from "../../../../../lib/media";
-import { buildBreadcrumbJsonLd, buildDynamicMetadata } from "../../../../../lib/seo";
+import { buildBreadcrumbJsonLd, buildDynamicMetadata, buildItemListJsonLd } from "../../../../../lib/seo";
 import { getThemeSettings, getWebsiteSettings } from "../../../../../lib/settings";
 import { MARKETING_FRAME } from "../../../../../lib/storefront-frame";
 
@@ -332,6 +332,17 @@ export default async function CategoryPage({
       { name: "Danh mục", path: "/cua-hang" },
       { name: category.name, path: `/danh-muc/${category.slug}` },
     ]);
+    const categoryItemListJsonLd = buildItemListJsonLd({
+      name: `${category.name} - Zendo.vn`,
+      path: `/danh-muc/${category.slug}`,
+      items: products.map((product) => ({
+        name: product.name,
+        path: `/san-pham/${product.slug}`,
+        image: resolveMediaUrl(primaryImage(product.images)),
+        price: Number(product.salePrice ?? product.basePrice),
+        currency: websiteSettings.currency || "VND",
+      })),
+    });
     const productGridProps = {
       buyNowLabel: themeSettings.productDetailPrimaryButtonText?.trim() || "Mua ngay",
       addToCartLabel: "",
@@ -468,6 +479,10 @@ export default async function CategoryPage({
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(categoryItemListJsonLd) }}
       />
     </div>
     );
