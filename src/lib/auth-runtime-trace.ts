@@ -19,8 +19,8 @@ export type AuthSessionSnapshot = {
 };
 
 export function logAuthTrace(label: string, detail: Record<string, unknown>): void {
-  if (process.env.NODE_ENV === "production") return;
-  console.log("[AUTH TRACE]", label, detail);
+  void label;
+  void detail;
 }
 
 export async function fetchAuthSessionSnapshot(): Promise<AuthSessionSnapshot | null> {

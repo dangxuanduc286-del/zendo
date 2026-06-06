@@ -98,9 +98,8 @@ export default function FloatingSupportMenu({
           trackingEvent: "click_zalo",
           href: resolved.zalo,
           external: true,
-          icon: <BrandIcon src="/icons/zalo.svg" alt="" className="h-[22px] w-[22px]" />,
-          className:
-            "bg-[#0068FF] text-white shadow-[0_10px_24px_rgba(0,104,255,0.28)] hover:bg-[#005BE0] hover:shadow-[0_14px_30px_rgba(0,104,255,0.36)]",
+          icon: <BrandIcon src="/icons/zalo.svg" alt="" className="h-12 w-12 sm:h-[52px] sm:w-[52px]" />,
+          className: "bg-transparent text-white hover:bg-transparent",
         });
       }
       return items;
@@ -169,7 +168,9 @@ export default function FloatingSupportMenu({
           title={action.label}
           data-support-action={action.trackingEvent}
           onClick={() => trackSupportAction(action)}
-          className={`group pointer-events-auto relative inline-flex h-12 min-h-12 w-12 min-w-12 items-center justify-center rounded-full ring-1 ring-white/50 backdrop-blur-sm transition duration-200 ease-out will-change-transform hover:-translate-y-0.5 hover:scale-[1.04] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-200 active:scale-95 motion-safe:animate-[support-action-in_240ms_ease-out_both] sm:h-[52px] sm:w-[52px] ${action.className}`}
+          className={`group pointer-events-auto relative inline-flex h-12 min-h-12 w-12 min-w-12 items-center justify-center rounded-full transition duration-200 ease-out will-change-transform hover:-translate-y-0.5 hover:scale-[1.04] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-200 active:scale-95 motion-safe:animate-[support-action-in_240ms_ease-out_both] sm:h-[52px] sm:w-[52px] ${
+            action.key === "zalo" ? "" : "ring-1 ring-white/50 backdrop-blur-sm"
+          } ${action.className}`}
           style={{ animationDelay: `${index * 50}ms` }}
         >
           <span className="sr-only">{action.ariaLabel}</span>

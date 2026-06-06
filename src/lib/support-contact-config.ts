@@ -73,8 +73,17 @@ export function sanitizeSupportFacebookUrl(raw: unknown): string {
 export function sanitizeSupportZaloUrl(raw: unknown): string {
   const value = trimString(raw);
   if (!value) return "";
-  const zaloUrl = normalizeAllowedHttpUrl(value, ["zalo.me", "www.zalo.me"]);
+  const zaloUrl = normalizeAllowedHttpUrl(value, ["zalo.me", "www.zalo.me", "oa.zalo.me"]);
   if (zaloUrl) return zaloUrl;
+  const zaloQrUrl = normalizeAllowedHttpUrl(value, ["zaloapp.com", "www.zaloapp.com"]);
+  if (zaloQrUrl) {
+    try {
+      const parsed = new URL(zaloQrUrl);
+      if (parsed.pathname === "/qr" || parsed.pathname.startsWith("/qr/")) return zaloQrUrl;
+    } catch {
+      return "";
+    }
+  }
   if (!/^[\d+()\-\s.]+$/.test(value)) return "";
   const digits = value.replace(/\D/g, "");
   return digits ? `https://zalo.me/${digits}` : "";
