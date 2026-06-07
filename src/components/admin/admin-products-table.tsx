@@ -11,6 +11,13 @@ import { adminInput, adminPrimaryButton, adminSecondaryButton, adminSelect } fro
 interface OptionItem {
   id: string;
   name: string;
+  isActive?: boolean;
+  children?: OptionItem[];
+}
+
+interface SelectOptionItem {
+  id: string;
+  label: string;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -20,9 +27,18 @@ const STATUS_LABELS: Record<string, string> = {
   OUT_OF_STOCK: "Hết hàng",
 };
 
+function flattenActiveCategoryOptions(items: OptionItem[], depth = 0): SelectOptionItem[] {
+  return items.flatMap((item) => {
+    const children = flattenActiveCategoryOptions(item.children ?? [], depth + 1);
+    if (item.isActive === false) return children;
+    const prefix = depth > 0 ? `${"\u00a0\u00a0".repeat(depth)}└─ ` : "";
+    return [{ id: item.id, label: `${prefix}${item.name}` }, ...children];
+  });
+}
+
 export default function AdminProductsTable(): JSX.Element {
   const [items, setItems] = useState<ProductAdminDto[]>([]);
-  const [categories, setCategories] = useState<OptionItem[]>([]);
+  const [categories, setCategories] = useState<SelectOptionItem[]>([]);
   const [brands, setBrands] = useState<OptionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -78,7 +94,7 @@ export default function AdminProductsTable(): JSX.Element {
         ]);
         const categoriesPayload = (await categoriesResponse.json()) as { items?: OptionItem[] };
         const brandsPayload = (await brandsResponse.json()) as { items?: OptionItem[] };
-        setCategories(categoriesPayload.items ?? []);
+        setCategories(flattenActiveCategoryOptions(categoriesPayload.items ?? []));
         setBrands(brandsPayload.items ?? []);
       } catch {
         // keep silent; filters are optional
@@ -141,7 +157,7 @@ export default function AdminProductsTable(): JSX.Element {
           <option value="">Tất cả danh mục</option>
           {categories.map((option) => (
             <option key={option.id} value={option.id}>
-              {option.name}
+              {option.label}
             </option>
           ))}
         </select>

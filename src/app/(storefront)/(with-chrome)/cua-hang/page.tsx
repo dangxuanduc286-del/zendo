@@ -7,6 +7,7 @@ import { resolveMediaUrl } from "../../../../lib/media";
 import { buildBreadcrumbJsonLd, buildDynamicMetadata } from "../../../../lib/seo";
 import { getThemeSettings, getWebsiteSettings } from "../../../../lib/settings";
 import { MARKETING_FRAME } from "../../../../lib/storefront-frame";
+import { getProductReviewMetricsMap, type ProductReviewMetrics } from "../../../../lib/storefront/product-review-metrics";
 
 type StoreProductModel = {
   id: string;
@@ -37,7 +38,7 @@ function primaryImage(images: StoreProductModel["images"]): string {
   return resolveMediaUrl(primary?.url ?? "");
 }
 
-function toCardProduct(product: StoreProductModel): ProductCardData {
+function toCardProduct(product: StoreProductModel, metrics?: ProductReviewMetrics): ProductCardData {
   const salePriceValue =
     product.salePrice == null ? null : Number(product.salePrice);
   return {
@@ -48,6 +49,8 @@ function toCardProduct(product: StoreProductModel): ProductCardData {
     basePrice: Number(product.basePrice),
     salePrice: Number.isFinite(salePriceValue as number) ? salePriceValue : null,
     soldCount: product.soldCount ?? 0,
+    ratingAverage: metrics?.ratingAverage ?? null,
+    reviewCount: metrics?.reviewCount ?? 0,
     isFeatured: product.isFeatured,
     isNew: false,
   };
@@ -89,7 +92,8 @@ export default async function CuaHangPage(): Promise<JSX.Element> {
       })
     : [];
 
-  const products: ProductCardData[] = rows.map((row) => toCardProduct(row as StoreProductModel));
+  const metricsMap = db ? await getProductReviewMetricsMap(db, rows.map((row) => row.id)) : new Map<string, ProductReviewMetrics>();
+  const products: ProductCardData[] = rows.map((row) => toCardProduct(row as StoreProductModel, metricsMap.get(row.id)));
   const breadcrumbJsonLd = buildBreadcrumbJsonLd([
     { name: "Trang chủ", path: "/" },
     { name: "Cửa hàng", path: "/cua-hang" },

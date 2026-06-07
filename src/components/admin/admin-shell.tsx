@@ -116,6 +116,24 @@ export default function AdminShell({
   }, [pathname]);
 
   useEffect(() => {
+    if (pathname === "/admin/login") return;
+    if (typeof document === "undefined") return;
+
+    const html = document.documentElement;
+    const body = document.body;
+    const previousHtmlOverflowY = html.style.overflowY;
+    const previousBodyOverflowY = body.style.overflowY;
+
+    html.style.overflowY = "hidden";
+    body.style.overflowY = "hidden";
+
+    return () => {
+      html.style.overflowY = previousHtmlOverflowY;
+      body.style.overflowY = previousBodyOverflowY;
+    };
+  }, [pathname]);
+
+  useEffect(() => {
     if (!hideAdminGlobalSupportChat) return;
     useSupportChatStore.getState().close();
     setSupportToastVisible(false);

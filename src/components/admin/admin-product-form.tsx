@@ -20,6 +20,14 @@ import { adminPrimaryButton, adminSecondaryButton } from "../../lib/admin-ui";
 interface ProductOption {
   id: string;
   name: string;
+  isActive?: boolean;
+  children?: ProductOption[];
+}
+
+interface ProductCategorySelectOption {
+  id: string;
+  label: string;
+  depth: number;
 }
 
 interface ProductReviewItem {
@@ -43,6 +51,7 @@ interface ProductReviewDraft {
   content: string;
   guestName: string;
   guestEmail: string;
+  reviewedAt: string;
   reviewImages: string[];
   status: (typeof REVIEW_STATUS_OPTIONS)[number];
 }
@@ -125,6 +134,18 @@ function toDatetimeLocal(value: string): string {
   return local.toISOString().slice(0, 16);
 }
 
+function flattenActiveCategoryOptions(
+  items: ProductOption[],
+  depth = 0,
+): ProductCategorySelectOption[] {
+  return items.flatMap((item) => {
+    const children = flattenActiveCategoryOptions(item.children ?? [], depth + 1);
+    if (item.isActive === false) return children;
+    const prefix = depth > 0 ? `${"\u00a0\u00a0".repeat(depth)}└─ ` : "";
+    return [{ id: item.id, label: `${prefix}${item.name}`, depth }, ...children];
+  });
+}
+
 export default function AdminProductForm({
   mode,
   productId,
@@ -137,7 +158,7 @@ export default function AdminProductForm({
   const [loadingData, setLoadingData] = useState(mode === "edit");
   const [ready, setReady] = useState(mode === "create");
   const [autoSlug, setAutoSlug] = useState(mode === "create");
-  const [categories, setCategories] = useState<ProductOption[]>([]);
+  const [categories, setCategories] = useState<ProductCategorySelectOption[]>([]);
   const [defaultWarranty, setDefaultWarranty] = useState("");
   const [uploadError, setUploadError] = useState("");
   const [uploadSummary, setUploadSummary] = useState("");
@@ -154,6 +175,7 @@ export default function AdminProductForm({
     content: "",
     guestName: "",
     guestEmail: "",
+    reviewedAt: "",
     reviewImages: [],
     status: "PENDING",
   });
@@ -196,7 +218,7 @@ export default function AdminProductForm({
       const settingsPayload = (await settingsResponse.json()) as {
         item?: { defaultProductWarranty?: string };
       };
-      setCategories(categoriesPayload.items ?? []);
+      setCategories(flattenActiveCategoryOptions(categoriesPayload.items ?? []));
       setDefaultWarranty(settingsPayload.item?.defaultProductWarranty?.trim() ?? "");
     };
     loadData().catch(() => {});
@@ -388,6 +410,7 @@ export default function AdminProductForm({
       content: "",
       guestName: "",
       guestEmail: "",
+      reviewedAt: "",
       reviewImages: [],
       status: "PENDING",
     });
@@ -461,6 +484,7 @@ export default function AdminProductForm({
         content: reviewDraft.content,
         guestName: reviewDraft.guestName,
         guestEmail: reviewDraft.guestEmail,
+        reviewedAt: reviewDraft.reviewedAt,
         status: reviewDraft.status,
         reviewImages: reviewDraft.reviewImages,
       }),
@@ -492,6 +516,7 @@ export default function AdminProductForm({
       content: item.content,
       guestName: item.guestName,
       guestEmail: item.guestEmail,
+      reviewedAt: toDatetimeLocal(item.createdAt),
       reviewImages,
       status: item.status,
     });
@@ -551,7 +576,18 @@ export default function AdminProductForm({
             </div>
             {formState.errors.sku ? <p className="text-xs text-rose-600">{formState.errors.sku.message}</p> : null}
           </label>
-          <label className="space-y-1"><span className="text-sm font-medium text-zinc-700">Danh mục *</span><select {...register("categoryId")} className="h-11 w-full rounded-lg border border-zinc-300 px-3 text-sm"><option value="">Chọn danh mục</option>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+          <label className="space-y-1">
+            <span className="text-sm font-medium text-zinc-700">Danh mục *</span>
+            <select {...register("categoryId")} className="h-11 w-full rounded-lg border border-zinc-300 px-3 text-sm">
+              <option value="">Chọn danh mục</option>
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.label}
+                </option>
+              ))}
+            </select>
+            {formState.errors.categoryId ? <p className="text-xs text-rose-600">{formState.errors.categoryId.message}</p> : null}
+          </label>
           <label className="space-y-1">
             <span className="text-sm font-medium text-zinc-700">Thương hiệu</span>
             <input
@@ -664,34 +700,49 @@ export default function AdminProductForm({
                   rows={4}
                   className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
                 />
-                <div className="grid grid-cols-2 gap-2">
-                  <select
-                    value={reviewDraft.rating}
-                    onChange={(event) => setReviewDraft((prev) => ({ ...prev, rating: Number(event.target.value) }))}
-                    className="h-10 w-full rounded-lg border border-zinc-300 px-3 text-sm"
-                  >
-                    <option value={5}>5 sao</option>
-                    <option value={4}>4 sao</option>
-                    <option value={3}>3 sao</option>
-                    <option value={2}>2 sao</option>
-                    <option value={1}>1 sao</option>
-                  </select>
-                  <select
-                    value={reviewDraft.status}
-                    onChange={(event) =>
-                      setReviewDraft((prev) => ({
-                        ...prev,
-                        status: event.target.value as (typeof REVIEW_STATUS_OPTIONS)[number],
-                      }))
-                    }
-                    className="h-10 w-full rounded-lg border border-zinc-300 px-3 text-sm"
-                  >
-                    {REVIEW_STATUS_OPTIONS.map((option) => (
-                      <option key={option} value={option}>
-                        {REVIEW_STATUS_LABELS[option]}
-                      </option>
-                    ))}
-                  </select>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  <label className="min-w-0 space-y-1">
+                    <span className="text-xs font-medium text-zinc-700">Ngày đánh giá</span>
+                    <input
+                      type="datetime-local"
+                      value={reviewDraft.reviewedAt}
+                      onChange={(event) => setReviewDraft((prev) => ({ ...prev, reviewedAt: event.target.value }))}
+                      className="h-10 w-full rounded-lg border border-zinc-300 px-3 text-sm"
+                    />
+                  </label>
+                  <label className="min-w-0 space-y-1">
+                    <span className="text-xs font-medium text-zinc-700">Rating</span>
+                    <select
+                      value={reviewDraft.rating}
+                      onChange={(event) => setReviewDraft((prev) => ({ ...prev, rating: Number(event.target.value) }))}
+                      className="h-10 w-full rounded-lg border border-zinc-300 px-3 text-sm"
+                    >
+                      <option value={5}>5 sao</option>
+                      <option value={4}>4 sao</option>
+                      <option value={3}>3 sao</option>
+                      <option value={2}>2 sao</option>
+                      <option value={1}>1 sao</option>
+                    </select>
+                  </label>
+                  <label className="min-w-0 space-y-1">
+                    <span className="text-xs font-medium text-zinc-700">Trạng thái</span>
+                    <select
+                      value={reviewDraft.status}
+                      onChange={(event) =>
+                        setReviewDraft((prev) => ({
+                          ...prev,
+                          status: event.target.value as (typeof REVIEW_STATUS_OPTIONS)[number],
+                        }))
+                      }
+                      className="h-10 w-full rounded-lg border border-zinc-300 px-3 text-sm"
+                    >
+                      {REVIEW_STATUS_OPTIONS.map((option) => (
+                        <option key={option} value={option}>
+                          {REVIEW_STATUS_LABELS[option]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 </div>
                 <div
                   className={`rounded-lg border border-dashed p-2.5 transition ${
@@ -846,7 +897,7 @@ export default function AdminProductForm({
           {SHIPPING_CLASS_OPTIONS.map((option) => (
             <label
               key={option.value}
-              className={`cursor-pointer rounded-xl border p-3 transition ${
+              className={`relative cursor-pointer rounded-xl border p-3 transition ${
                 shippingClass === option.value ? "border-[#2563EB] bg-blue-50" : "border-zinc-200 bg-white hover:border-zinc-300"
               }`}
             >
@@ -854,7 +905,7 @@ export default function AdminProductForm({
                 type="radio"
                 value={option.value}
                 {...register("shippingClass")}
-                className="sr-only"
+                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
               />
               <span className="flex items-start gap-2">
                 <span

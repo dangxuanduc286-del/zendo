@@ -10,6 +10,7 @@ import { resolveMediaUrl } from "../../../../../lib/media";
 import { buildBreadcrumbJsonLd, buildDynamicMetadata, buildFaqPageJsonLd, buildItemListJsonLd } from "../../../../../lib/seo";
 import { getThemeSettings, getWebsiteSettings } from "../../../../../lib/settings";
 import { MARKETING_FRAME } from "../../../../../lib/storefront-frame";
+import { getProductReviewMetricsMap, type ProductReviewMetrics } from "../../../../../lib/storefront/product-review-metrics";
 
 const PAGE_SIZE = 12;
 export const dynamic = "force-dynamic";
@@ -106,7 +107,7 @@ function primaryImage(images: ProductModel["images"]): string {
   return resolveMediaUrl(primary?.url ?? "");
 }
 
-function toCardProduct(product: ProductModel): ProductCardData {
+function toCardProduct(product: ProductModel, metrics?: ProductReviewMetrics): ProductCardData {
   return {
     id: product.id,
     name: product.name,
@@ -115,6 +116,8 @@ function toCardProduct(product: ProductModel): ProductCardData {
     basePrice: product.basePrice,
     salePrice: product.salePrice,
     soldCount: product.soldCount ?? 0,
+    ratingAverage: metrics?.ratingAverage ?? null,
+    reviewCount: metrics?.reviewCount ?? 0,
     isFeatured: product.isFeatured,
     isNew: false,
   };
@@ -231,6 +234,7 @@ export default async function CategoryPage({
     let relatedCategories: RelatedCategoryModel[] = [];
     let relatedArticles: RelatedArticleModel[] = [];
     let relatedProducts: ProductModel[] = [];
+    let reviewMetricsMap = new Map<string, ProductReviewMetrics>();
 
     if (db) {
     const foundCategory = await db.category.findFirst({
@@ -402,6 +406,7 @@ export default async function CategoryPage({
         brand: row.brand,
         images: row.images,
       }));
+      reviewMetricsMap = await getProductReviewMetricsMap(db, [...products, ...relatedProducts].map((product) => product.id));
     }
     }
 
@@ -612,7 +617,7 @@ export default async function CategoryPage({
           {products.length ? (
             <>
               <ProductGrid
-                products={products.map(toCardProduct)}
+                products={products.map((product) => toCardProduct(product, reviewMetricsMap.get(product.id)))}
                 {...productGridProps}
               />
               <Pagination currentPage={safePage} totalPages={totalPages} makeHref={makeHref} />
@@ -690,7 +695,7 @@ export default async function CategoryPage({
         <section className="mt-8 rounded-[18px] border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5">
           <h2 className="text-lg font-bold text-zinc-900">Sản phẩm nổi bật trong {category.name}</h2>
           <div className="mt-4">
-            <ProductGrid products={relatedProducts.map(toCardProduct)} {...productGridProps} />
+            <ProductGrid products={relatedProducts.map((product) => toCardProduct(product, reviewMetricsMap.get(product.id)))} {...productGridProps} />
           </div>
         </section>
       ) : null}

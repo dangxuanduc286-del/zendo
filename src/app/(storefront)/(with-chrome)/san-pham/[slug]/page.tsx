@@ -34,6 +34,7 @@ import { resolveCustomerAffiliateProfile } from "../../../../../lib/affiliate-cu
 import { getWebsiteSettings } from "../../../../../lib/settings";
 import { getStorefrontSettings } from "../../../../../lib/storefront-settings";
 import { normalizeShippingClass } from "../../../../../lib/shipping";
+import { getProductReviewMetricsMap } from "../../../../../lib/storefront/product-review-metrics";
 
 type ParamsInput = Promise<{ slug: string }>;
 export const dynamic = "force-dynamic";
@@ -316,6 +317,8 @@ export default async function ProductDetailPage({
         take: 8,
       });
 
+      const relatedMetricsMap = await getProductReviewMetricsMap(db, relatedRows.map((item) => item.id));
+
       relatedProducts = relatedRows.map((item) => ({
         id: item.id,
         name: item.name,
@@ -324,6 +327,8 @@ export default async function ProductDetailPage({
         basePrice: Number(item.basePrice),
         salePrice: item.salePrice == null ? null : Number(item.salePrice),
         soldCount: item.soldCount ?? 0,
+        ratingAverage: relatedMetricsMap.get(item.id)?.ratingAverage ?? null,
+        reviewCount: relatedMetricsMap.get(item.id)?.reviewCount ?? 0,
         isFeatured: item.isFeatured,
         isNew: item.isNew,
       }));

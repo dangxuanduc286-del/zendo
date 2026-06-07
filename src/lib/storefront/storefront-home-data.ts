@@ -1,5 +1,6 @@
 import { memoizePerRequest } from "../runtime/request-cache";
 import { getStorefrontDbClient } from "../storefront-db";
+import { getProductReviewMetricsMap } from "./product-review-metrics";
 
 export type HomeCategoryRow = {
   id: string;
@@ -122,25 +123,7 @@ export const loadStorefrontHomeData = memoizePerRequest(async (): Promise<{
   const bestSellerProducts = allSectionProducts.filter((product) => product.isBestSeller).slice(0, 8);
   const productIds = [...new Set([...featuredProducts, ...newestProducts, ...bestSellerProducts].map((p) => p.id))];
 
-  const metricsMap = new Map<string, HomeProductMetrics>();
-  if (productIds.length) {
-    const reviewAgg = await db.review.groupBy({
-      by: ["productId"],
-      where: {
-        productId: { in: productIds },
-        status: "APPROVED",
-      },
-      _count: { _all: true },
-      _avg: { rating: true },
-    });
-
-    for (const row of reviewAgg) {
-      metricsMap.set(row.productId, {
-        reviewCount: row._count._all,
-        ratingAverage: row._avg.rating == null ? null : Number(row._avg.rating),
-      });
-    }
-  }
+  const metricsMap = (await getProductReviewMetricsMap(db, productIds)) as Map<string, HomeProductMetrics>;
 
   return {
     categoryRows: categoryRows as HomeCategoryRow[],

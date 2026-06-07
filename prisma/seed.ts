@@ -18,6 +18,7 @@ const mediaBaseUrl = (process.env.NEXT_PUBLIC_R2_PUBLIC_BASE_URL ?? "https://med
 
 function slugify(value: string): string {
   return value
+    .replace(/[đĐ]/g, "d")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getProductReviewMetricsMap } from "../../../../../lib/storefront/product-review-metrics";
 
 async function getDbClient() {
   if (!process.env.DATABASE_URL) return null;
@@ -48,12 +49,15 @@ export async function GET(request: Request): Promise<NextResponse> {
       },
     });
 
+    const metricsMap = await getProductReviewMetricsMap(db, rows.map((row) => row.id));
     const items = rows.map((row) => ({
       id: row.id,
       name: row.name,
       slug: row.slug,
       price: Number(row.salePrice ?? row.basePrice ?? 0),
       imageUrl: row.images[0]?.url || "",
+      ratingAverage: metricsMap.get(row.id)?.ratingAverage ?? null,
+      reviewCount: metricsMap.get(row.id)?.reviewCount ?? 0,
     }));
     return NextResponse.json({ items }, { status: 200 });
   } catch {

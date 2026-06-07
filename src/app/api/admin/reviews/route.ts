@@ -33,6 +33,10 @@ function toReviewPayload(input: unknown): unknown {
 function parseReviewedAt(value: string | undefined): Date | null {
   const trimmed = (value ?? "").trim();
   if (!trimmed) return null;
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(trimmed)) {
+    const parsed = new Date(`${trimmed}:00+07:00`);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
   const parsed = new Date(trimmed);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }

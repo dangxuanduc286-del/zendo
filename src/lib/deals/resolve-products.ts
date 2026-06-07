@@ -5,6 +5,7 @@ import type { ProductCardData } from "../../components/storefront/product-card";
 import { resolveMediaUrl } from "../media";
 import { memoizeArgsPerRequest } from "../runtime/request-cache";
 import { getStorefrontDbClient } from "../storefront-db";
+import { getProductReviewMetricsMap, type ProductReviewMetrics } from "../storefront/product-review-metrics";
 
 async function getDbClient() {
   return getStorefrontDbClient();
@@ -29,7 +30,7 @@ function primaryImage(images: DealProductImageRow[]): string {
   return resolveMediaUrl(primary?.url ?? "");
 }
 
-function toCardProduct(product: DealProductModel, images: DealProductImageRow[]): ProductCardData {
+function toCardProduct(product: DealProductModel, images: DealProductImageRow[], metrics?: ProductReviewMetrics): ProductCardData {
   const salePriceValue = product.salePrice == null ? null : Number(product.salePrice);
   return {
     id: product.id,
@@ -39,6 +40,8 @@ function toCardProduct(product: DealProductModel, images: DealProductImageRow[])
     basePrice: Number(product.basePrice),
     salePrice: Number.isFinite(salePriceValue as number) ? salePriceValue : null,
     soldCount: product.soldCount ?? 0,
+    ratingAverage: metrics?.ratingAverage ?? null,
+    reviewCount: metrics?.reviewCount ?? 0,
     isFeatured: product.isFeatured,
     isNew: false,
   };
@@ -127,7 +130,8 @@ const getManualProductsCached = cached(
       take: Math.min(limit, cleaned.length),
     });
     const imagesByProduct = await fetchProductImagesForIdsMemo(db, rows.map((r) => r.id));
-    const mapped = rows.map((row) => toCardProduct(row as unknown as DealProductModel, imagesByProduct.get(row.id) ?? []));
+    const metricsMap = await getProductReviewMetricsMap(db, rows.map((r) => r.id));
+    const mapped = rows.map((row) => toCardProduct(row as unknown as DealProductModel, imagesByProduct.get(row.id) ?? [], metricsMap.get(row.id)));
     const byId = new Map(mapped.map((p) => [p.id, p]));
     return cleaned.map((id) => byId.get(id)).filter((v): v is ProductCardData => Boolean(v)).slice(0, limit);
   },
@@ -152,7 +156,8 @@ const getTrendingProductsCached = cached(
       take: limit,
     });
     const imagesByProduct = await fetchProductImagesForIdsMemo(db, rows.map((r) => r.id));
-    return rows.map((row) => toCardProduct(row as unknown as DealProductModel, imagesByProduct.get(row.id) ?? []));
+    const metricsMap = await getProductReviewMetricsMap(db, rows.map((r) => r.id));
+    return rows.map((row) => toCardProduct(row as unknown as DealProductModel, imagesByProduct.get(row.id) ?? [], metricsMap.get(row.id)));
   },
   { revalidate: REVALIDATE_TRENDING_SECONDS, tags: [DEALS_TAG, DEALS_TRENDING_TAG] },
 );
@@ -175,7 +180,8 @@ const getFeaturedProductsCached = cached(
       take: limit,
     });
     const imagesByProduct = await fetchProductImagesForIdsMemo(db, rows.map((r) => r.id));
-    return rows.map((row) => toCardProduct(row as unknown as DealProductModel, imagesByProduct.get(row.id) ?? []));
+    const metricsMap = await getProductReviewMetricsMap(db, rows.map((r) => r.id));
+    return rows.map((row) => toCardProduct(row as unknown as DealProductModel, imagesByProduct.get(row.id) ?? [], metricsMap.get(row.id)));
   },
   { revalidate: REVALIDATE_SALE_SECONDS, tags: [DEALS_TAG, DEALS_SALE_TAG] },
 );
@@ -198,7 +204,8 @@ const getNewestProductsCached = cached(
       take: limit,
     });
     const imagesByProduct = await fetchProductImagesForIdsMemo(db, rows.map((r) => r.id));
-    return rows.map((row) => toCardProduct(row as unknown as DealProductModel, imagesByProduct.get(row.id) ?? []));
+    const metricsMap = await getProductReviewMetricsMap(db, rows.map((r) => r.id));
+    return rows.map((row) => toCardProduct(row as unknown as DealProductModel, imagesByProduct.get(row.id) ?? [], metricsMap.get(row.id)));
   },
   { revalidate: REVALIDATE_SALE_SECONDS, tags: [DEALS_TAG, DEALS_SALE_TAG] },
 );
@@ -224,7 +231,8 @@ const getUnderPriceProductsCached = cached(
       take: limit,
     });
     const imagesByProduct = await fetchProductImagesForIdsMemo(db, rows.map((r) => r.id));
-    return rows.map((row) => toCardProduct(row as unknown as DealProductModel, imagesByProduct.get(row.id) ?? []));
+    const metricsMap = await getProductReviewMetricsMap(db, rows.map((r) => r.id));
+    return rows.map((row) => toCardProduct(row as unknown as DealProductModel, imagesByProduct.get(row.id) ?? [], metricsMap.get(row.id)));
   },
   { revalidate: REVALIDATE_SALE_SECONDS, tags: [DEALS_TAG, DEALS_SALE_TAG] },
 );
@@ -249,7 +257,8 @@ const getCategoryProductsCached = cached(
       take: limit,
     });
     const imagesByProduct = await fetchProductImagesForIdsMemo(db, rows.map((r) => r.id));
-    return rows.map((row) => toCardProduct(row as unknown as DealProductModel, imagesByProduct.get(row.id) ?? []));
+    const metricsMap = await getProductReviewMetricsMap(db, rows.map((r) => r.id));
+    return rows.map((row) => toCardProduct(row as unknown as DealProductModel, imagesByProduct.get(row.id) ?? [], metricsMap.get(row.id)));
   },
   { revalidate: REVALIDATE_CATEGORY_SECONDS, tags: [DEALS_TAG, DEALS_CATEGORY_TAG] },
 );
@@ -272,7 +281,8 @@ const getSaleProductsCached = cached(
       take: Math.min(60, limit * 4),
     });
     const imagesByProduct = await fetchProductImagesForIds(db, rows.map((r) => r.id));
-    const mapped = rows.map((row) => toCardProduct(row as unknown as DealProductModel, imagesByProduct.get(row.id) ?? []));
+    const metricsMap = await getProductReviewMetricsMap(db, rows.map((r) => r.id));
+    const mapped = rows.map((row) => toCardProduct(row as unknown as DealProductModel, imagesByProduct.get(row.id) ?? [], metricsMap.get(row.id)));
     return mapped
       .filter((p) => getEffectivePrice(p) < Number(p.basePrice))
       .filter((p) => (minDiscountPercent ? discountPercent(p) >= minDiscountPercent : true))

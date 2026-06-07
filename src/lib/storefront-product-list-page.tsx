@@ -6,6 +6,7 @@ import { resolveMediaUrl } from "./media";
 import { buildBreadcrumbJsonLd, buildItemListJsonLd } from "./seo";
 import { getThemeSettings, getWebsiteSettings } from "./settings";
 import { MARKETING_FRAME } from "./storefront-frame";
+import { getProductReviewMetricsMap, type ProductReviewMetrics } from "./storefront/product-review-metrics";
 
 type StoreProductModel = {
   id: string;
@@ -55,7 +56,7 @@ function primaryImage(images: StoreProductModel["images"]): string {
   return resolveMediaUrl(primary?.url ?? "");
 }
 
-function toCardProduct(product: StoreProductModel): ProductCardData {
+function toCardProduct(product: StoreProductModel, metrics?: ProductReviewMetrics): ProductCardData {
   const salePriceValue = product.salePrice == null ? null : Number(product.salePrice);
   return {
     id: product.id,
@@ -65,6 +66,8 @@ function toCardProduct(product: StoreProductModel): ProductCardData {
     basePrice: Number(product.basePrice),
     salePrice: Number.isFinite(salePriceValue as number) ? salePriceValue : null,
     soldCount: product.soldCount ?? 0,
+    ratingAverage: metrics?.ratingAverage ?? null,
+    reviewCount: metrics?.reviewCount ?? 0,
     isFeatured: product.isFeatured,
     isNew: product.isNew,
     isBestSeller: product.isBestSeller,
@@ -110,7 +113,8 @@ export async function renderStorefrontProductListPage(config: StorefrontProductL
     : [];
 
   const filteredRows = config.flashSaleOnly ? rows.filter((row) => isFlashSaleProduct(row as StoreProductModel)) : rows;
-  const products: ProductCardData[] = filteredRows.map((row) => toCardProduct(row as StoreProductModel));
+  const metricsMap = db ? await getProductReviewMetricsMap(db, filteredRows.map((row) => row.id)) : new Map<string, ProductReviewMetrics>();
+  const products: ProductCardData[] = filteredRows.map((row) => toCardProduct(row as StoreProductModel, metricsMap.get(row.id)));
   const breadcrumbJsonLd = buildBreadcrumbJsonLd([
     { name: "Trang chủ", path: "/" },
     { name: config.title, path: config.path },
