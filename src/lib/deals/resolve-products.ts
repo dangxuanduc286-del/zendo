@@ -19,6 +19,7 @@ type DealProductModel = {
   basePrice: unknown;
   salePrice: unknown;
   soldCount: number;
+  stockQuantity: number;
   isFeatured: boolean;
 };
 
@@ -40,6 +41,7 @@ function toCardProduct(product: DealProductModel, images: DealProductImageRow[],
     basePrice: Number(product.basePrice),
     salePrice: Number.isFinite(salePriceValue as number) ? salePriceValue : null,
     soldCount: product.soldCount ?? 0,
+    stockQuantity: product.stockQuantity,
     ratingAverage: metrics?.ratingAverage ?? null,
     reviewCount: metrics?.reviewCount ?? 0,
     isFeatured: product.isFeatured,
@@ -71,6 +73,7 @@ const baseSelect = {
   basePrice: true,
   salePrice: true,
   soldCount: true,
+  stockQuantity: true,
   isFeatured: true,
 };
 

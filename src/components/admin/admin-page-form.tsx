@@ -2,21 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { pageFormSchema, PAGE_STATUS_OPTIONS, type PageAdminDto, type PageFormValues } from "../../lib/admin-page";
 import { slugify } from "../../lib/slug";
+import { AdminSeoKeywordsField } from "./admin-seo-keywords-field";
 import { adminPrimaryButton, adminSecondaryButton } from "../../lib/admin-ui";
-
-const DEFAULT_VALUES: PageFormValues = {
-  title: "",
-  slug: "",
-  content: "",
-  seoTitle: "",
-  seoDescription: "",
-  status: "DRAFT",
-};
 
 export default function AdminPageForm({ mode, pageId }: { mode: "create" | "edit"; pageId?: string }): JSX.Element {
   const router = useRouter();
@@ -27,10 +19,25 @@ export default function AdminPageForm({ mode, pageId }: { mode: "create" | "edit
 
   const { register, handleSubmit, watch, setValue, reset, formState: { errors, isSubmitting } } = useForm<PageFormValues>({
     resolver: zodResolver(pageFormSchema),
-    defaultValues: DEFAULT_VALUES,
+    defaultValues: {
+      title: "",
+      slug: "",
+      content: "",
+      seoTitle: "",
+      seoDescription: "",
+      seoKeywords: { main: "", sub: [] },
+      status: "DRAFT",
+    },
   });
 
   const watchedTitle = watch("title");
+  const seoTitleValue = watch("seoTitle");
+  const seoDescriptionValue = watch("seoDescription");
+  const watchedSlug = watch("slug");
+
+  const [seoMain, setSeoMain] = useState("");
+  const [seoSub, setSeoSub] = useState<string[]>([]);
+
   useEffect(() => {
     if (!autoSlug) return;
     setValue("slug", slugify(watchedTitle || ""), { shouldValidate: true });
@@ -47,14 +54,18 @@ export default function AdminPageForm({ mode, pageId }: { mode: "create" | "edit
         setLoadingData(false);
         return;
       }
+      const sk = payload.item.seoKeywords ?? { main: "", sub: [] };
       reset({
         title: payload.item.title,
         slug: payload.item.slug,
         content: payload.item.content,
         seoTitle: payload.item.seoTitle,
         seoDescription: payload.item.seoDescription,
+        seoKeywords: sk,
         status: payload.item.status,
       });
+      setSeoMain(sk.main ?? "");
+      setSeoSub(sk.sub ?? []);
       setAutoSlug(false);
       setLoadingData(false);
       setReady(true);
@@ -64,6 +75,15 @@ export default function AdminPageForm({ mode, pageId }: { mode: "create" | "edit
       setLoadingData(false);
     });
   }, [mode, pageId, reset]);
+
+  const handleSeoKeywordsChange = useCallback(
+    (main: string, sub: string[]) => {
+      setSeoMain(main);
+      setSeoSub(sub);
+      setValue("seoKeywords", { main, sub }, { shouldDirty: true });
+    },
+    [setValue],
+  );
 
   const onSubmit = async (values: PageFormValues) => {
     setSubmitError("");
@@ -119,6 +139,20 @@ export default function AdminPageForm({ mode, pageId }: { mode: "create" | "edit
             {PAGE_STATUS_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
           </select>
         </label>
+
+        {/* SEO Keywords - full width */}
+        <div className="sm:col-span-2">
+          <input type="hidden" {...register("seoKeywords")} />
+          <AdminSeoKeywordsField
+            mainKeyword={seoMain}
+            subKeywords={seoSub}
+            onChange={handleSeoKeywordsChange}
+            slug={watchedSlug}
+            kind="page"
+            title={seoTitleValue || watchedTitle}
+            metaDescription={seoDescriptionValue}
+          />
+        </div>
       </div>
       {submitError ? <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700">{submitError}</p> : null}
       <div className="flex flex-wrap gap-2">
@@ -130,4 +164,3 @@ export default function AdminPageForm({ mode, pageId }: { mode: "create" | "edit
     </form>
   );
 }
-

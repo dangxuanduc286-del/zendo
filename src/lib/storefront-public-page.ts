@@ -12,6 +12,7 @@ export type StorefrontPublicPage = {
   content: string;
   seoTitle: string | null;
   seoDescription: string | null;
+  seoKeywords: { main: string; sub: string[] } | null;
   updatedAt: Date;
   isFallback: boolean;
 };
@@ -110,6 +111,7 @@ export function stubToPublicPage(slug: string, def: StubDef): StorefrontPublicPa
     content: def.content,
     seoTitle: def.seoTitle,
     seoDescription: def.seoDescription,
+    seoKeywords: null,
     updatedAt: new Date(0),
     isFallback: true,
   };
@@ -130,6 +132,7 @@ export async function fetchStorefrontPublicPage(slug: string): Promise<Storefron
     content: string;
     seoTitle: string | null;
     seoDescription: string | null;
+    seoKeywords: unknown;
     status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
     updatedAt: Date;
   };
@@ -144,6 +147,7 @@ export async function fetchStorefrontPublicPage(slug: string): Promise<Storefron
         content: true,
         seoTitle: true,
         seoDescription: true,
+        seoKeywords: true,
         status: true,
         updatedAt: true,
       },
@@ -158,6 +162,7 @@ export async function fetchStorefrontPublicPage(slug: string): Promise<Storefron
       content: row.content,
       seoTitle: row.seoTitle ?? null,
       seoDescription: row.seoDescription ?? null,
+      seoKeywords: (row.seoKeywords as { main: string; sub: string[] } | null) ?? null,
       updatedAt: row.updatedAt,
       isFallback: false,
     };

@@ -40,6 +40,7 @@ function mapPage(row: {
   content: string;
   seoTitle: string | null;
   seoDescription: string | null;
+  seoKeywords: unknown;
   status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
   publishedAt: Date | null;
   updatedAt: Date;
@@ -51,6 +52,7 @@ function mapPage(row: {
     content: row.content,
     seoTitle: row.seoTitle ?? "",
     seoDescription: row.seoDescription ?? "",
+    seoKeywords: (row.seoKeywords as { main: string; sub: string[] } | null) ?? null,
     status: row.status,
     publishedAt: row.publishedAt ? row.publishedAt.toISOString() : "",
     updatedAt: row.updatedAt.toISOString(),
@@ -73,6 +75,7 @@ export async function GET(_: Request, { params }: { params: ParamsInput }): Prom
         content: true,
         seoTitle: true,
         seoDescription: true,
+        seoKeywords: true,
         status: true,
         publishedAt: true,
         updatedAt: true,
@@ -108,6 +111,9 @@ export async function PATCH(request: Request, { params }: { params: ParamsInput 
         content: values.content,
         seoTitle: values.seoTitle || null,
         seoDescription: values.seoDescription || null,
+        seoKeywords: values.seoKeywords?.main || values.seoKeywords?.sub?.length
+          ? values.seoKeywords
+          : null,
         status: values.status,
         publishedAt: values.status === "PUBLISHED" ? found.publishedAt ?? new Date() : null,
       },
@@ -118,6 +124,7 @@ export async function PATCH(request: Request, { params }: { params: ParamsInput 
         content: true,
         seoTitle: true,
         seoDescription: true,
+        seoKeywords: true,
         status: true,
         publishedAt: true,
         updatedAt: true,

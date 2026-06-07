@@ -17,6 +17,7 @@ interface BuyNowButtonProps {
   label?: string;
   ariaLabel?: string;
   style?: CSSProperties;
+  disabled?: boolean;
 }
 
 function readCartItems(): GuestCartItem[] {
@@ -34,10 +35,12 @@ export default function BuyNowButton({
   label = "Mua ngay",
   ariaLabel,
   style,
+  disabled = false,
 }: BuyNowButtonProps): JSX.Element {
   const router = useRouter();
 
   const onBuyNow = () => {
+    if (disabled) return;
     const cart = readCartItems();
     const index = cart.findIndex((existing) => existing.id === item.id);
     if (index >= 0) {
@@ -68,9 +71,11 @@ export default function BuyNowButton({
       data-buy-now-product-id={item.productId}
       type="button"
       onClick={onBuyNow}
+      disabled={disabled}
       className={className}
       style={style}
-      aria-label={ariaLabel ?? `Mua ngay ${item.name}`}
+      aria-label={disabled ? `${item.name} hết hàng` : (ariaLabel ?? `Mua ngay ${item.name}`)}
+      aria-disabled={disabled}
     >
       {label}
     </button>

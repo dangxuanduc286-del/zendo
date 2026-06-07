@@ -15,6 +15,7 @@ type StoreProductModel = {
   basePrice: unknown;
   salePrice: unknown;
   soldCount: number;
+  stockQuantity: number;
   isFeatured: boolean;
   isNew: boolean;
   isBestSeller: boolean;
@@ -66,6 +67,7 @@ function toCardProduct(product: StoreProductModel, metrics?: ProductReviewMetric
     basePrice: Number(product.basePrice),
     salePrice: Number.isFinite(salePriceValue as number) ? salePriceValue : null,
     soldCount: product.soldCount ?? 0,
+    stockQuantity: product.stockQuantity,
     ratingAverage: metrics?.ratingAverage ?? null,
     reviewCount: metrics?.reviewCount ?? 0,
     isFeatured: product.isFeatured,
@@ -100,6 +102,7 @@ export async function renderStorefrontProductListPage(config: StorefrontProductL
           basePrice: true,
           salePrice: true,
           soldCount: true,
+          stockQuantity: true,
           isFeatured: true,
           isNew: true,
           isBestSeller: true,

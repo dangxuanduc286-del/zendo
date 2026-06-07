@@ -49,11 +49,15 @@ export async function generateMetadata({ params }: { params: ParamsInput }): Pro
     (page.seoDescription && page.seoDescription.trim()) ||
     excerptFromPageContent(page.content);
   const titleMeta = page.seoTitle?.trim() || `${page.title} | Zendo.vn`;
+  const keywords = page.seoKeywords?.main
+    ? [page.seoKeywords.main, ...page.seoKeywords.sub]
+    : undefined;
   return buildDynamicMetadata({
     title: titleMeta,
     description,
     path,
     modifiedTime: toIsoStringOrUndefined(page.updatedAt),
+    keywords,
   });
 }
 

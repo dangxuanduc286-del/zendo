@@ -116,6 +116,7 @@ function toCardProduct(product: ProductModel, metrics?: ProductReviewMetrics): P
     basePrice: product.basePrice,
     salePrice: product.salePrice,
     soldCount: product.soldCount ?? 0,
+    stockQuantity: product.stockQuantity,
     ratingAverage: metrics?.ratingAverage ?? null,
     reviewCount: metrics?.reviewCount ?? 0,
     isFeatured: product.isFeatured,

@@ -4,6 +4,11 @@ import { sanitizePostThumbnailUrl } from "./media";
 
 export const POST_STATUS_OPTIONS = ["DRAFT", "PUBLISHED", "ARCHIVED"] as const;
 
+const seoKeywordsSchema = z.object({
+  main: z.string().max(120).optional().or(z.literal("")),
+  sub: z.array(z.string().max(120)).max(5),
+});
+
 export const postFormSchema = z.object({
   title: z
     .string()
@@ -51,6 +56,7 @@ export const postFormSchema = z.object({
     .max(320, "Mô tả SEO tối đa 320 ký tự.")
     .optional()
     .or(z.literal("")),
+  seoKeywords: seoKeywordsSchema,
   status: z.enum(POST_STATUS_OPTIONS),
 });
 
@@ -65,7 +71,11 @@ export interface PostAdminDto {
   thumbnail: string;
   seoTitle: string;
   seoDescription: string;
+  seoKeywords: { main: string; sub: string[] } | null;
   status: (typeof POST_STATUS_OPTIONS)[number];
   publishedAt: string;
   updatedAt: string;
 }
+
+/** Default SEO keywords for new forms */
+export const DEFAULT_SEO_KEYWORDS = { main: "", sub: [] as string[] };

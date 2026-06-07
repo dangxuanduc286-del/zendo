@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -13,6 +13,7 @@ import {
 } from "../../lib/admin-post";
 import { slugify } from "../../lib/slug";
 import AdminImageUploadField from "./admin-image-upload-field";
+import { AdminSeoKeywordsField } from "./admin-seo-keywords-field";
 import { adminPrimaryButton, adminSecondaryButton } from "../../lib/admin-ui";
 
 interface AdminPostFormProps {
@@ -28,6 +29,7 @@ const DEFAULT_VALUES: PostFormValues = {
   thumbnail: "",
   seoTitle: "",
   seoDescription: "",
+  seoKeywords: { main: "", sub: [] },
   status: "DRAFT",
 };
 
@@ -55,6 +57,12 @@ export default function AdminPostForm({
 
   const watchedTitle = watch("title");
   const thumbnailValue = watch("thumbnail");
+  const seoTitleValue = watch("seoTitle");
+  const seoDescriptionValue = watch("seoDescription");
+  const watchedSlug = watch("slug");
+
+  const [seoMain, setSeoMain] = useState("");
+  const [seoSub, setSeoSub] = useState<string[]>([]);
 
   useEffect(() => {
     if (!autoSlug) return;
@@ -74,6 +82,7 @@ export default function AdminPostForm({
         setLoadingData(false);
         return;
       }
+      const sk = payload.item.seoKeywords ?? { main: "", sub: [] };
       reset({
         title: payload.item.title,
         slug: payload.item.slug,
@@ -82,8 +91,11 @@ export default function AdminPostForm({
         thumbnail: payload.item.thumbnail,
         seoTitle: payload.item.seoTitle,
         seoDescription: payload.item.seoDescription,
+        seoKeywords: sk,
         status: payload.item.status,
       });
+      setSeoMain(sk.main ?? "");
+      setSeoSub(sk.sub ?? []);
       setAutoSlug(false);
       setLoadingData(false);
       setReady(true);
@@ -94,6 +106,15 @@ export default function AdminPostForm({
       setLoadingData(false);
     });
   }, [mode, postId, reset]);
+
+  const handleSeoKeywordsChange = useCallback(
+    (main: string, sub: string[]) => {
+      setSeoMain(main);
+      setSeoSub(sub);
+      setValue("seoKeywords", { main, sub }, { shouldDirty: true });
+    },
+    [setValue],
+  );
 
   const onSubmit = async (values: PostFormValues) => {
     setSubmitError("");
@@ -224,6 +245,18 @@ export default function AdminPostForm({
             placeholder="Mô tả SEO"
           />
         </label>
+
+        {/* SEO Keywords */}
+        <input type="hidden" {...register("seoKeywords")} />
+        <AdminSeoKeywordsField
+          mainKeyword={seoMain}
+          subKeywords={seoSub}
+          onChange={handleSeoKeywordsChange}
+          slug={watchedSlug}
+          kind="post"
+          title={seoTitleValue || watchedTitle}
+          metaDescription={seoDescriptionValue}
+        />
       </div>
 
       {submitError ? (
@@ -250,4 +283,3 @@ export default function AdminPostForm({
     </form>
   );
 }
-

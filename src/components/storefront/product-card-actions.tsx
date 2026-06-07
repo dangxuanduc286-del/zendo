@@ -21,6 +21,7 @@ interface ProductCardActionsProps {
   addToCartAriaLabel?: string;
   buyNowAriaLabel?: string;
   buyNowStyle?: CSSProperties;
+  disabled?: boolean;
 }
 
 function readCartItems(): GuestCartItem[] {
@@ -60,12 +61,14 @@ export default function ProductCardActions({
   addToCartAriaLabel,
   buyNowAriaLabel,
   buyNowStyle,
+  disabled = false,
 }: ProductCardActionsProps): JSX.Element {
   const router = useRouter();
   const [added, setAdded] = useState(false);
   const iconOnly = !String(addToCartLabel ?? "").trim();
 
   const addToCart = () => {
+    if (disabled) return;
     const { cart, quantity } = upsertCartItem(item);
     window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
     window.dispatchEvent(new CustomEvent(CART_UPDATED_EVENT));
@@ -79,6 +82,7 @@ export default function ProductCardActions({
   };
 
   const buyNow = () => {
+    if (disabled) return;
     const { cart } = upsertCartItem(item);
     window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
     window.dispatchEvent(new CustomEvent(CART_UPDATED_EVENT));
@@ -97,8 +101,10 @@ export default function ProductCardActions({
         data-add-to-cart-product-id={item.productId}
         type="button"
         onClick={addToCart}
+        disabled={disabled}
         className={addToCartClassName}
-        aria-label={addToCartAriaLabel ?? `Thêm ${item.name} vào giỏ hàng`}
+        aria-label={disabled ? `${item.name} hết hàng` : (addToCartAriaLabel ?? `Thêm ${item.name} vào giỏ hàng`)}
+        aria-disabled={disabled}
       >
         <span className={`inline-flex min-w-0 items-center justify-center ${iconOnly ? "" : "gap-1.5 sm:gap-2"}`}>
           {!added ? (
@@ -141,9 +147,11 @@ export default function ProductCardActions({
         data-buy-now-product-id={item.productId}
         type="button"
         onClick={buyNow}
+        disabled={disabled}
         className={buyNowClassName}
         style={buyNowStyle}
-        aria-label={buyNowAriaLabel ?? `Mua ngay ${item.name}`}
+        aria-label={disabled ? `${item.name} hết hàng` : (buyNowAriaLabel ?? `Mua ngay ${item.name}`)}
+        aria-disabled={disabled}
       >
         {buyNowLabel}
       </button>

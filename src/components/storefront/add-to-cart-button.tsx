@@ -20,6 +20,7 @@ interface AddToCartButtonProps {
   showIcon?: boolean;
   ariaLabel?: string;
   style?: CSSProperties;
+  disabled?: boolean;
 }
 
 function readCartItems(): GuestCartItem[] {
@@ -40,11 +41,13 @@ export default function AddToCartButton({
   showIcon = true,
   ariaLabel,
   style,
+  disabled = false,
 }: AddToCartButtonProps): JSX.Element {
   const [added, setAdded] = useState(false);
   const iconOnly = Boolean(showIcon && !String(label ?? "").trim());
 
   const onAddToCart = () => {
+    if (disabled) return;
     const cart = readCartItems();
     const index = cart.findIndex((existing) => existing.id === item.id);
 
@@ -77,9 +80,11 @@ export default function AddToCartButton({
       data-add-to-cart-product-id={item.productId}
       type="button"
       onClick={onAddToCart}
+      disabled={disabled}
       className={className}
       style={style}
-      aria-label={ariaLabel ?? `Thêm ${item.name} vào giỏ hàng`}
+      aria-label={disabled ? `${item.name} hết hàng` : (ariaLabel ?? `Thêm ${item.name} vào giỏ hàng`)}
+      aria-disabled={disabled}
     >
       <span
         className={`inline-flex min-w-0 items-center justify-center ${iconOnly ? "" : "gap-1.5 sm:gap-2"}`}

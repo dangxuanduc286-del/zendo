@@ -2,6 +2,11 @@ import { z } from "zod";
 
 export const PAGE_STATUS_OPTIONS = ["DRAFT", "PUBLISHED", "ARCHIVED"] as const;
 
+const seoKeywordsSchema = z.object({
+  main: z.string().max(120).optional().or(z.literal("")),
+  sub: z.array(z.string().max(120)).max(5),
+});
+
 export const pageFormSchema = z.object({
   title: z.string().trim().min(3, "Tiêu đề phải có ít nhất 3 ký tự.").max(200),
   slug: z
@@ -13,6 +18,7 @@ export const pageFormSchema = z.object({
   content: z.string().trim().min(20, "Nội dung phải có ít nhất 20 ký tự.").max(200000),
   seoTitle: z.string().trim().max(160).optional().or(z.literal("")),
   seoDescription: z.string().trim().max(320).optional().or(z.literal("")),
+  seoKeywords: seoKeywordsSchema,
   status: z.enum(PAGE_STATUS_OPTIONS),
 });
 
@@ -25,8 +31,8 @@ export interface PageAdminDto {
   content: string;
   seoTitle: string;
   seoDescription: string;
+  seoKeywords: { main: string; sub: string[] } | null;
   status: (typeof PAGE_STATUS_OPTIONS)[number];
   publishedAt: string;
   updatedAt: string;
 }
-

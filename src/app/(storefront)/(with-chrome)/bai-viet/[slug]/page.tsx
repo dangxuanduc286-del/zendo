@@ -43,6 +43,7 @@ async function getPostBySlug(slug: string): Promise<{
       thumbnailUrl: true,
       seoTitle: true,
       seoDescription: true,
+      seoKeywords: true,
       tags: true,
       publishedAt: true,
       createdAt: true,
@@ -61,6 +62,7 @@ async function getPostBySlug(slug: string): Promise<{
     thumbnailUrl: sanitizePostThumbnailUrl(row.thumbnailUrl ?? ""),
     seoTitle: row.seoTitle,
     seoDescription: row.seoDescription,
+    seoKeywords: (row as unknown as { seoKeywords: { main: string; sub: string[] } | null }).seoKeywords ?? null,
     tags: row.tags,
     publishedAt: row.publishedAt ?? row.createdAt,
     updatedAt: row.updatedAt,
@@ -82,6 +84,7 @@ async function getPostBySlug(slug: string): Promise<{
       thumbnailUrl: true,
       seoTitle: true,
       seoDescription: true,
+      seoKeywords: true,
       tags: true,
       publishedAt: true,
       createdAt: true,
@@ -98,6 +101,7 @@ async function getPostBySlug(slug: string): Promise<{
     thumbnailUrl: sanitizePostThumbnailUrl(item.thumbnailUrl ?? ""),
     seoTitle: item.seoTitle,
     seoDescription: item.seoDescription,
+    seoKeywords: (item as unknown as { seoKeywords: { main: string; sub: string[] } | null }).seoKeywords ?? null,
     tags: item.tags,
     publishedAt: item.publishedAt ?? item.createdAt,
     updatedAt: item.updatedAt,
@@ -124,6 +128,10 @@ export async function generateMetadata({
   const title = post.seoTitle ?? `${post.title} | Zendo.vn`;
   const description = post.seoDescription ?? post.excerpt;
 
+  const keywords = post.seoKeywords?.main
+    ? [post.seoKeywords.main, ...post.seoKeywords.sub]
+    : undefined;
+
   return buildDynamicMetadata({
     title,
     description,
@@ -132,6 +140,7 @@ export async function generateMetadata({
     type: "article",
     publishedTime: post.publishedAt.toISOString(),
     modifiedTime: post.updatedAt.toISOString(),
+    keywords,
   });
 }
 

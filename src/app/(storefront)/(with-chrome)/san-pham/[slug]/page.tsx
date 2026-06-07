@@ -11,6 +11,7 @@ import ProductDetailInfoShell from "../../../../../components/storefront/product
 import AddToCartButton from "../../../../../components/storefront/add-to-cart-button";
 import AffiliateProductRefActions from "../../../../../components/storefront/affiliate-product-ref-actions";
 import BuyNowButton from "../../../../../components/storefront/buy-now-button";
+import { isProductOutOfStock, getProductStockLabel } from "../../../../../lib/storefront/product-stock";
 import ProductGrid from "../../../../../components/storefront/product-grid";
 import MediaImage from "../../../../../components/shared/media-image";
 import ProductPromotionSection, {
@@ -301,6 +302,7 @@ export default async function ProductDetailPage({
           basePrice: true,
           salePrice: true,
           soldCount: true,
+          stockQuantity: true,
           isFeatured: true,
           isNew: true,
           images: {
@@ -327,6 +329,7 @@ export default async function ProductDetailPage({
         basePrice: Number(item.basePrice),
         salePrice: item.salePrice == null ? null : Number(item.salePrice),
         soldCount: item.soldCount ?? 0,
+        stockQuantity: item.stockQuantity,
         ratingAverage: relatedMetricsMap.get(item.id)?.ratingAverage ?? null,
         reviewCount: relatedMetricsMap.get(item.id)?.reviewCount ?? 0,
         isFeatured: item.isFeatured,
@@ -453,7 +456,8 @@ export default async function ProductDetailPage({
   const displayPrice = hasSale ? product.salePrice ?? product.basePrice : product.basePrice;
   const shippingClass = normalizeShippingClass(product.specifications?.shippingClass);
   const discountPercent = getDiscountPercent(product, hasSale);
-  const stockLabel = product.stockQuantity > 0 ? "Còn hàng" : "Tạm hết hàng";
+  const outOfStock = isProductOutOfStock(product);
+  const stockLabel = getProductStockLabel(product);
   const warrantyPolicy = getPolicyText(product.specifications, ["warrantyPolicy", "warranty"]);
   const returnPolicy = getPolicyText(product.specifications, [
     "returnPolicy",
@@ -476,7 +480,7 @@ export default async function ProductDetailPage({
     brand: product.brand?.name,
     price: priceForDisplay(product),
     currency: websiteAff.currency || "VND",
-    inStock: product.stockQuantity > 0,
+    inStock: !outOfStock,
     path: `/san-pham/${product.slug}`,
     aggregateRating: reviewCount > 0 ? { ratingValue: reviewAverage, reviewCount } : undefined,
     reviews: product.reviews.slice(0, 5).map((review) => ({
@@ -509,7 +513,7 @@ export default async function ProductDetailPage({
   const productFaqItems = [
     {
       question: `${product.name} còn hàng không?`,
-      answer: `${product.name} hiện ${product.stockQuantity > 0 ? "còn hàng" : "tạm hết hàng"} theo dữ liệu tồn kho hiện có trên Zendo.vn.`,
+      answer: `${product.name} hiện ${outOfStock ? "tạm hết hàng" : "còn hàng"} theo dữ liệu tồn kho hiện có trên Zendo.vn.`,
     },
     {
       question: `${product.name} thuộc danh mục nào?`,
@@ -566,7 +570,14 @@ export default async function ProductDetailPage({
       />
 
       <article className="grid grid-cols-1 gap-3 md:gap-4 xl:min-h-0 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:grid-rows-[545px_84px] xl:items-stretch xl:gap-x-8 xl:gap-y-3">
-        <ProductGallery images={product.images} productName={product.name} />
+        <div className="relative">
+          {outOfStock ? (
+            <div className="pointer-events-none absolute right-[-38px] top-5 z-10 w-36 rotate-45 bg-red-600 py-1 text-center text-[10px] font-extrabold uppercase tracking-wide text-white shadow-md sm:right-[-42px] sm:top-6 sm:w-40 sm:text-xs">
+              HẾT HÀNG
+            </div>
+          ) : null}
+          <ProductGallery images={product.images} productName={product.name} />
+        </div>
 
         <ProductDetailInfoShell
           className="rounded-2xl border bg-white p-3 shadow-sm md:rounded-2xl md:p-4 md:shadow-sm xl:box-border xl:rounded-[24px] xl:p-4 xl:shadow-sm"
@@ -582,7 +593,7 @@ export default async function ProductDetailPage({
               <span className="text-zinc-300" aria-hidden>|</span>
               <span
                 className={
-                  product.stockQuantity > 0 ? "whitespace-nowrap text-emerald-700 lg:text-emerald-600 lg:font-medium" : "whitespace-nowrap text-rose-700"
+                  !outOfStock ? "whitespace-nowrap text-emerald-700 lg:text-emerald-600 lg:font-medium" : "whitespace-nowrap text-rose-700"
                 }
               >
                 {stockLabel}
@@ -684,7 +695,11 @@ export default async function ProductDetailPage({
           </div>
 
           <div className="min-w-0 shrink-0 space-y-2.5 xl:mt-auto">
-          {canPurchaseOnPdp ? (
+          {outOfStock ? (
+            <div className="min-w-0 shrink-0 rounded-xl border border-red-200 bg-red-50 px-3 py-3 text-sm font-semibold text-red-700 text-center">
+              Hết hàng
+            </div>
+          ) : canPurchaseOnPdp ? (
             <div className="flex min-w-0 shrink-0 flex-col gap-3">
               <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-3">
                 <AddToCartButton

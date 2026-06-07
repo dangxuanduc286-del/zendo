@@ -16,6 +16,7 @@ type StoreProductModel = {
   basePrice: unknown;
   salePrice: unknown;
   soldCount: number;
+  stockQuantity: number;
   isFeatured: boolean;
   images: Array<{ url: string; isPrimary: boolean; sortOrder: number }>;
 };
@@ -49,6 +50,7 @@ function toCardProduct(product: StoreProductModel, metrics?: ProductReviewMetric
     basePrice: Number(product.basePrice),
     salePrice: Number.isFinite(salePriceValue as number) ? salePriceValue : null,
     soldCount: product.soldCount ?? 0,
+    stockQuantity: product.stockQuantity,
     ratingAverage: metrics?.ratingAverage ?? null,
     reviewCount: metrics?.reviewCount ?? 0,
     isFeatured: product.isFeatured,
@@ -82,6 +84,7 @@ export default async function CuaHangPage(): Promise<JSX.Element> {
           basePrice: true,
           salePrice: true,
           soldCount: true,
+          stockQuantity: true,
           isFeatured: true,
           images: {
             select: { url: true, isPrimary: true, sortOrder: true },

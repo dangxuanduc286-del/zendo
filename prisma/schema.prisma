@@ -822,6 +822,8 @@ model Post {
   thumbnailUrl   String?
   seoTitle       String?
   seoDescription String?
+  /// SEO keywords: { main: string, sub: string[] }
+  seoKeywords    Json?
   tags           String[]
   status         ContentStatus @default(DRAFT)
   publishedAt    DateTime?
@@ -843,6 +845,8 @@ model Page {
   content        String
   seoTitle       String?
   seoDescription String?
+  /// SEO keywords: { main: string, sub: string[] }
+  seoKeywords    Json?
   status         ContentStatus @default(DRAFT)
   publishedAt    DateTime?
   authorId       String?

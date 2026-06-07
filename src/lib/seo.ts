@@ -15,6 +15,7 @@ export interface SeoMetadataInput {
   canonicalBaseUrl?: string;
   robotsIndex?: boolean;
   robotsFollow?: boolean;
+  keywords?: string[];
 }
 
 export interface JsonLdWebPageInput {
@@ -58,13 +59,14 @@ export function buildMetadata(input: SeoMetadataInput): Metadata {
         follow: input.robotsFollow ?? true,
       };
 
-  return {
+  const metadata: Metadata = {
     title,
     description,
     alternates: {
       canonical,
     },
     robots,
+    keywords: input.keywords,
     openGraph: {
       title,
       description,
@@ -81,6 +83,8 @@ export function buildMetadata(input: SeoMetadataInput): Metadata {
       images: image ? [image] : undefined,
     },
   };
+
+  return metadata;
 }
 
 export async function buildDynamicMetadata(input: SeoMetadataInput): Promise<Metadata> {

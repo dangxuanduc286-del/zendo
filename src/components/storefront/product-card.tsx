@@ -3,6 +3,7 @@ import MediaImage from "../shared/media-image";
 import ProductCardActions from "./product-card-actions";
 import { formatVnd } from "../../lib/currency";
 import { resolveMediaUrl } from "../../lib/media";
+import { isProductOutOfStock } from "../../lib/storefront/product-stock";
 
 export interface ProductCardData {
   id: string;
@@ -73,6 +74,7 @@ export default function ProductCard({
   const soldCount = Math.max(0, Number(product.soldCount ?? 0));
   const hasReview = reviewCount > 0 && ratingAverage > 0;
   const numberFormat = new Intl.NumberFormat("vi-VN");
+  const outOfStock = isProductOutOfStock(product);
   const baseBadges = [
     product.isFeatured ? { key: "featured", label: "Nổi bật", className: "bg-amber-500" } : null,
     product.isBestSeller ? { key: "best", label: "Bán chạy", className: "bg-indigo-600" } : null,
@@ -101,6 +103,8 @@ export default function ProductCard({
       : `inline-flex ${buyNowSizeClass} min-w-0 flex-1 items-center justify-center overflow-hidden text-ellipsis whitespace-nowrap rounded-lg border border-transparent bg-[var(--z-cta,#F59E0B)] px-1.5 text-[11px] font-semibold leading-none text-white shadow-sm transition hover:bg-[#D97706] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F59E0B]/30 min-[390px]:px-2 sm:rounded-xl sm:px-3 sm:text-sm`;
   const addToCartButtonClass =
     `inline-flex ${addToCartSizeClass} shrink-0 items-center justify-center rounded-lg border border-[var(--z-primary)] bg-white text-[var(--z-primary)] transition hover:bg-[#EFF6FF] sm:rounded-xl`;
+  const disabledBuyNowButtonClass = `inline-flex ${buyNowSizeClass} min-w-0 flex-1 cursor-not-allowed items-center justify-center overflow-hidden text-ellipsis whitespace-nowrap rounded-lg border border-slate-200 bg-slate-100 px-1.5 text-[11px] font-semibold leading-none text-slate-400 min-[390px]:px-2 sm:rounded-xl sm:px-3 sm:text-sm`;
+  const disabledAddToCartButtonClass = `inline-flex ${addToCartSizeClass} shrink-0 cursor-not-allowed items-center justify-center rounded-lg border border-slate-200 bg-slate-100 text-[10px] font-semibold text-slate-400 sm:rounded-xl sm:text-[11px]`;
 
   return (
     <article className="group flex h-full w-full min-w-0 flex-col overflow-hidden rounded-xl border border-[#E2E8F0] bg-white shadow-sm transition hover:shadow-md">
@@ -120,7 +124,13 @@ export default function ProductCard({
           </div>
         )}
 
-        <div className="pointer-events-none absolute left-1 top-1 flex max-w-[calc(100%-0.5rem)] flex-wrap gap-0.5 sm:left-2 sm:top-2 sm:max-w-[calc(100%-1rem)] sm:gap-1">
+        {outOfStock ? (
+          <div className="pointer-events-none absolute right-[-38px] top-5 z-10 w-36 rotate-45 bg-red-600 py-1 text-center text-[10px] font-extrabold uppercase tracking-wide text-white shadow-md sm:right-[-42px] sm:top-6 sm:w-40 sm:text-xs">
+            HẾT HÀNG
+          </div>
+        ) : null}
+
+        <div className="pointer-events-none absolute left-1 top-1 z-20 flex max-w-[calc(100%-0.5rem)] flex-wrap gap-0.5 sm:left-2 sm:top-2 sm:max-w-[calc(100%-1rem)] sm:gap-1">
           {badges.map((badge) => (
             <span
               key={badge.key}
@@ -173,10 +183,11 @@ export default function ProductCard({
               sku: product.slug,
               basePrice,
               salePrice,
-              stockQuantity: 1,
+              stockQuantity: product.stockQuantity ?? 0,
             }}
-            addToCartClassName={addToCartButtonClass}
-            buyNowClassName={buyNowButtonClass}
+            disabled={outOfStock}
+            addToCartClassName={outOfStock ? disabledAddToCartButtonClass : addToCartButtonClass}
+            buyNowClassName={outOfStock ? disabledBuyNowButtonClass : buyNowButtonClass}
             addToCartLabel={addToCartLabel}
             buyNowLabel={buyNowLabel}
             addToCartAriaLabel={`Thêm ${product.name} vào giỏ hàng`}
