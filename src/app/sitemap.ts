@@ -13,7 +13,7 @@ async function getDbClient() {
   }
 }
 
-const SITEMAP_PAGE_SLUG_BLACKLIST = new Set(["gio-hang", "thanh-toan"]);
+const SITEMAP_PAGE_SLUG_BLACKLIST = new Set(["gio-hang", "thanh-toan", "tra-cuu-don-hang"]);
 
 function appUrl(): string {
   return resolveSiteUrl().replace(/\/+$/, "");
@@ -38,7 +38,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${base}/ban-chay`, lastModified: now, changeFrequency: "daily", priority: 0.8 },
     { url: `${base}/flash-deal`, lastModified: now, changeFrequency: "daily", priority: 0.8 },
     { url: `${base}/bai-viet`, lastModified: now, changeFrequency: "daily", priority: 0.8 },
-    { url: `${base}/tra-cuu-don-hang`, lastModified: now, changeFrequency: "weekly", priority: 0.5 },
     { url: `${base}/gioi-thieu`, lastModified: now, changeFrequency: "monthly", priority: 0.6 },
     { url: `${base}/lien-he`, lastModified: now, changeFrequency: "monthly", priority: 0.6 },
     { url: `${base}/cau-hoi-thuong-gap`, lastModified: now, changeFrequency: "monthly", priority: 0.55 },

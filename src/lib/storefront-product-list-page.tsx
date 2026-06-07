@@ -3,7 +3,7 @@ import ProductGrid from "../components/storefront/product-grid";
 import SectionHeading from "../components/storefront/section-heading";
 import type { ProductCardData } from "../components/storefront/product-card";
 import { resolveMediaUrl } from "./media";
-import { buildBreadcrumbJsonLd } from "./seo";
+import { buildBreadcrumbJsonLd, buildItemListJsonLd } from "./seo";
 import { getThemeSettings, getWebsiteSettings } from "./settings";
 import { MARKETING_FRAME } from "./storefront-frame";
 
@@ -115,6 +115,20 @@ export async function renderStorefrontProductListPage(config: StorefrontProductL
     { name: "Trang chủ", path: "/" },
     { name: config.title, path: config.path },
   ]);
+  const productListJsonLd = buildItemListJsonLd({
+    name: `${config.title} - Zendo.vn`,
+    path: config.path,
+    items: products.map((product) => {
+      const image = resolveMediaUrl(product.imageUrl);
+      return {
+        name: product.name,
+        path: `/san-pham/${product.slug}`,
+        image: image || undefined,
+        price: Number(product.salePrice ?? product.basePrice),
+        currency: websiteSettings.currency || "VND",
+      };
+    }),
+  });
   const productSectionClass = "rounded-[18px] border border-[#E2E8F0] bg-white p-3 shadow-sm sm:p-5 lg:p-7";
   const productGridProps = {
     buyNowLabel: themeSettings.productDetailPrimaryButtonText?.trim() || "Mua ngay",
@@ -145,6 +159,10 @@ export async function renderStorefrontProductListPage(config: StorefrontProductL
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productListJsonLd) }}
       />
     </div>
   );

@@ -30,7 +30,6 @@ export async function generateMetadata(): Promise<Metadata> {
     title,
     description,
     path: "/",
-    image: "",
   });
 }
 
@@ -128,7 +127,7 @@ export default async function StorefrontHomePage(): Promise<JSX.Element> {
       .map((product) => ({
         name: product.name,
         path: `/san-pham/${product.slug}`,
-        image: product.imageUrl,
+        image: product.imageUrl || undefined,
         price: Number(product.salePrice ?? product.basePrice),
         currency: websiteSettings.currency || "VND",
       })),

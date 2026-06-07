@@ -1,5 +1,6 @@
 {
   "scripts": {
+    "seo:audit": "tsx scripts/seo-validation-audit.ts",
     "dev": "node scripts/ensure-dev-ready.cjs && next dev",
     "dev:clean": "npm run clean && next dev",
     "postinstall": "prisma generate",

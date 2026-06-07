@@ -10,6 +10,7 @@ import {
   buildArticleJsonLd,
   buildBreadcrumbJsonLd,
   buildDynamicMetadata,
+  buildFaqPageJsonLd,
 } from "../../../../../lib/seo";
 
 type ParamsInput = Promise<{ slug: string }>;
@@ -150,7 +151,7 @@ export default async function BlogDetailPage({
   const articleJsonLd = buildArticleJsonLd({
     title: post.title,
     description: post.excerpt,
-    image: post.thumbnailUrl,
+    image: post.thumbnailUrl || undefined,
     publishedTime: post.publishedAt.toISOString(),
     modifiedTime: post.updatedAt.toISOString(),
     path: `/bai-viet/${post.slug}`,
@@ -160,6 +161,32 @@ export default async function BlogDetailPage({
     { name: "Bài viết", path: "/bai-viet" },
     { name: post.title, path: `/bai-viet/${post.slug}` },
   ]);
+  const articleFaqItems = [
+    {
+      question: `Bài viết ${post.title} nói về nội dung gì?`,
+      answer: post.excerpt,
+    },
+    ...(post.tags.length
+      ? [
+          {
+            question: `Bài viết ${post.title} có những chủ đề liên quan nào?`,
+            answer: `Bài viết này đang được gắn với các chủ đề ${post.tags.slice(0, 6).join(", ")}.`,
+          },
+        ]
+      : []),
+    ...(related.length
+      ? [
+          {
+            question: `Có bài viết nào liên quan đến ${post.title}?`,
+            answer: `Một số bài viết liên quan đang được công khai gồm ${related
+              .slice(0, 3)
+              .map((item) => item.title)
+              .join(", ")}.`,
+          },
+        ]
+      : []),
+  ];
+  const faqJsonLd = buildFaqPageJsonLd(articleFaqItems);
 
   const paragraphs = post.content
     .split(/\n{2,}/g)
@@ -219,6 +246,29 @@ export default async function BlogDetailPage({
               <p key={paragraph}>{paragraph}</p>
             ))}
           </div>
+
+          {articleFaqItems.length ? (
+            <section className="mt-8 rounded-xl border border-zinc-200 bg-white p-5">
+              <h2 className="text-lg font-bold text-zinc-900">Câu hỏi thường gặp về bài viết</h2>
+              <dl className="mt-4 space-y-3">
+                {articleFaqItems.map((item) => (
+                  <div key={item.question} className="rounded-xl bg-zinc-50 p-4">
+                    <dt className="text-sm font-semibold text-zinc-900">{item.question}</dt>
+                    <dd className="mt-1 text-sm leading-6 text-zinc-600">{item.answer}</dd>
+                  </div>
+                ))}
+              </dl>
+              {related.length ? (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {related.map((item) => (
+                    <Link key={item.id} href={`/bai-viet/${item.slug}`} className="rounded-full border border-zinc-200 px-3 py-1.5 text-sm font-medium text-zinc-700 transition hover:border-zinc-400 hover:text-zinc-950">
+                      {item.title}
+                    </Link>
+                  ))}
+                </div>
+              ) : null}
+            </section>
+          ) : null}
         </article>
 
         <aside className="space-y-4">
@@ -273,6 +323,12 @@ export default async function BlogDetailPage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
+      {faqJsonLd ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+        />
+      ) : null}
     </main>
   );
 }

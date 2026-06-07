@@ -25,6 +25,7 @@ import { resolveMediaUrl } from "../../../../../lib/media";
 import {
   buildBreadcrumbJsonLd,
   buildDynamicMetadata,
+  buildFaqPageJsonLd,
   buildProductJsonLd,
 } from "../../../../../lib/seo";
 import { effectiveAffiliateBlockMessage, isCustomerBuyer } from "../../../../../lib/account-role";
@@ -459,11 +460,14 @@ export default async function ProductDetailPage({
   const reviewAverage = reviewCount
     ? Math.round((product.reviews.reduce((sum, item) => sum + item.rating, 0) / reviewCount) * 10) / 10
     : 0;
+  const productSchemaImages = product.images
+    .map((image) => resolveMediaUrl(image.url))
+    .filter((image): image is string => Boolean(image));
   const productSchema = buildProductJsonLd({
     name: product.name,
     description: product.shortDescription ?? product.description ?? "",
     sku: product.sku,
-    images: product.images.map((image) => resolveMediaUrl(image.url)),
+    images: productSchemaImages,
     brand: product.brand?.name,
     price: priceForDisplay(product),
     currency: websiteAff.currency || "VND",
@@ -497,6 +501,41 @@ export default async function ProductDetailPage({
     { name: "Danh mục", path: `/danh-muc/${product.category.slug}` },
     { name: product.name, path: `/san-pham/${product.slug}` },
   ]);
+  const productFaqItems = [
+    {
+      question: `${product.name} còn hàng không?`,
+      answer: `${product.name} hiện ${product.stockQuantity > 0 ? "còn hàng" : "tạm hết hàng"} theo dữ liệu tồn kho hiện có trên Zendo.vn.`,
+    },
+    {
+      question: `${product.name} thuộc danh mục nào?`,
+      answer: `${product.name} thuộc danh mục ${product.category.name} đang được công khai trên Zendo.vn.`,
+    },
+    ...(product.brand
+      ? [
+          {
+            question: `${product.name} thuộc thương hiệu nào?`,
+            answer: `${product.name} thuộc thương hiệu ${product.brand.name} theo dữ liệu sản phẩm hiện có.`,
+          },
+        ]
+      : []),
+    ...(warrantyPolicy
+      ? [
+          {
+            question: `Chính sách bảo hành của ${product.name} là gì?`,
+            answer: warrantyPolicy,
+          },
+        ]
+      : []),
+    ...(returnPolicy
+      ? [
+          {
+            question: `Chính sách đổi trả của ${product.name} là gì?`,
+            answer: returnPolicy,
+          },
+        ]
+      : []),
+  ];
+  const faqJsonLd = buildFaqPageJsonLd(productFaqItems);
   const storefrontSettings = await getStorefrontSettings();
   const detailSettings = storefrontSettings.website.productDetailSettings;
   const themeSettings = storefrontSettings.theme;
@@ -734,6 +773,33 @@ export default async function ProductDetailPage({
               </div>
             </details>
           </section>
+
+          {productFaqItems.length ? (
+            <section
+              className="rounded-2xl border bg-white p-3 shadow-sm md:rounded-xl md:p-5 md:shadow-none lg:rounded-[28px] lg:p-8 lg:shadow-sm"
+              style={{ borderColor: themeSettings.cardBorderColor }}
+            >
+              <h2 className="text-lg font-semibold text-zinc-900 lg:text-2xl lg:font-bold">Câu hỏi thường gặp về {product.name}</h2>
+              <dl className="mt-4 space-y-3">
+                {productFaqItems.map((item) => (
+                  <div key={item.question} className="rounded-xl bg-zinc-50 p-4">
+                    <dt className="text-sm font-semibold text-zinc-900">{item.question}</dt>
+                    <dd className="mt-1 text-sm leading-6 text-zinc-600">{item.answer}</dd>
+                  </div>
+                ))}
+              </dl>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Link href={`/danh-muc/${product.category.slug}`} className="rounded-full border border-zinc-200 px-3 py-1.5 text-sm font-medium text-zinc-700 transition hover:border-zinc-400 hover:text-zinc-950">
+                  Xem danh mục {product.category.name}
+                </Link>
+                {relatedProducts.slice(0, 4).map((item) => (
+                  <Link key={item.id} href={`/san-pham/${item.slug}`} className="rounded-full border border-zinc-200 px-3 py-1.5 text-sm font-medium text-zinc-700 transition hover:border-zinc-400 hover:text-zinc-950">
+                    {item.name}
+                  </Link>
+                ))}
+              </div>
+            </section>
+          ) : null}
         </article>
 
         <aside className="space-y-3 md:space-y-4">
@@ -889,6 +955,12 @@ export default async function ProductDetailPage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
+      {faqJsonLd ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+        />
+      ) : null}
     </div>
   );
 }

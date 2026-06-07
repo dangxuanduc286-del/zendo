@@ -23,6 +23,11 @@ export interface JsonLdWebPageInput {
   path?: string;
 }
 
+export type FaqJsonLdItem = {
+  question: string;
+  answer: string;
+};
+
 function toValidSeoImage(value: string): string {
   const raw = value.trim();
   if (!raw) return "";
@@ -125,6 +130,32 @@ export function buildBreadcrumbJsonLd(
       name: item.name,
       item: item.path ? absoluteUrl(item.path) : undefined,
     })),
+  };
+}
+
+export function buildFaqPageJsonLd(items: FaqJsonLdItem[]): Record<string, unknown> | null {
+  const mainEntity = items
+    .map((item) => ({
+      question: item.question.trim(),
+      answer: item.answer.trim(),
+    }))
+    .filter((item) => item.question.length > 0 && item.answer.length > 0)
+    .slice(0, 8)
+    .map((item) => ({
+      "@type": "Question",
+      name: item.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: item.answer,
+      },
+    }));
+
+  if (!mainEntity.length) return null;
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity,
   };
 }
 
