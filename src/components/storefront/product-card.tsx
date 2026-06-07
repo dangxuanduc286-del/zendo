@@ -103,7 +103,7 @@ export default function ProductCard({
     `inline-flex ${addToCartSizeClass} shrink-0 items-center justify-center rounded-lg border border-[var(--z-primary)] bg-white text-[var(--z-primary)] transition hover:bg-[#EFF6FF] sm:rounded-xl`;
 
   return (
-    <article className="group w-full min-w-0 overflow-hidden rounded-xl border border-[#E2E8F0] bg-white shadow-sm transition hover:shadow-md">
+    <article className="group flex h-full w-full min-w-0 flex-col overflow-hidden rounded-xl border border-[#E2E8F0] bg-white shadow-sm transition hover:shadow-md">
       <Link href={detailsHref} className="relative block aspect-square overflow-hidden rounded-lg bg-white">
         {imageUrl ? (
           <MediaImage
@@ -132,14 +132,14 @@ export default function ProductCard({
         </div>
       </Link>
 
-      <div className="min-w-0 space-y-1.5 p-2 sm:space-y-2 sm:p-3">
-        <h3 className="line-clamp-2 min-h-8 text-xs font-semibold leading-4 text-[#0F172A] sm:min-h-10 sm:text-sm sm:leading-5">
+      <div className="flex min-w-0 flex-col space-y-1.5 p-2 sm:space-y-2 sm:p-3">
+        <h3 className="line-clamp-5 min-h-20 break-words text-xs font-semibold leading-4 text-[#0F172A] [overflow-wrap:normal] sm:line-clamp-5 sm:min-h-[5.75rem] sm:text-sm sm:leading-[1.15rem]">
           <Link href={detailsHref} className="transition hover:text-[var(--z-primary)]">
             {product.name}
           </Link>
         </h3>
 
-        <div className="flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5 text-[10px] text-[#64748B] sm:gap-x-1.5 sm:text-[11px]">
+        <div className="flex min-h-7 min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5 text-[10px] text-[#64748B] sm:min-h-5 sm:gap-x-1.5 sm:text-[11px]">
           {hasReview ? (
             <>
               <span className="font-semibold text-[#F59E0B]">★ {ratingAverage.toFixed(1)}</span>
@@ -161,18 +161,6 @@ export default function ProductCard({
             <span className="text-[10px] text-[#64748B] line-through sm:text-xs">{formatVnd(basePrice)}</span>
           ) : null}
         </div>
-
-        {product.brandName ? (
-          <div className="hidden flex-wrap gap-x-2 gap-y-1 text-[11px] text-[#64748B] sm:flex">
-            {product.brandName ? <span>{product.brandName}</span> : null}
-          </div>
-        ) : null}
-
-        {showCountdown ? (
-          <div className="hidden rounded-lg bg-amber-50 px-2 py-1 text-[10px] font-medium text-amber-800 sm:block sm:text-[11px]">
-            Kết thúc ưu đãi: {String(product.saleEndAt ?? product.discountEndAt)}
-          </div>
-        ) : null}
 
         <div data-product-card-cta="true" className="flex min-w-0 items-center gap-1.5 pt-0.5 min-[390px]:gap-2">
           <ProductCardActions
@@ -200,6 +188,18 @@ export default function ProductCard({
             }}
           />
         </div>
+
+        {product.brandName ? (
+          <div className="hidden flex-wrap gap-x-2 gap-y-1 text-[11px] text-[#64748B] sm:flex">
+            <span>{product.brandName}</span>
+          </div>
+        ) : null}
+
+        {showCountdown ? (
+          <div className="hidden rounded-lg bg-amber-50 px-2 py-1 text-[10px] font-medium text-amber-800 sm:block sm:text-[11px]">
+            Kết thúc ưu đãi: {String(product.saleEndAt ?? product.discountEndAt ?? "")}
+          </div>
+        ) : null}
       </div>
     </article>
   );
