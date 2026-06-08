@@ -15,6 +15,14 @@ export type StorefrontPublicPage = {
   seoKeywords: { main: string; sub: string[] } | null;
   updatedAt: Date;
   isFallback: boolean;
+  /** SEO links (PageLinkRelation) dành cho storefront */
+  seoLinks: Array<{
+    id: string;
+    linkType: "PRODUCT" | "CATEGORY" | "BRAND" | "POST" | "PAGE" | "COUPON" | "LANDING_PAGE";
+    title: string;
+    url: string;
+    anchorText: string | null;
+  }>;
 };
 
 type StubDef = {
@@ -114,6 +122,7 @@ export function stubToPublicPage(slug: string, def: StubDef): StorefrontPublicPa
     seoKeywords: null,
     updatedAt: new Date(0),
     isFallback: true,
+    seoLinks: [],
   };
 }
 
@@ -126,20 +135,9 @@ export async function fetchStorefrontPublicPage(slug: string): Promise<Storefron
 
   const db = await getDbClient();
 
-  type PageSel = {
-    slug: string;
-    title: string;
-    content: string;
-    seoTitle: string | null;
-    seoDescription: string | null;
-    seoKeywords: unknown;
-    status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
-    updatedAt: Date;
-  };
-  let row: PageSel | null = null;
-
   if (db) {
-    row = await db.page.findUnique({
+    // Query page without seoLinks relation (tránh lỗi nếu DB chưa có bảng PageLinkRelation)
+    const pageRow = (await db.page.findUnique({
       where: { slug: normalized },
       select: {
         slug: true,
@@ -151,29 +149,58 @@ export async function fetchStorefrontPublicPage(slug: string): Promise<Storefron
         status: true,
         updatedAt: true,
       },
-    });
-  }
+    })) as {
+      slug: string; title: string; content: string;
+      seoTitle: string | null; seoDescription: string | null;
+      seoKeywords: unknown; status: string; updatedAt: Date;
+    } | null;
 
-  let result: StorefrontPublicPage | null = null;
-  if (row?.status === "PUBLISHED") {
-    result = {
-      slug: row.slug,
-      title: row.title,
-      content: row.content,
-      seoTitle: row.seoTitle ?? null,
-      seoDescription: row.seoDescription ?? null,
-      seoKeywords: (row.seoKeywords as { main: string; sub: string[] } | null) ?? null,
-      updatedAt: row.updatedAt,
-      isFallback: false,
-    };
-  } else {
-    const stub = STOREFRONT_PAGE_CONTENT_STUBS[normalized];
-    if (stub) {
-      result = stubToPublicPage(normalized, stub);
+    if (pageRow?.status === "PUBLISHED") {
+      // Query riêng PageLinkRelation bằng raw SQL (fallback empty nếu bảng chưa tồn tại)
+      let seoLinks: StorefrontPublicPage["seoLinks"] = [];
+      try {
+        const linkRows = await db.$queryRawUnsafe<
+          Array<{ id: string; link_type: string; title: string; url: string; anchor_text: string | null }>
+        >(
+          `SELECT id, "linkType" AS link_type, title, url, "anchorText" AS anchor_text
+           FROM "PageLinkRelation"
+           WHERE "pageId" = (SELECT id FROM "Page" WHERE slug = $1)
+             AND "isActive" = true
+           ORDER BY "sortOrder" ASC`,
+          normalized
+        );
+        seoLinks = linkRows.map((r) => ({
+          id: r.id,
+          linkType: r.link_type as "PRODUCT" | "CATEGORY" | "BRAND" | "POST" | "PAGE" | "COUPON" | "LANDING_PAGE",
+          title: r.title,
+          url: r.url,
+          anchorText: r.anchor_text,
+        }));
+      } catch {
+        // Bảng PageLinkRelation chưa tồn tại → fallback empty
+        seoLinks = [];
+      }
+
+      return {
+        slug: pageRow.slug,
+        title: pageRow.title,
+        content: pageRow.content,
+        seoTitle: pageRow.seoTitle ?? null,
+        seoDescription: pageRow.seoDescription ?? null,
+        seoKeywords: (pageRow.seoKeywords as { main: string; sub: string[] } | null) ?? null,
+        updatedAt: pageRow.updatedAt,
+        isFallback: false,
+        seoLinks,
+      };
     }
   }
 
-  return result;
+  const stub = STOREFRONT_PAGE_CONTENT_STUBS[normalized];
+  if (stub) {
+    return stubToPublicPage(normalized, stub);
+  }
+
+  return null;
 }
 
 /** Dedupe trong một request giữa `generateMetadata` và page. */

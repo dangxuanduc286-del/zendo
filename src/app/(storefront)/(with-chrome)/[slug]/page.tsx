@@ -12,6 +12,7 @@ import {
   getStorefrontPublicPageCached,
   type StorefrontPublicPage,
 } from "../../../../lib/storefront-public-page";
+import PageSeoLinks from "../../../../components/storefront/page-seo-links";
 
 type ParamsInput = Promise<{ slug: string }>;
 
@@ -106,6 +107,9 @@ export default async function StorefrontContentPage({
           <h1 className="text-2xl font-bold tracking-tight text-zinc-900 sm:text-3xl">{page.title}</h1>
         </header>
         <PageBody page={page} />
+
+        {/* Có thể bạn quan tâm – chèn sau nội dung chính */}
+        <PageSeoLinks links={page.seoLinks} />
       </article>
 
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(pageJsonLd) }} />

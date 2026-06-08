@@ -4,6 +4,9 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Breadcrumbs from "../../../../../components/storefront/breadcrumbs";
 import EmptyState from "../../../../../components/storefront/empty-state";
+import PostRelatedProducts, {
+  type StorefrontProductItem,
+} from "../../../../../components/storefront/post-related-products";
 import { type StorefrontPost } from "../../../../../lib/storefront-blog";
 import { sanitizePostThumbnailUrl } from "../../../../../lib/media";
 import {
@@ -29,10 +32,14 @@ async function getDbClient() {
 async function getPostBySlug(slug: string): Promise<{
   post: StorefrontPost | null;
   related: StorefrontPost[];
+  /** StorefrontProductItem[] không có N+1 (đã include trong query) */
+  relatedProducts: StorefrontProductItem[];
 }> {
   const db = await getDbClient();
-  if (!db) return { post: null, related: [] };
-  const row = await db.post.findFirst({
+  if (!db) return { post: null, related: [], relatedProducts: [] };
+
+  // Query Post cơ bản
+  const row = (await db.post.findFirst({
     where: { slug, status: "PUBLISHED" },
     select: {
       id: true,
@@ -43,15 +50,72 @@ async function getPostBySlug(slug: string): Promise<{
       thumbnailUrl: true,
       seoTitle: true,
       seoDescription: true,
-      seoKeywords: true,
       tags: true,
       publishedAt: true,
       createdAt: true,
       updatedAt: true,
     },
-  });
+  })) as unknown as {
+    id: string; title: string; slug: string;
+    excerpt: string | null; content: string;
+    thumbnailUrl: string | null;
+    seoTitle: string | null; seoDescription: string | null;
+    seoKeywords: { main: string; sub: string[] } | null;
+    tags: string[];
+    publishedAt: Date | null; createdAt: Date; updatedAt: Date;
+  } | null;
 
-  if (!row) return { post: null, related: [] };
+  if (!row) return { post: null, related: [], relatedProducts: [] };
+
+  // Query riêng PostProduct bằng raw SQL (tránh Prisma ORM lỗi nếu bảng chưa migrate)
+  let seoProductsRaw: Array<{
+    productId: string;
+    product: {
+      id: string; name: string; slug: string;
+      basePrice: string | number | bigint;
+      salePrice: string | number | bigint | null;
+      status: string;
+      images: Array<{ url: string }>;
+    };
+  }> = [];
+
+  try {
+    const rawRows = await db.$queryRawUnsafe<
+      Array<{
+        product_id: string;
+        name: string;
+        slug: string;
+        base_price: string;
+        sale_price: string | null;
+        status: string;
+        thumbnail: string | null;
+      }>
+    >(
+      `SELECT p.id AS product_id, p.name, p.slug, p."basePrice"::text AS base_price,
+              p."salePrice"::text AS sale_price, p.status,
+              (SELECT pi.url FROM "ProductImage" pi WHERE pi."productId" = p.id AND pi."isPrimary" = true LIMIT 1) AS thumbnail
+       FROM "PostProduct" pp
+       INNER JOIN "Product" p ON p.id = pp."productId"
+       WHERE pp."postId" = $1
+       ORDER BY pp."sortOrder" ASC`,
+      row.id
+    );
+    seoProductsRaw = rawRows.map((r) => ({
+      productId: r.product_id,
+      product: {
+        id: r.product_id,
+        name: r.name,
+        slug: r.slug,
+        basePrice: r.base_price,
+        salePrice: r.sale_price,
+        status: r.status,
+        images: r.thumbnail ? [{ url: r.thumbnail }] : [],
+      },
+    }));
+  } catch {
+    // Bảng PostProduct chưa tồn tại hoặc lỗi khác → fallback empty
+    seoProductsRaw = [];
+  }
 
   const post: StorefrontPost = {
     id: row.id,
@@ -67,6 +131,23 @@ async function getPostBySlug(slug: string): Promise<{
     publishedAt: row.publishedAt ?? row.createdAt,
     updatedAt: row.updatedAt,
   };
+
+  // Lọc product hợp lệ: không ARCHIVED, có slug, có name
+  const relatedProducts: StorefrontProductItem[] = seoProductsRaw
+    .filter(
+      (sp) =>
+        sp.product.status !== "ARCHIVED" &&
+        sp.product.slug &&
+        sp.product.name
+    )
+    .map((sp) => ({
+      id: sp.product.id,
+      name: sp.product.name,
+      slug: sp.product.slug,
+      basePrice: sp.product.basePrice.toString(),
+      salePrice: sp.product.salePrice?.toString() ?? null,
+      thumbnailUrl: sp.product.images.length > 0 ? sp.product.images[0].url : null,
+    }));
 
   const relatedRows = await db.post.findMany({
     where: {
@@ -107,7 +188,7 @@ async function getPostBySlug(slug: string): Promise<{
     updatedAt: item.updatedAt,
   }));
 
-  return { post, related };
+  return { post, related, relatedProducts };
 }
 
 export async function generateMetadata({
@@ -150,7 +231,7 @@ export default async function BlogDetailPage({
   params: ParamsInput;
 }): Promise<JSX.Element> {
   const resolvedParams = await Promise.resolve(params);
-  const { post, related } = await getPostBySlug(resolvedParams.slug);
+  const { post, related, relatedProducts } = await getPostBySlug(resolvedParams.slug);
 
   if (!post) {
     notFound();
@@ -256,6 +337,24 @@ export default async function BlogDetailPage({
             ))}
           </div>
 
+          {/* Sản phẩm liên quan – SEO Internal Linking (chèn sau nội dung, trước bài viết liên quan + FAQ) */}
+          <PostRelatedProducts products={relatedProducts} />
+
+          {/* Bài viết liên quan */}
+          {related.length ? (
+            <section className="mt-8 rounded-xl border border-zinc-200 bg-white p-5">
+              <h2 className="text-lg font-bold text-zinc-900">Bài viết liên quan</h2>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {related.map((item) => (
+                  <Link key={item.id} href={`/bai-viet/${item.slug}`} className="rounded-full border border-zinc-200 px-3 py-1.5 text-sm font-medium text-zinc-700 transition hover:border-zinc-400 hover:text-zinc-950">
+                    {item.title}
+                  </Link>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          {/* Câu hỏi thường gặp */}
           {articleFaqItems.length ? (
             <section className="mt-8 rounded-xl border border-zinc-200 bg-white p-5">
               <h2 className="text-lg font-bold text-zinc-900">Câu hỏi thường gặp về bài viết</h2>
@@ -267,15 +366,6 @@ export default async function BlogDetailPage({
                   </div>
                 ))}
               </dl>
-              {related.length ? (
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {related.map((item) => (
-                    <Link key={item.id} href={`/bai-viet/${item.slug}`} className="rounded-full border border-zinc-200 px-3 py-1.5 text-sm font-medium text-zinc-700 transition hover:border-zinc-400 hover:text-zinc-950">
-                      {item.title}
-                    </Link>
-                  ))}
-                </div>
-              ) : null}
             </section>
           ) : null}
         </article>

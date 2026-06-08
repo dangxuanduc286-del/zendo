@@ -148,6 +148,7 @@ model Product {
   images                 ProductImage[]
   variants               ProductVariant[]
   reviews                Review[]
+  postProducts           PostProduct[]
 
   @@index([name])
   @@index([slug])
@@ -831,6 +832,7 @@ model Post {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   author         Admin?        @relation(fields: [authorId], references: [id])
+  seoProducts    PostProduct[]
 
   @@index([slug])
   @@index([status])
@@ -853,6 +855,7 @@ model Page {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   author         Admin?        @relation(fields: [authorId], references: [id])
+  seoLinks       PageLinkRelation[]
 
   @@index([slug])
   @@index([status])
@@ -1801,4 +1804,54 @@ model CtvRevenueRewardTransaction {
 
   @@index([affiliateProfileId])
   @@index([createdAt])
+}
+
+// ─── SEO LINKING ────────────────────────────────────────
+
+/// Liên kết sản phẩm trong bài viết (SEO Internal Linking)
+model PostProduct {
+  id        String   @id @default(cuid())
+  postId    String
+  productId String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, productId])
+  @@index([postId])
+  @@index([productId])
+  @@index([postId, sortOrder])
+}
+
+enum PageLinkType {
+  PRODUCT
+  CATEGORY
+  BRAND
+  POST
+  PAGE
+  COUPON
+  LANDING_PAGE
+}
+
+/// Liên kết SEO đa mục đích cho Trang nội dung
+model PageLinkRelation {
+  id          String       @id @default(cuid())
+  pageId      String
+  linkType    PageLinkType
+  referenceId String
+  title       String
+  slug        String
+  url         String
+  thumbnail   String?
+  anchorText  String?
+  sortOrder   Int          @default(0)
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  page        Page         @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@index([pageId])
+  @@index([pageId, isActive, sortOrder])
+  @@index([linkType, referenceId])
 }

@@ -9,6 +9,7 @@ import { pageFormSchema, PAGE_STATUS_OPTIONS, type PageAdminDto, type PageFormVa
 import { slugify } from "../../lib/slug";
 import { AdminSeoKeywordsField } from "./admin-seo-keywords-field";
 import { adminPrimaryButton, adminSecondaryButton } from "../../lib/admin-ui";
+import SeoLinkPicker, { type SeoLinkItem } from "./seo-link-picker";
 
 export default function AdminPageForm({ mode, pageId }: { mode: "create" | "edit"; pageId?: string }): JSX.Element {
   const router = useRouter();
@@ -16,6 +17,13 @@ export default function AdminPageForm({ mode, pageId }: { mode: "create" | "edit
   const [loadingData, setLoadingData] = useState(mode === "edit");
   const [ready, setReady] = useState(mode === "create");
   const [autoSlug, setAutoSlug] = useState(mode === "create");
+
+  // ── SEO Links state ────────────────────────────────────────────
+  const [createdId, setCreatedId] = useState<string | null>(null);
+  const [seoLinks, setSeoLinks] = useState<SeoLinkItem[]>([]);
+  const [seoError, setSeoError] = useState("");
+  const [seoSaving, setSeoSaving] = useState(false);
+  const [seoLoaded, setSeoLoaded] = useState(false);
 
   const { register, handleSubmit, watch, setValue, reset, formState: { errors, isSubmitting } } = useForm<PageFormValues>({
     resolver: zodResolver(pageFormSchema),
@@ -76,6 +84,25 @@ export default function AdminPageForm({ mode, pageId }: { mode: "create" | "edit
     });
   }, [mode, pageId, reset]);
 
+  // ── Load SEO links (edit mode) ──────────────────────────────
+  useEffect(() => {
+    if (mode !== "edit" || !pageId || !ready || seoLoaded) return;
+    const loadSeo = async () => {
+      try {
+        const res = await fetch(`/api/admin/pages/${pageId}/seo-links`, { cache: "no-store" });
+        if (!res.ok) return;
+        const data = (await res.json()) as { items: SeoLinkItem[] };
+        setSeoLinks(data.items);
+      } catch {
+        // Non-critical
+      } finally {
+        setSeoLoaded(true);
+        setCreatedId(pageId);
+      }
+    };
+    loadSeo();
+  }, [mode, pageId, ready, seoLoaded]);
+
   const handleSeoKeywordsChange = useCallback(
     (main: string, sub: string[]) => {
       setSeoMain(main);
@@ -87,6 +114,8 @@ export default function AdminPageForm({ mode, pageId }: { mode: "create" | "edit
 
   const onSubmit = async (values: PageFormValues) => {
     setSubmitError("");
+    setSeoError("");
+
     const endpoint = mode === "create" ? "/api/admin/pages" : `/api/admin/pages/${pageId}`;
     const method = mode === "create" ? "POST" : "PATCH";
     const response = await fetch(endpoint, {
@@ -94,12 +123,53 @@ export default function AdminPageForm({ mode, pageId }: { mode: "create" | "edit
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(values),
     });
-    const payload = (await response.json()) as { message?: string };
+    const payload = (await response.json()) as { item?: { id: string }; message?: string };
     if (!response.ok) {
       setSubmitError(payload.message ?? "Không thể lưu trang.");
       return;
     }
-    router.push("/admin/pages");
+
+    // Determine the page ID (create mode returns it in payload.item.id)
+    const effectivePageId = mode === "create" ? payload.item?.id : pageId;
+
+    // ── Save SEO links (non-blocking for page save) ───────────
+    if (effectivePageId && seoLinks.length > 0) {
+      setSeoSaving(true);
+      try {
+        const seoRes = await fetch(`/api/admin/pages/${effectivePageId}/seo-links`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            links: seoLinks.map((link) => ({
+              linkType: link.linkType,
+              referenceId: link.referenceId,
+              title: link.title,
+              slug: link.slug,
+              url: link.url,
+              thumbnail: link.thumbnail,
+              anchorText: link.anchorText,
+              sortOrder: link.sortOrder,
+            })),
+          }),
+        });
+        if (!seoRes.ok) {
+          setSeoError("Đã lưu trang nội dung nhưng chưa lưu được liên kết SEO.");
+        }
+      } catch {
+        setSeoError("Đã lưu trang nội dung nhưng chưa lưu được liên kết SEO.");
+      } finally {
+        setSeoSaving(false);
+      }
+    }
+
+    // Update createdId so picker appears in create mode
+    if (mode === "create" && effectivePageId) {
+      setCreatedId(effectivePageId);
+    }
+
+    // Redirect to edit page so admin can add SEO links immediately
+    const redirectUrl = mode === "create" && effectivePageId ? `/admin/pages/${effectivePageId}` : "/admin/pages";
+    router.push(redirectUrl);
     router.refresh();
   };
 
@@ -154,6 +224,31 @@ export default function AdminPageForm({ mode, pageId }: { mode: "create" | "edit
           />
         </div>
       </div>
+
+      {/* ── SEO Link Picker ─────────────────────────────────── */}
+      <div className="border-t border-zinc-200 pt-4">
+        {mode === "create" && !createdId ? (
+          <p className="text-sm text-zinc-400">
+            Sau khi tạo trang thành công, bạn có thể thêm liên kết SEO.
+          </p>
+        ) : (
+          <>
+            {seoSaving && (
+              <p className="mb-3 text-sm font-medium text-sky-600">Đang lưu liên kết SEO…</p>
+            )}
+            <SeoLinkPicker
+              selected={seoLinks}
+              onChange={(links) => setSeoLinks(links)}
+            />
+          </>
+        )}
+      </div>
+
+      {seoError ? (
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-700">
+          {seoError}
+        </p>
+      ) : null}
       {submitError ? <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700">{submitError}</p> : null}
       <div className="flex flex-wrap gap-2">
         <button type="submit" disabled={isSubmitting} className={adminPrimaryButton}>

@@ -15,6 +15,9 @@ import { slugify } from "../../lib/slug";
 import AdminImageUploadField from "./admin-image-upload-field";
 import { AdminSeoKeywordsField } from "./admin-seo-keywords-field";
 import { adminPrimaryButton, adminSecondaryButton } from "../../lib/admin-ui";
+import SeoProductPicker, {
+  type SeoProductPickerItem,
+} from "./seo-product-picker";
 
 interface AdminPostFormProps {
   mode: "create" | "edit";
@@ -42,6 +45,13 @@ export default function AdminPostForm({
   const [loadingData, setLoadingData] = useState(mode === "edit");
   const [autoSlug, setAutoSlug] = useState(mode === "create");
   const [ready, setReady] = useState(mode === "create");
+
+  // ── SEO Products state ─────────────────────────────────────────
+  const [createdId, setCreatedId] = useState<string | null>(null);
+  const [seoProducts, setSeoProducts] = useState<SeoProductPickerItem[]>([]);
+  const [seoError, setSeoError] = useState("");
+  const [seoSaving, setSeoSaving] = useState(false);
+  const [seoLoaded, setSeoLoaded] = useState(false);
 
   const {
     register,
@@ -107,6 +117,25 @@ export default function AdminPostForm({
     });
   }, [mode, postId, reset]);
 
+  // ── Load SEO products (edit mode) ────────────────────────────
+  useEffect(() => {
+    if (mode !== "edit" || !postId || !ready || seoLoaded) return;
+    const loadSeo = async () => {
+      try {
+        const res = await fetch(`/api/admin/posts/${postId}/seo-products`, { cache: "no-store" });
+        if (!res.ok) return;
+        const data = (await res.json()) as { items: SeoProductPickerItem[] };
+        setSeoProducts(data.items);
+      } catch {
+        // Non-critical — don't block UI
+      } finally {
+        setSeoLoaded(true);
+        setCreatedId(postId);
+      }
+    };
+    loadSeo();
+  }, [mode, postId, ready, seoLoaded]);
+
   const handleSeoKeywordsChange = useCallback(
     (main: string, sub: string[]) => {
       setSeoMain(main);
@@ -118,6 +147,8 @@ export default function AdminPostForm({
 
   const onSubmit = async (values: PostFormValues) => {
     setSubmitError("");
+    setSeoError("");
+
     const endpoint = mode === "create" ? "/api/admin/posts" : `/api/admin/posts/${postId}`;
     const method = mode === "create" ? "POST" : "PATCH";
     const response = await fetch(endpoint, {
@@ -125,12 +156,47 @@ export default function AdminPostForm({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(values),
     });
-    const payload = (await response.json()) as { message?: string };
+    const payload = (await response.json()) as { item?: { id: string }; message?: string };
     if (!response.ok) {
       setSubmitError(payload.message ?? "Không thể lưu bài viết.");
       return;
     }
-    router.push("/admin/posts");
+
+    // Determine the post ID (create mode returns it in payload.item.id)
+    const effectivePostId = mode === "create" ? payload.item?.id : postId;
+
+    // ── Save SEO products (non-blocking for post save) ─────────
+    if (effectivePostId && seoProducts.length > 0) {
+      setSeoSaving(true);
+      try {
+        const seoRes = await fetch(`/api/admin/posts/${effectivePostId}/seo-products`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            products: seoProducts.map((s) => ({
+              productId: s.productId,
+              sortOrder: s.sortOrder,
+            })),
+          }),
+        });
+        if (!seoRes.ok) {
+          setSeoError("Đã lưu bài viết nhưng chưa lưu được liên kết SEO.");
+        }
+      } catch {
+        setSeoError("Đã lưu bài viết nhưng chưa lưu được liên kết SEO.");
+      } finally {
+        setSeoSaving(false);
+      }
+    }
+
+    // Update createdId for create mode so picker appears
+    if (mode === "create" && effectivePostId) {
+      setCreatedId(effectivePostId);
+    }
+
+    // Redirect to edit page so admin can add SEO products immediately
+    const redirectUrl = mode === "create" && effectivePostId ? `/admin/posts/${effectivePostId}` : "/admin/posts";
+    router.push(redirectUrl);
     router.refresh();
   };
 
@@ -258,6 +324,42 @@ export default function AdminPostForm({
           metaDescription={seoDescriptionValue}
         />
       </div>
+
+      {/* ── SEO Product Picker ──────────────────────────────── */}
+      <div className="border-t border-zinc-200 pt-4">
+        {mode === "create" && !createdId ? (
+          <p className="text-sm text-zinc-400">
+            Sau khi tạo bài viết thành công, bạn có thể thêm sản phẩm liên quan (SEO).
+          </p>
+        ) : (
+          <>
+            {seoSaving && (
+              <p className="mb-3 text-sm font-medium text-sky-600">Đang lưu liên kết sản phẩm SEO…</p>
+            )}
+            <SeoProductPicker
+              selected={seoProducts}
+              onChange={(items) => {
+                setSeoProducts(
+                  items.map((item) => {
+                    const existing = seoProducts.find((s) => s.productId === item.productId);
+                    return {
+                      productId: item.productId,
+                      sortOrder: item.sortOrder,
+                      product: existing?.product ?? { name: "", slug: "", price: 0, imageUrl: "" },
+                    };
+                  }),
+                );
+              }}
+            />
+          </>
+        )}
+      </div>
+
+      {seoError ? (
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-700">
+          {seoError}
+        </p>
+      ) : null}
 
       {submitError ? (
         <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700">
