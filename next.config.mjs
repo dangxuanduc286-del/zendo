@@ -14,6 +14,42 @@ const imageRemotePatterns = [...new Set([mediaHost, defaultMediaHost])].map((hos
   pathname: "/**",
 }));
 
+const securityHeaders = [
+  {
+    key: "X-Content-Type-Options",
+    value: "nosniff",
+  },
+  {
+    key: "Referrer-Policy",
+    value: "strict-origin-when-cross-origin",
+  },
+  {
+    key: "Permissions-Policy",
+    value: "camera=(), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(), gyroscope=()",
+  },
+  {
+    key: "X-Frame-Options",
+    value: "SAMEORIGIN",
+  },
+  {
+    key: "Content-Security-Policy-Report-Only",
+    value: [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://connect.facebook.net https://analytics.tiktok.com https://sp.zalo.me https://www.clarity.ms",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "img-src 'self' data: blob: https://media.zendo.vn https://www.google-analytics.com https://www.googletagmanager.com https://stats.g.doubleclick.net https://www.facebook.com https://www.facebook.com.vn https://analytics.tiktok.com https://sp.zalo.me https://www.clarity.ms https://c.bing.com",
+      "font-src 'self' data: https://fonts.gstatic.com",
+      "connect-src 'self' https://www.google-analytics.com https://analytics.google.com https://stats.g.doubleclick.net https://www.googletagmanager.com https://graph.facebook.com https://www.facebook.com https://analytics.tiktok.com https://business-api.tiktok.com https://sp.zalo.me https://www.clarity.ms https://*.clarity.ms https://*.pusher.com wss://*.pusher.com https://*.pusherapp.com wss://*.pusherapp.com",
+      "frame-src 'self' https://www.googletagmanager.com https://www.facebook.com https://m.me https://zalo.me https://sp.zalo.me https://www.youtube.com https://www.youtube-nocookie.com https://www.google.com https://maps.google.com",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "frame-ancestors 'self'",
+      "upgrade-insecure-requests",
+    ].join("; "),
+  },
+];
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   poweredByHeader: false,
@@ -22,6 +58,10 @@ const nextConfig = {
   },
   async headers() {
     return [
+      {
+        source: "/:path*",
+        headers: securityHeaders,
+      },
       {
         source: "/_next/static/:path*",
         headers: [
