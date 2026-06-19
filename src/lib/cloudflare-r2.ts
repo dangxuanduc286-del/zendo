@@ -10,6 +10,23 @@ import { randomUUID } from "crypto";
 import { buildPublicMediaUrl } from "./media";
 import { Readable } from "stream";
 
+function logR2Debug(event: string, details: Record<string, unknown>): void {
+  console.info(JSON.stringify({ scope: "r2", event, ...details }));
+}
+
+function logRuntimeException(context: string, error: unknown, details: Record<string, unknown> = {}): void {
+  const err = error instanceof Error ? error : new Error(typeof error === "string" ? error : "Unknown error");
+  console.error(JSON.stringify({
+    scope: "r2",
+    event: "exception",
+    context,
+    name: err.name,
+    message: err.message,
+    stack: err.stack,
+    ...details,
+  }));
+}
+
 interface R2Config {
   endpoint: string;
   accessKeyId: string;
@@ -35,6 +52,17 @@ function resolveR2Config(): R2Config {
   const secretAccessKey = firstNonEmpty(process.env.R2_SECRET_ACCESS_KEY);
   const bucket = firstNonEmpty(process.env.R2_BUCKET_NAME);
 
+  logR2Debug("resolve_config", {
+    hasAccountId: Boolean(accountId),
+    hasAccessKeyId: Boolean(accessKeyId),
+    hasSecretAccessKey: Boolean(secretAccessKey),
+    hasBucket: Boolean(bucket),
+    endpointFromAccountId,
+    endpoint,
+    bucket,
+    accountId,
+  });
+
   if (!endpoint || !accessKeyId || !secretAccessKey || !bucket) {
     throw new Error(
       "Cloudflare R2 env thiếu hoặc rỗng. Cần: R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME.",
@@ -50,6 +78,8 @@ function resolveR2Config(): R2Config {
   if (!endpointHost.endsWith(".r2.cloudflarestorage.com")) {
     throw new Error("R2 endpoint ký request phải là <account>.r2.cloudflarestorage.com.");
   }
+
+  logR2Debug("resolved_config", { endpointHost, endpoint, bucket, accountId });
 
   return {
     endpoint,
@@ -108,15 +138,27 @@ export interface UploadToR2Input {
   body: Buffer;
   contentType: string;
   cacheControl?: string;
+  requestId?: string;
 }
 
 export async function uploadBufferToR2(input: UploadToR2Input): Promise<string> {
   const config = cachedConfig ?? resolveR2Config();
   cachedConfig = config;
 
-
+  const timerLabel = input.requestId ? `r2_s3_put:${input.requestId}` : "r2_s3_put";
+  const startS3 = Date.now();
   const client = getR2Client();
   try {
+    logR2Debug("put_object_before", {
+      requestId: input.requestId,
+      bucket: config.bucket,
+      endpoint: config.endpoint,
+      objectKey: input.objectKey,
+      contentType: input.contentType,
+      cacheControl: input.cacheControl ?? "public, max-age=31536000, immutable",
+      bodyBytes: input.body.length,
+    });
+    console.time(timerLabel);
     await client.send(
       new PutObjectCommand({
         Bucket: config.bucket,
@@ -126,11 +168,35 @@ export async function uploadBufferToR2(input: UploadToR2Input): Promise<string> 
         CacheControl: input.cacheControl ?? "public, max-age=31536000, immutable",
       }),
     );
+    console.timeEnd(timerLabel);
+    logR2Debug("put_object_after", {
+      requestId: input.requestId,
+      bucket: config.bucket,
+      endpoint: config.endpoint,
+      objectKey: input.objectKey,
+    });
   } catch (error) {
+    console.timeEnd(timerLabel);
+    logRuntimeException("uploadBufferToR2", error, {
+      requestId: input.requestId,
+      bucket: config.bucket,
+      endpoint: config.endpoint,
+      objectKey: input.objectKey,
+    });
     throw error;
   }
 
+  if (input.requestId) {
+    const r2S3PutMs = Date.now() - startS3;
+    console.info(JSON.stringify({ requestId: input.requestId, r2S3PutMs }));
+  }
+
   const publicUrl = getPublicMediaUrl(input.objectKey);
+  logR2Debug("public_url_generated", {
+    requestId: input.requestId,
+    objectKey: input.objectKey,
+    publicUrl,
+  });
   return publicUrl;
 }
 

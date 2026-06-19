@@ -17,6 +17,9 @@
     "db:migrate:status": "prisma migrate status",
     "db:ci": "prisma validate && prisma generate && prisma migrate status",
     "prisma:seed": "prisma db seed",
+    "seed:production-safe": "tsx prisma/safe-seed.ts",
+    "seed:development:danger": "node -e \"process.env.SEED_MODE='development'; process.env.ALLOW_DESTRUCTIVE_SEED='true'; require('child_process').spawnSync('tsx', ['prisma/demo-seed.ts'], { stdio: 'inherit', shell: true, env: process.env });\"",
+    "seed:demo:danger": "node -e \"process.env.SEED_MODE='demo'; process.env.ALLOW_DESTRUCTIVE_SEED='true'; require('child_process').spawnSync('tsx', ['prisma/demo-seed.ts'], { stdio: 'inherit', shell: true, env: process.env });\"",
     "reset-admin": "tsx scripts/reset-admin.ts",
     "addresses:keep-one": "tsx scripts/cleanup-duplicate-addresses.ts",
     "cleanup:affiliate-payout-drafts": "tsx scripts/cleanup-affiliate-payout-drafts.ts",
@@ -55,6 +58,7 @@
     "lucide-react": "^1.14.0",
     "next": "^15.3.2",
     "next-auth": "^4.24.14",
+    "p-limit": "^7.3.0",
     "pg": "^8.20.0",
     "prisma": "^7.7.0",
     "pusher": "^5.3.3",
@@ -78,12 +82,13 @@
     "depcheck": "^1.4.7",
     "eslint": "^9.25.1",
     "eslint-config-next": "^15.3.2",
+    "playwright": "^1.60.0",
     "postcss": "^8.5.10",
     "tailwindcss": "^4.2.4",
     "tsx": "^4.20.6",
     "typescript": "^5.8.3"
   },
   "prisma": {
-    "seed": "tsx prisma/seed.ts"
+    "seed": "tsx prisma/safe-seed.ts"
   }
 }

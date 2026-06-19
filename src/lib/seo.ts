@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { resolveMediaUrl } from "./media";
-import { absoluteUrl } from "./utils";
+import { absoluteUrl, normalizeCanonicalOrigin } from "./utils";
 import { getWebsiteSettings } from "./settings";
 
 export interface SeoMetadataInput {
@@ -47,8 +47,11 @@ function toValidSeoImage(value: string): string {
 export function buildMetadata(input: SeoMetadataInput): Metadata {
   const title = input.title.trim();
   const description = input.description.trim();
-  const canonical = input.canonicalBaseUrl
-    ? new URL(input.path ?? "/", input.canonicalBaseUrl).toString()
+  const canonicalBase = input.canonicalBaseUrl
+    ? normalizeCanonicalOrigin(input.canonicalBaseUrl)
+    : "";
+  const canonical = canonicalBase
+    ? new URL(input.path ?? "/", canonicalBase).toString()
     : absoluteUrl(input.path ?? "/");
   const rawImage = typeof input.image === "string" ? input.image.trim() : "";
   const image = toValidSeoImage(rawImage);
@@ -173,7 +176,8 @@ export function buildOrganizationJsonLd(input: {
   address?: string;
   sameAs?: string[];
 }): Record<string, unknown> {
-  const url = input.url || absoluteUrl("/");
+  const rawUrl = input.url || absoluteUrl("/");
+  const url = normalizeCanonicalOrigin(rawUrl) + new URL(rawUrl).pathname.replace(/^\/$/, "/");
 
   return {
     "@context": "https://schema.org",
@@ -202,7 +206,8 @@ export function buildWebSiteJsonLd(input: {
   description?: string;
   searchPath?: string;
 }): Record<string, unknown> {
-  const url = input.url || absoluteUrl("/");
+  const rawUrl = input.url || absoluteUrl("/");
+  const url = normalizeCanonicalOrigin(rawUrl) + new URL(rawUrl).pathname.replace(/^\/$/, "/");
   const trimmedUrl = url.replace(/\/+$/, "");
 
   return {

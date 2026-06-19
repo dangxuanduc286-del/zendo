@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import pLimit from "p-limit";
 import {
   productFormSchema,
   PRODUCT_STATUS_OPTIONS,
@@ -324,24 +325,29 @@ export default function AdminProductForm({
     try {
       const uploadedUrls: string[] = [];
       const failedMessages: string[] = [];
+      const limit = pLimit(3);
 
-      for (const file of acceptedFiles) {
-        const isAllowedType = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"].includes(file.type);
-        if (!isAllowedType) {
-          failedMessages.push(`${file.name}: File không đúng định dạng ảnh.`);
-          continue;
-        }
-        if (file.size > 5 * 1024 * 1024) {
-          failedMessages.push(`${file.name}: Ảnh vượt quá 5MB.`);
-          continue;
-        }
-        try {
-          const url = await uploadImage(file);
-          uploadedUrls.push(url);
-        } catch {
-          failedMessages.push(`${file.name}: Không thể tải ảnh lên. Vui lòng thử lại.`);
-        }
-      }
+      const uploadTasks = acceptedFiles.map((file) =>
+        limit(async () => {
+          const isAllowedType = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"].includes(file.type);
+          if (!isAllowedType) {
+            failedMessages.push(`${file.name}: File không đúng định dạng ảnh.`);
+            return;
+          }
+          if (file.size > 5 * 1024 * 1024) {
+            failedMessages.push(`${file.name}: Ảnh vượt quá 5MB.`);
+            return;
+          }
+          try {
+            const url = await uploadImage(file);
+            uploadedUrls.push(url);
+          } catch {
+            failedMessages.push(`${file.name}: Không thể tải ảnh lên. Vui lòng thử lại.`);
+          }
+        })
+      );
+
+      await Promise.all(uploadTasks);
 
       const next = [...images, ...uploadedUrls].slice(0, 15);
       setValue("images", next, { shouldDirty: true, shouldValidate: true });
@@ -432,21 +438,27 @@ export default function AdminProductForm({
     setIsReviewUploading(true);
     try {
       const uploadedUrls: string[] = [];
-      for (const file of acceptedFiles) {
-        if (!REVIEW_ALLOWED_TYPES.has(file.type)) {
-          setReviewUploadError("File không đúng định dạng ảnh.");
-          continue;
-        }
-        if (file.size > REVIEW_MAX_FILE_SIZE_BYTES) {
-          setReviewUploadError("Ảnh vượt quá 5MB.");
-          continue;
-        }
-        try {
-          uploadedUrls.push(await uploadReviewImage(file));
-        } catch {
-          setReviewUploadError("Không thể tải ảnh lên. Vui lòng thử lại.");
-        }
-      }
+      const limit = pLimit(3);
+
+      const uploadTasks = acceptedFiles.map((file) =>
+        limit(async () => {
+          if (!REVIEW_ALLOWED_TYPES.has(file.type)) {
+            setReviewUploadError("File không đúng định dạng ảnh.");
+            return;
+          }
+          if (file.size > REVIEW_MAX_FILE_SIZE_BYTES) {
+            setReviewUploadError("Ảnh vượt quá 5MB.");
+            return;
+          }
+          try {
+            uploadedUrls.push(await uploadReviewImage(file));
+          } catch {
+            setReviewUploadError("Không thể tải ảnh lên. Vui lòng thử lại.");
+          }
+        })
+      );
+
+      await Promise.all(uploadTasks);
       if (!uploadedUrls.length) return;
       setReviewDraft((prev) => ({
         ...prev,

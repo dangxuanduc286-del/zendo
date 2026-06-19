@@ -82,7 +82,7 @@ export function AdminSeoKeywordsField({
     return parts.join(", ");
   })();
 
-  /** SEO checks */
+  /** SEO checks — dùng domain SEO chuẩn (non-www) cho preview hiển thị trong admin. */
   const baseUrl = "https://zendo.vn";
   const fullUrl =
     slug && kind === "post"

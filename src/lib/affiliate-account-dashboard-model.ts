@@ -5,6 +5,7 @@ import type { CustomerAccountSettings } from "./settings";
 import { useAffiliateDashboardApi } from "../components/storefront/use-affiliate-dashboard-api";
 import { useCtvAffiliateMetrics } from "./ctv/use-ctv-affiliate-metrics";
 import { conversionPercentFromAnalyticsOverview } from "./ctv/ctv-conversion-month-kpi";
+import { CANONICAL_PRODUCTION_ORIGIN, normalizeCanonicalOrigin } from "./utils";
 
 export type AffiliateSubTab =
   | "overview"
@@ -55,13 +56,13 @@ export function buildAffiliateReferralUrl(
   const referralBaseOrigin = (() => {
     if (isPublicOrigin(data.affiliate.referralUrl)) {
       try {
-        return new URL(data.affiliate.referralUrl).origin;
+        return normalizeCanonicalOrigin(new URL(data.affiliate.referralUrl).origin);
       } catch {
         return "";
       }
     }
-    if (runtimeOrigin) return runtimeOrigin;
-    return "https://www.zendo.vn";
+    if (runtimeOrigin) return normalizeCanonicalOrigin(runtimeOrigin);
+    return CANONICAL_PRODUCTION_ORIGIN;
   })();
   return data.affiliate.refCode
     ? `${referralBaseOrigin}/?ref=${encodeURIComponent(data.affiliate.refCode)}`

@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import type { PaymentMethod, PaymentStatus } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { calcSubtotal, getUnitPrice, normalizeCartItem } from "../../../lib/cart";
-import { computeGuestCoupon } from "../../../lib/coupon";
 import {
   buildShippingPromotionConfig,
   getInternalShippingQuote,
@@ -301,13 +300,6 @@ export async function POST(request: Request): Promise<NextResponse> {
             shippingDiscountAmount = Math.min(Number(coupon.value), shippingFee);
           }
           couponId = coupon.id;
-        }
-      } else {
-        const localCoupon = computeGuestCoupon(couponCode, subtotal);
-        if (localCoupon?.type === "FREE_SHIPPING") {
-          shippingDiscountAmount = Math.min(localCoupon.amount, shippingFee);
-        } else {
-          productDiscountAmount = localCoupon?.amount ?? 0;
         }
       }
     }

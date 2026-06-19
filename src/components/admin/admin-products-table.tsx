@@ -266,7 +266,7 @@ export default function AdminProductsTable(): JSX.Element {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-2">
                         <ProductArchiveButtons
                           productId={item.id}
                           onArchived={() =>
@@ -281,7 +281,7 @@ export default function AdminProductsTable(): JSX.Element {
                           type="button"
                           onClick={() => onDelete(item.id)}
                           disabled={deletingId === item.id}
-                          className="inline-flex h-8 items-center rounded-md border border-rose-200 px-3 text-xs font-medium text-rose-700 disabled:opacity-60"
+                          className="inline-flex h-8 w-full items-center justify-center rounded-md border border-rose-200 px-3 text-xs font-medium text-rose-700 disabled:opacity-60 sm:w-auto"
                         >
                           {deletingId === item.id ? "Đang xóa..." : "Xóa"}
                         </button>

@@ -45,16 +45,43 @@ const securityHeaders = [
       "base-uri 'self'",
       "form-action 'self'",
       "frame-ancestors 'self'",
-      "upgrade-insecure-requests",
     ].join("; "),
   },
 ];
+
+/**
+ * Domain SEO chuẩn duy nhất cho production.
+ * Mọi traffic `www.zendo.vn` phải được redirect 308 (permanent) sang `zendo.vn`
+ * để tránh phân tán SEO giữa hai host. Edge-level redirect tại đây không phụ thuộc
+ * Node.js, không yêu cầu DB, không ảnh hưởng business logic / API / auth.
+ */
+const CANONICAL_HOST = "zendo.vn";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   poweredByHeader: false,
   experimental: {
     optimizePackageImports: ["lucide-react", "recharts"],
+  },
+  async redirects() {
+    return [
+      {
+        source: "/quat-mini-cam-tay-jf81-vo-nhom-son-lanh-cao-cap",
+        destination: "/san-pham/quat-mini-cam-tay-jf181-hop-kim-nhom-tich-hop-so-lanh-199-muc-gio-pin-khung-6000mah-sac-type-c-sieu-mat",
+        permanent: true,
+      },
+      {
+        source: "/:path*",
+        has: [
+          {
+            type: "host",
+            value: `www.${CANONICAL_HOST}`,
+          },
+        ],
+        destination: `https://${CANONICAL_HOST}/:path*`,
+        permanent: true,
+      },
+    ];
   },
   async headers() {
     return [
@@ -75,14 +102,19 @@ const nextConfig = {
   },
   images: {
     qualities: NEXT_IMAGE_QUALITIES,
-    formats: ["image/avif", "image/webp"],
+    formats: ["image/webp"],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
     minimumCacheTTL: 86400,
     remotePatterns: imageRemotePatterns,
   },
   compiler: {
-    removeConsole: process.env.NODE_ENV === "production",
+    removeConsole:
+      process.env.NODE_ENV === "production"
+        ? {
+            exclude: ["time", "timeEnd", "error", "warn"],
+          }
+        : false,
   },
   webpack: (config, { dev }) => {
     // Avoid noisy PackFileCacheStrategy ENOENT issues on Windows in dev.

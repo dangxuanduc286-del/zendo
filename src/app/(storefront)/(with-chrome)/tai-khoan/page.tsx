@@ -10,13 +10,14 @@ import { StorefrontAccountShell } from "../../../../components/storefront/storef
 import { getStorefrontSettings } from "../../../../lib/storefront-settings";
 import { listPolicyHubCardsForAccount } from "../../../../lib/site-policy-queries";
 import { getStorefrontCustomerAccountDashboardData } from "../../../../lib/server/storefront-customer-account-dashboard";
+import { absoluteUrl } from "../../../../lib/utils";
 
 export const metadata: Metadata = {
   title: "Đăng nhập tài khoản | Zendo.vn",
   description:
     "Đăng nhập hoặc tạo tài khoản Zendo.vn để theo dõi đơn hàng, lưu giỏ hàng và nhận ưu đãi mua sắm.",
   alternates: {
-    canonical: "https://zendo.vn/tai-khoan",
+    canonical: absoluteUrl("/tai-khoan"),
   },
   robots: {
     index: false,

@@ -4,7 +4,7 @@ import type {
   AccountOrderStatusFilter,
 } from "./order-status";
 import { orderStatusesForAccountFilter, orderStatusesForPhase2ApiFilter } from "./order-status";
-import { resolveMediaUrl } from "./media";
+import { resolveProductImage } from "./product-image";
 
 export type ListCustomerAccountOrdersParams = {
   statusFilter?: AccountOrderStatusFilter;
@@ -129,7 +129,7 @@ export async function listOrdersForCustomerAccount(
                 images: {
                   orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
                   take: 1,
-                  select: { url: true },
+                  select: { url: true, isPrimary: true, sortOrder: true, altText: true },
                 },
               },
             },
@@ -146,8 +146,7 @@ export async function listOrdersForCustomerAccount(
     const itemCount = lines.reduce((sum, it) => sum + Math.max(0, Math.floor(Number(it.quantity ?? 0))), 0);
     const lineCount = lines.length;
     const previewProductName = (first?.productName ?? "").trim() || "Sản phẩm";
-    const rawUrl = first?.product?.images?.[0]?.url;
-    const previewImageUrl = resolveMediaUrl(typeof rawUrl === "string" ? rawUrl : "").trim();
+    const previewImageUrl = resolveProductImage(first?.product?.images, previewProductName).url;
     return { ...rest, itemCount, lineCount, previewProductName, previewImageUrl };
   });
 

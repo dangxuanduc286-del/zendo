@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CouponAdminDto } from "../../lib/admin-coupon";
 
 function formatAmount(value: number | null): string {
@@ -63,6 +63,7 @@ export default function AdminCouponsTable(): JSX.Element {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [deletingId, setDeletingId] = useState("");
+  const [campaignOnly, setCampaignOnly] = useState(false);
 
   const sorted = useMemo(
     () =>
@@ -72,11 +73,12 @@ export default function AdminCouponsTable(): JSX.Element {
     [items],
   );
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch("/api/admin/coupons", { cache: "no-store" });
+      const endpoint = campaignOnly ? "/api/admin/coupons?campaign=checkout" : "/api/admin/coupons";
+      const response = await fetch(endpoint, { cache: "no-store" });
       const payload = (await response.json()) as { items?: CouponAdminDto[]; message?: string };
       if (!response.ok) {
         setError(payload.message ?? "Không thể tải danh sách mã giảm giá.");
@@ -89,28 +91,30 @@ export default function AdminCouponsTable(): JSX.Element {
       setError("Có lỗi xảy ra khi tải danh sách mã giảm giá.");
       setLoading(false);
     }
-  };
+  }, [campaignOnly]);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    void loadData();
+  }, [loadData]);
 
   const onDelete = async (id: string) => {
-    if (!window.confirm("Bạn chắc chắn muốn xóa mã giảm giá này?")) return;
+    if (!window.confirm("Bạn chắc chắn muốn vô hiệu hóa mã giảm giá này? Dữ liệu lịch sử sẽ được giữ lại.")) return;
     setDeletingId(id);
     setError("");
     try {
       const response = await fetch(`/api/admin/coupons/${id}`, { method: "DELETE" });
-      const payload = (await response.json()) as { message?: string };
+      const payload = (await response.json()) as { item?: CouponAdminDto; message?: string };
       if (!response.ok) {
-        setError(payload.message ?? "Không thể xóa mã giảm giá.");
+        setError(payload.message ?? "Không thể vô hiệu hóa mã giảm giá.");
         setDeletingId("");
         return;
       }
-      setItems((prev) => prev.filter((item) => item.id !== id));
+      if (payload.item) {
+        setItems((prev) => prev.map((item) => (item.id === id ? payload.item! : item)));
+      }
       setDeletingId("");
     } catch {
-      setError("Có lỗi xảy ra khi xóa mã giảm giá.");
+      setError("Có lỗi xảy ra khi vô hiệu hóa mã giảm giá.");
       setDeletingId("");
     }
   };
@@ -130,6 +134,24 @@ export default function AdminCouponsTable(): JSX.Element {
           {error}
         </p>
       ) : null}
+
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-zinc-200 bg-white p-3 text-sm">
+        <span className="font-semibold text-zinc-800">Bộ lọc:</span>
+        <button
+          type="button"
+          onClick={() => setCampaignOnly(false)}
+          className={`rounded-full border px-3 py-1 font-medium transition ${!campaignOnly ? "border-blue-600 bg-blue-50 text-blue-700" : "border-zinc-200 text-zinc-600 hover:border-zinc-300"}`}
+        >
+          Tất cả voucher
+        </button>
+        <button
+          type="button"
+          onClick={() => setCampaignOnly(true)}
+          className={`rounded-full border px-3 py-1 font-medium transition ${campaignOnly ? "border-blue-600 bg-blue-50 text-blue-700" : "border-zinc-200 text-zinc-600 hover:border-zinc-300"}`}
+        >
+          Campaign checkout
+        </button>
+      </div>
 
       <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white">
         <div className="min-w-[980px]">
@@ -187,7 +209,7 @@ export default function AdminCouponsTable(): JSX.Element {
                         disabled={deletingId === item.id}
                         className="inline-flex h-8 items-center rounded-md border border-rose-200 px-3 text-xs font-medium text-rose-700 transition hover:border-rose-300 disabled:opacity-60"
                       >
-                        {deletingId === item.id ? "Đang xóa..." : "Xóa"}
+                        {deletingId === item.id ? "Đang tắt..." : "Vô hiệu hóa"}
                       </button>
                     </div>
                   </td>
@@ -236,7 +258,7 @@ export default function AdminCouponsTable(): JSX.Element {
                   disabled={deletingId === item.id}
                   className="inline-flex h-9 items-center rounded-md border border-rose-200 px-3 text-xs font-medium text-rose-700 disabled:opacity-60"
                 >
-                  {deletingId === item.id ? "Đang xóa..." : "Xóa"}
+                  {deletingId === item.id ? "Đang tắt..." : "Vô hiệu hóa"}
                 </button>
               </div>
             </article>

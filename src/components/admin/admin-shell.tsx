@@ -55,11 +55,32 @@ function adminStorefrontHomeButtonClass(active: boolean): string {
   return `${base} border-slate-200/90 bg-gradient-to-br from-white via-slate-50/80 to-sky-50/40 text-slate-800 shadow-md shadow-slate-900/[0.06] ring-1 ring-slate-200/70 hover:border-sky-200/90 hover:bg-gradient-to-br hover:from-white hover:via-sky-50/50 hover:to-violet-50/30 hover:text-slate-900 hover:shadow-lg hover:shadow-sky-500/10 hover:ring-sky-200/50`;
 }
 
+function normalizeAdminPath(value: string | null | undefined): string {
+  const path = (value ?? "").split(/[?#]/)[0] || "/";
+  if (path.length > 1 && path.endsWith("/")) return path.replace(/\/+$/, "");
+  return path;
+}
+
+function adminRouteMatches(pathname: string, href: string): boolean {
+  const currentPath = normalizeAdminPath(pathname);
+  const itemPath = normalizeAdminPath(href);
+  if (currentPath === itemPath) return true;
+  return itemPath !== "/admin" && currentPath.startsWith(`${itemPath}/`);
+}
+
+function findMostSpecificAdminMenuHref(pathname: string): string | null {
+  const matched = ADMIN_MENU_ITEMS.filter((item) => adminRouteMatches(pathname, item.href)).sort(
+    (a, b) => normalizeAdminPath(b.href).length - normalizeAdminPath(a.href).length,
+  )[0];
+  return matched?.href ?? null;
+}
+
 function isAdminMenuItemActive(pathname: string, href: string): boolean {
-  if (href === ADMIN_AFFILIATE_ANALYTICS_HREF && pathname.startsWith(ADMIN_AFFILIATE_FRAUD_HREF)) {
+  const currentPath = normalizeAdminPath(pathname);
+  if (href === ADMIN_AFFILIATE_ANALYTICS_HREF && currentPath.startsWith(ADMIN_AFFILIATE_FRAUD_HREF)) {
     return true;
   }
-  return pathname === href || (href !== "/admin" && pathname.startsWith(`${href}/`));
+  return findMostSpecificAdminMenuHref(currentPath) === href;
 }
 
 function AffiliateApplicationsPendingBadge({ count }: { count: number }): JSX.Element | null {
@@ -119,18 +140,7 @@ export default function AdminShell({
     if (pathname === "/admin/login") return;
     if (typeof document === "undefined") return;
 
-    const html = document.documentElement;
-    const body = document.body;
-    const previousHtmlOverflowY = html.style.overflowY;
-    const previousBodyOverflowY = body.style.overflowY;
-
-    html.style.overflowY = "hidden";
-    body.style.overflowY = "hidden";
-
-    return () => {
-      html.style.overflowY = previousHtmlOverflowY;
-      body.style.overflowY = previousBodyOverflowY;
-    };
+    return undefined;
   }, [pathname]);
 
   useEffect(() => {
@@ -170,6 +180,8 @@ export default function AdminShell({
       })
     : mobileMenuItems;
   const mobileDrawerOpen = mobileMenuOpen || Boolean(mobileSearchKeyword);
+  const isDesktop = typeof window !== "undefined" ? window.matchMedia("(min-width: 1024px)").matches : false;
+  const isSettingsRoute = pathname === "/admin/settings" || pathname.startsWith("/admin/website-appearance");
 
   const closeMobileDrawer = (): void => {
     setMobileMenuOpen(false);
@@ -183,15 +195,46 @@ export default function AdminShell({
 
   useEffect(() => {
     if (typeof document === "undefined") return;
+    if (!isSettingsRoute) return;
+    console.log("[admin-shell][scroll-lock]", {
+      pathname,
+      mobileDrawerOpen,
+      isDesktop,
+      bodyOverflow: document.body.style.overflow,
+      htmlOverflow: document.documentElement.style.overflow,
+    });
+  }, [pathname, mobileDrawerOpen, isDesktop, isSettingsRoute]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
     if (!mobileDrawerOpen) return;
     const mq = window.matchMedia("(min-width: 1024px)");
     if (mq.matches) return;
     const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const nextOverflow = isSettingsRoute ? prev : "hidden";
+    console.log("[admin-shell][scroll-lock-apply]", {
+      pathname,
+      mobileDrawerOpen,
+      isDesktop: mq.matches,
+      isSettingsRoute,
+      prevOverflow: prev,
+      nextOverflow,
+    });
+    if (!isSettingsRoute) {
+      document.body.style.overflow = "hidden";
+    }
     return () => {
-      document.body.style.overflow = prev;
+      if (!isSettingsRoute) {
+        document.body.style.overflow = prev;
+      }
+      console.log("[admin-shell][scroll-lock-cleanup]", {
+        pathname,
+        mobileDrawerOpen,
+        isSettingsRoute,
+        restoredOverflow: prev,
+      });
     };
-  }, [mobileDrawerOpen]);
+  }, [mobileDrawerOpen, pathname, isDesktop, isSettingsRoute]);
 
   useEffect(() => {
     if (!supportTicketSidebarEnabled || !sidebarActive) return;
@@ -289,7 +332,7 @@ export default function AdminShell({
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col lg:h-full lg:min-h-0 lg:overflow-hidden">
-          <header className="sticky top-0 z-40 shrink-0 border-b border-slate-200 bg-[#F8FAFC] lg:hidden">
+          <header className="shrink-0 border-b border-slate-200 bg-[#F8FAFC] lg:hidden">
             <div className="flex items-center gap-2 px-3 py-3 sm:px-4">
               <button
                 type="button"
@@ -410,7 +453,7 @@ export default function AdminShell({
           ) : null}
 
           <div
-            className={`admin-scrollbar flex min-h-0 min-w-0 flex-1 flex-col overflow-x-clip overflow-y-auto pb-6 [-webkit-overflow-scrolling:touch] md:pb-8 lg:min-h-0 lg:flex-1 ${adminShellContentPadding}`}
+            className={`admin-scrollbar flex min-h-0 min-w-0 flex-1 flex-col overflow-x-clip overflow-y-auto pb-6 [-webkit-overflow-scrolling:touch] md:pb-8 lg:min-h-0 lg:flex-1 ${isSettingsRoute ? "lg:overflow-y-auto" : ""} ${adminShellContentPadding}`}
           >
             <div className="w-full min-w-0 max-w-full flex-1 overflow-x-clip">{children}</div>
           </div>

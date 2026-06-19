@@ -9,7 +9,7 @@ import AccountMenu from "../storefront/account-menu";
 import { MARKETING_FRAME } from "@/lib/storefront-frame";
 import { TopbarSupportButton } from "./topbar-support-button";
 import { Z_INDEX } from "../../lib/z-index";
-import { MobileAccountHeaderAction } from "./mobile-account-header-action";
+import { MobileAccountHeaderAction } from "../layout/mobile-account-header-action";
 
 type HeaderCategory = Pick<Category, "id" | "name" | "slug">;
 type HeaderCategoryTree = HeaderCategory & {
@@ -386,6 +386,7 @@ export default function StoreHeader({
                     href={mobileStorefrontAccountHref}
                     isAuthenticated={isAuthenticated}
                     displayName={accountDisplayName}
+                    isAdmin={isAdmin}
                   />
                 ) : null}
               </div>

@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import Image from "next/image";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../../../lib/auth";
 import { getWebsiteSettings } from "../../../lib/settings";
+import { SafeProductThumbnail } from "../../../components/ui/safe-product-thumbnail";
 import { getPublicMediaBaseUrl } from "../../../lib/media-url";
-import { resolveMediaUrl } from "../../../lib/media";
+import { resolveProductImage } from "../../../lib/product-image";
 
 export const metadata: Metadata = {
   title: "Bảng điều khiển quản trị | Zendo.vn",
@@ -337,7 +337,7 @@ export default async function AdminDashboardPage(): Promise<JSX.Element> {
             sku: true,
             stockQuantity: true,
             images: {
-              select: { url: true },
+              select: { url: true, altText: true, isPrimary: true, sortOrder: true },
               orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
               take: 1,
             },
@@ -349,18 +349,23 @@ export default async function AdminDashboardPage(): Promise<JSX.Element> {
   );
   const topSellingProducts = topSorted.map((row) => {
     const detail = row.productId ? topDetailMap.get(row.productId) : null;
+    const name = detail?.name || row.productName || "Sản phẩm không xác định";
+    const image = detail ? resolveProductImage(detail.images, name) : null;
+    const hasProductDetail = Boolean(detail);
+
     return {
       productId: row.productId ?? "",
-      name: detail?.name || row.productName || "Sản phẩm không xác định",
-      sku: detail?.sku || "Chưa có SKU",
+      name,
+      sku: detail?.sku || (row.productId ? "Chưa có SKU" : "Dữ liệu lịch sử"),
       quantitySold: row.quantitySold,
       revenueText: new Intl.NumberFormat("vi-VN", {
         style: "currency",
         currency: currency || "VND",
         maximumFractionDigits: 0,
       }).format(row.revenue),
-      stockQuantity: Number(detail?.stockQuantity ?? 0),
-      imageUrl: resolveMediaUrl(detail?.images?.[0]?.url ?? ""),
+      stockQuantityText: hasProductDetail ? String(Number(detail?.stockQuantity ?? 0)) : "—",
+      imageUrl: image?.url ?? "",
+      imageAlt: image?.altText ?? `${name} - ảnh placeholder`,
       editHref: row.productId ? `/admin/products/${row.productId}` : "/admin/products",
       hasProductLink: Boolean(row.productId),
     };
@@ -676,22 +681,19 @@ export default async function AdminDashboardPage(): Promise<JSX.Element> {
                     <tr key={`${item.productId}-${item.name}`} className="border-b border-slate-200 last:border-none">
                       <td className="px-3 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="relative h-12 w-12 overflow-hidden rounded-md border border-slate-200 bg-white">
-                            {item.imageUrl ? (
-                              <Image src={item.imageUrl} alt={item.name} fill sizes="48px" className="object-cover" />
-                            ) : (
-                              <div className="flex h-full w-full items-center justify-center text-[10px] text-slate-500">
-                                Không ảnh
-                              </div>
-                            )}
-                          </div>
+                          <SafeProductThumbnail
+                            src={item.imageUrl}
+                            alt={item.imageAlt}
+                            size={48}
+                            className="h-12 w-12 shrink-0 rounded-md border border-slate-200 bg-white object-cover"
+                          />
                           <p className="font-medium text-slate-900">{item.name}</p>
                         </div>
                       </td>
                       <td className="px-3 py-3 text-slate-500">{item.sku}</td>
                       <td className="px-3 py-3 font-semibold text-slate-900">{item.quantitySold}</td>
                       <td className="px-3 py-3 font-semibold text-slate-900">{item.revenueText}</td>
-                      <td className="px-3 py-3 text-slate-500">{item.stockQuantity}</td>
+                      <td className="px-3 py-3 text-slate-500">{item.stockQuantityText}</td>
                       <td className="px-3 py-3 text-right">
                         <Link href={item.editHref} className="text-sm font-semibold text-slate-900 transition hover:text-zinc-700">
                           {item.hasProductLink ? "Sửa sản phẩm" : "Xem sản phẩm"}
@@ -706,15 +708,12 @@ export default async function AdminDashboardPage(): Promise<JSX.Element> {
               {topSellingProducts.map((item) => (
                 <article key={`${item.productId}-${item.name}-mobile`} className="rounded-xl border border-slate-200 p-3">
                   <div className="flex items-center gap-3">
-                    <div className="relative h-14 w-14 overflow-hidden rounded-md border border-slate-200 bg-white">
-                      {item.imageUrl ? (
-                        <Image src={item.imageUrl} alt={item.name} fill sizes="56px" className="object-cover" />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-[10px] text-slate-500">
-                          Không ảnh
-                        </div>
-                      )}
-                    </div>
+                    <SafeProductThumbnail
+                      src={item.imageUrl}
+                      alt={item.imageAlt}
+                      size={56}
+                      className="h-14 w-14 shrink-0 rounded-md border border-slate-200 bg-white object-cover"
+                    />
                     <div>
                       <p className="text-sm font-semibold text-slate-900">{item.name}</p>
                       <p className="text-xs text-slate-500">SKU: {item.sku}</p>
@@ -722,7 +721,7 @@ export default async function AdminDashboardPage(): Promise<JSX.Element> {
                   </div>
                   <p className="mt-2 text-sm text-slate-900">Đã bán: <span className="font-semibold">{item.quantitySold}</span></p>
                   <p className="text-sm text-slate-900">Doanh thu: <span className="font-semibold">{item.revenueText}</span></p>
-                  <p className="text-xs text-slate-500">Tồn kho hiện tại: {item.stockQuantity}</p>
+                  <p className="text-xs text-slate-500">Tồn kho hiện tại: {item.stockQuantityText}</p>
                   <Link href={item.editHref} className="mt-2 inline-flex text-sm font-semibold text-slate-900">
                     {item.hasProductLink ? "Sửa sản phẩm" : "Xem sản phẩm"}
                   </Link>

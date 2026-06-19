@@ -860,19 +860,21 @@ export function AffiliateAccountDashboardTab({
                       <p className="mt-1 text-xs text-slate-500">
                         Gợi ý sản phẩm để tạo link ref nhanh — không hiển thị dữ liệu khách mua.
                       </p>
-                      <div className="mt-3 flex max-h-48 flex-col gap-1.5 overflow-y-auto overscroll-contain">
+                      <div className="mt-3 flex max-h-64 min-w-0 flex-col gap-2 overflow-y-auto overscroll-contain pr-1">
                         {productQuickLinks.map((p) => (
                           <Link
                             key={p.id}
                             href={`/san-pham/${encodeURIComponent(p.slug)}`}
                             className={
                               isCtvPanels
-                                ? "truncate rounded-lg bg-white/90 px-3 py-2 text-xs font-medium text-blue-700 ring-1 ring-slate-200/50 transition-colors hover:bg-blue-50/80"
-                                : "truncate rounded-lg border border-[#E2E8F0] bg-white px-3 py-2 text-xs font-medium text-[#2563EB] hover:bg-[#EFF6FF]"
+                                ? "flex min-h-12 w-full min-w-0 items-center rounded-lg bg-white/90 px-3 py-2.5 text-xs font-medium leading-snug text-blue-700 ring-1 ring-slate-200/50 transition-colors hover:bg-blue-50/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 sm:min-h-11 sm:text-sm"
+                                : "flex min-h-12 w-full min-w-0 items-center rounded-lg border border-[#E2E8F0] bg-white px-3 py-2.5 text-xs font-medium leading-snug text-[#2563EB] hover:bg-[#EFF6FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 sm:min-h-11 sm:text-sm"
                             }
                             title={p.name}
                           >
-                            {p.name}
+                            <span className="block min-w-0 flex-1 overflow-hidden text-ellipsis break-words leading-snug [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">
+                              {p.name}
+                            </span>
                           </Link>
                         ))}
                       </div>

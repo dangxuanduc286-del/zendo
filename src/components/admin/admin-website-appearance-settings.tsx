@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -397,8 +398,8 @@ function GeneralCard({
               </label>
               <label className="space-y-1.5">
                 <span className="text-sm font-medium text-zinc-700">Domain chính *</span>
-                <input {...register("siteUrl")} placeholder="https://www.zendo.vn" />
-                <p className="text-xs text-slate-500">Local dùng `http://localhost:3000`, production dùng `https://www.zendo.vn`.</p>
+                <input {...register("siteUrl")} placeholder="https://zendo.vn" />
+                <p className="text-xs text-slate-500">Local dùng `http://localhost:3000`, production dùng `https://zendo.vn` (không có `www.`).</p>
                 {errors.siteUrl ? <p className="text-xs text-rose-600">{errors.siteUrl.message}</p> : null}
               </label>
               <label className="space-y-1.5 md:col-span-2">
@@ -411,8 +412,8 @@ function GeneralCard({
               </label>
               <label className="space-y-1.5 md:col-span-2">
                 <span className="text-sm font-medium text-zinc-700">Canonical base URL *</span>
-                <input {...register("canonicalBaseUrl")} placeholder="https://www.zendo.vn" />
-                <p className="text-xs text-slate-500">URL gốc để sinh canonical; local: `http://localhost:3000`, production: `https://www.zendo.vn`.</p>
+                <input {...register("canonicalBaseUrl")} placeholder="https://zendo.vn" />
+                <p className="text-xs text-slate-500">URL gốc để sinh canonical; local: `http://localhost:3000`, production: `https://zendo.vn` (không có `www.`).</p>
                 {errors.canonicalBaseUrl ? <p className="text-xs text-rose-600">{errors.canonicalBaseUrl.message}</p> : null}
               </label>
             </div>
@@ -3159,43 +3160,14 @@ function AnalyticsCard({
           <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
             <div>
               <h3 className="text-sm font-semibold text-slate-900">Popup / remarketing</h3>
-              <p className="mt-1 text-xs text-slate-500">Cấu hình popup cho storefront và tham số hiển thị.</p>
+              <p className="mt-1 text-xs text-slate-500">Popup storefront hiện có được giữ nguyên; Premium Freeship quản lý riêng tại Marketing.</p>
             </div>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-zinc-700 md:col-span-2">
-                <input type="checkbox" {...form.register("popupEnabled")} className="h-4 w-4 rounded border-zinc-300" />
-                Bật popup trang chủ / storefront
-              </label>
-              <label className="space-y-1.5 md:col-span-2">
-                <span className="text-sm font-medium text-zinc-700">Tiêu đề popup</span>
-                <input {...form.register("popupTitle")} placeholder="Ví dụ: Ưu đãi dành cho bạn hôm nay" />
-              </label>
-              <label className="space-y-1.5 md:col-span-2">
-                <span className="text-sm font-medium text-zinc-700">Nội dung popup</span>
-                <textarea {...form.register("popupContent")} rows={3} placeholder="Nội dung ngắn gọn, rõ CTA." />
-              </label>
-              <input type="hidden" {...form.register("popupImageUrl")} />
-              <div className="space-y-1 md:col-span-2">
-                <AdminImageUploadField
-                  label="Ảnh popup"
-                  value={form.watch("popupImageUrl")}
-                  kind="banner"
-                  onChange={(nextUrl) => form.setValue("popupImageUrl", nextUrl, { shouldDirty: true, shouldValidate: true })}
-                  previewClassName="h-24 w-full max-w-sm"
-                />
-              </div>
-              <label className="space-y-1.5 md:col-span-2">
-                <span className="text-sm font-medium text-zinc-700">Link popup</span>
-                <input {...form.register("popupLink")} placeholder="/cua-hang hoặc https://..." />
-              </label>
-              <label className="space-y-1.5">
-                <span className="text-sm font-medium text-zinc-700">Delay hiển thị (ms)</span>
-                <input type="number" min={0} max={30000} {...form.register("popupDelayMs", { valueAsNumber: true })} />
-              </label>
-              <label className="space-y-1.5">
-                <span className="text-sm font-medium text-zinc-700">Tần suất lặp (giờ)</span>
-                <input type="number" min={1} max={168} {...form.register("popupFrequencyHours", { valueAsNumber: true })} />
-              </label>
+            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+              Popup Premium Freeship được quản lý riêng tại{" "}
+              <Link className="font-semibold text-sky-700 hover:underline" href="/admin/marketing/premium-freeship-popup">
+                Marketing → Premium Freeship Popup
+              </Link>
+              .
             </div>
           </section>
         </div>

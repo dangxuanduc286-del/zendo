@@ -484,7 +484,7 @@ import {
 } from "./affiliate-commission-tab-settings";
 import { safeParseJson } from "./safe-json";
 import { isPublicMediaUrl, normalizeBannerMediaUrl, normalizeMediaUrl } from "./media-url";
-import { unstable_cache } from "next/cache";
+import { revalidateTag, unstable_cache } from "next/cache";
 import { cache } from "react";
 
 function normalizeDealsSections(raw: unknown): DealsSectionConfig[] {
@@ -1124,6 +1124,48 @@ export async function getSettingValue<T>(key: string): Promise<T | null> {
   } catch (error) {
     void error;
     return null;
+  }
+}
+
+export async function getSettingUpdatedAt(key: string): Promise<string | null> {
+  try {
+    const db = await getDbClient();
+    if (!db) return null;
+    const row = await db.setting.findUnique({ where: { key }, select: { updatedAt: true } });
+    return row?.updatedAt ? row.updatedAt.toISOString() : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function upsertSettingValue(
+  key: string,
+  value: unknown,
+  options?: { group?: string; description?: string; isPublic?: boolean },
+): Promise<boolean> {
+  try {
+    const db = await getDbClient();
+    if (!db) return false;
+    await db.setting.upsert({
+      where: { key },
+      update: {
+        value: JSON.parse(JSON.stringify(value)),
+        group: options?.group,
+        description: options?.description,
+        isPublic: options?.isPublic ?? false,
+      },
+      create: {
+        key,
+        value: JSON.parse(JSON.stringify(value)),
+        group: options?.group,
+        description: options?.description,
+        isPublic: options?.isPublic ?? false,
+      },
+    });
+    revalidateTag("storefront-settings");
+    return true;
+  } catch {
+    return false;
   }
 }
 

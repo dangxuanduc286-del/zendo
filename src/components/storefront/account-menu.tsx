@@ -5,6 +5,7 @@ import { CircleUser } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { getSession, signOut, useSession } from "next-auth/react";
 import { signOutAdminVoluntary } from "@/lib/admin-voluntary-signout-client";
+import { useAdminNotificationsUnreadCount } from "@/lib/use-admin-notifications-unread-count";
 import {
   fetchAuthSessionSnapshot,
   logAuthTrace,
@@ -30,6 +31,8 @@ export default function AccountMenu({
   const rootRef = useRef<HTMLDivElement | null>(null);
   const sessionState = useSession();
   const session = sessionState?.data;
+  const adminUnreadCount = useAdminNotificationsUnreadCount(isAuthenticated && isAdmin);
+  const adminBadgeLabel = adminUnreadCount > 99 ? "99+" : adminUnreadCount > 0 ? String(adminUnreadCount) : null;
   const preferredLabel = (
     session?.user?.name?.trim() ||
     displayName?.trim() ||
@@ -65,16 +68,23 @@ export default function AccountMenu({
 
   return (
     <div ref={rootRef} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((current) => !current)}
-        className="inline-flex h-10 min-w-[118px] max-w-[168px] cursor-pointer items-center justify-center gap-2 rounded-xl border border-zinc-300 bg-white px-3.5 text-sm font-semibold text-zinc-700 shadow-sm transition hover:border-[#2563EB] hover:bg-sky-50 hover:text-[#1D4ED8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/30 active:bg-sky-100 sm:h-11 sm:max-w-[190px] sm:px-4"
-        aria-label={`Tài khoản của ${preferredLabel}`}
-        aria-expanded={open}
-      >
-        <CircleUser className="h-5 w-5 shrink-0" strokeWidth={2} aria-hidden />
-        <span className="min-w-0 truncate">{preferredLabel}</span>
-      </button>
+      <div className="relative inline-flex overflow-visible">
+        <button
+          type="button"
+          onClick={() => setOpen((current) => !current)}
+          className="relative inline-flex h-10 min-w-[118px] max-w-[168px] cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-xl border border-zinc-300 bg-white px-3.5 pr-10 text-sm font-semibold text-zinc-700 shadow-sm transition hover:border-[#2563EB] hover:bg-sky-50 hover:text-[#1D4ED8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/30 active:bg-sky-100 sm:h-11 sm:max-w-[190px] sm:px-4 sm:pr-11"
+          aria-label={`Tài khoản của ${preferredLabel}`}
+          aria-expanded={open}
+        >
+          <CircleUser className="h-5 w-5 shrink-0" strokeWidth={2} aria-hidden />
+          <span className="min-w-0 truncate">{preferredLabel}</span>
+          {adminBadgeLabel ? (
+            <span className="pointer-events-none absolute right-[6px] top-[6px] z-20 inline-flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#EF4444] px-1 text-[10px] font-bold leading-none text-white shadow-[0_2px_6px_rgba(239,68,68,0.28)] ring-2 ring-white sm:right-[7px] sm:top-[7px]">
+              {adminBadgeLabel}
+            </span>
+          ) : null}
+        </button>
+      </div>
       {open ? (
         <div className="absolute right-0 z-50 mt-2 w-52 rounded-xl border border-zinc-200 bg-white p-2 shadow-lg">
           <Link

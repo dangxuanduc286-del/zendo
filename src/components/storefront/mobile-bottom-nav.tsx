@@ -114,14 +114,12 @@ export default function MobileBottomNav({
   }, [categorySheetOpen]);
 
   useEffect(() => {
-    if (typeof document === "undefined") return;
     if (!categorySheetOpen) return;
-    const body = document.body;
-    const previousOverflow = body.style.overflow;
-    body.style.overflow = "hidden";
-    return () => {
-      body.style.overflow = previousOverflow;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setCategorySheetOpen(false);
     };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, [categorySheetOpen]);
 
   useEffect(() => {
@@ -141,7 +139,7 @@ export default function MobileBottomNav({
     label: string;
     active: boolean;
     Icon: (p: { active: boolean }) => JSX.Element;
-    kind?: "link" | "sheet" | "support";
+    kind?: "link" | "sheet" | "support" | "admin";
   }> = [
     { kind: "link", href: "/", label: "Trang chủ", active: onHome, Icon: IconHome },
     { kind: "sheet", href: "/cua-hang", label: "Danh mục", active: onCategory, Icon: IconGrid },
@@ -300,6 +298,20 @@ export default function MobileBottomNav({
                   </span>
                   <span className="max-w-full truncate">{item.label}</span>
                 </button>
+              );
+            }
+            if (item.kind === "admin") {
+              return (
+                <Link
+                  key={item.label}
+                  href={item.href ?? "/"}
+                  className="relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-0.5 text-[11px] font-semibold text-[#64748B] transition-colors hover:bg-[#EFF6FF]"
+                >
+                  <span className="relative inline-flex">
+                    <item.Icon active={item.active} />
+                  </span>
+                  <span className="max-w-full truncate">{item.label}</span>
+                </Link>
               );
             }
             return (

@@ -10,7 +10,9 @@ import {
   formatPaymentStatus,
 } from "../../../../../lib/admin-order";
 import AdminOrderStatusForm from "../../../../../components/admin/admin-order-status-form";
+import { SafeProductThumbnail } from "../../../../../components/ui/safe-product-thumbnail";
 import { adminSecondaryButton } from "../../../../../lib/admin-ui";
+import { resolveProductImage } from "../../../../../lib/product-image";
 
 type ParamsInput = Promise<{ id: string }>;
 
@@ -96,6 +98,20 @@ export default async function AdminOrderDetailPage({
           quantity: true,
           unitPrice: true,
           totalPrice: true,
+          product: {
+            select: {
+              images: {
+                orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
+                take: 1,
+                select: {
+                  url: true,
+                  altText: true,
+                  isPrimary: true,
+                  sortOrder: true,
+                },
+              },
+            },
+          },
         },
       },
     },
@@ -192,31 +208,40 @@ export default async function AdminOrderDetailPage({
                   </tr>
                 </thead>
                 <tbody>
-                  {order.items.map((item) => (
-                    <tr key={item.id} className="border-b border-[#E2E8F0] last:border-none">
-                      <td className="py-2 pr-3">
-                        <div className="h-12 w-12 rounded-md border border-[#E2E8F0] bg-slate-100" />
-                      </td>
-                      <td className="py-2 pr-3">
-                        {item.productSlug ? (
-                          <Link
-                            href={`/san-pham/${item.productSlug}`}
-                            className="font-medium text-[#0F172A] hover:text-[#1D4ED8]"
-                          >
-                            {item.productName}
-                          </Link>
-                        ) : (
-                          <span className="font-medium text-[#0F172A]">{item.productName}</span>
-                        )}
-                      </td>
-                      <td className="py-2 pr-3 text-[#64748B]">{item.sku}</td>
-                      <td className="py-2 pr-3 text-[#64748B]">{item.quantity}</td>
-                      <td className="py-2 pr-3 text-[#64748B]">{formatVnd(Number(item.unitPrice))}</td>
-                      <td className="py-2 text-right font-medium text-[#0F172A]">
-                        {formatVnd(Number(item.totalPrice))}
-                      </td>
-                    </tr>
-                  ))}
+                  {order.items.map((item) => {
+                    const image = resolveProductImage(item.product?.images, item.productName);
+
+                    return (
+                      <tr key={item.id} className="border-b border-[#E2E8F0] last:border-none">
+                        <td className="py-2 pr-3 align-top">
+                          <SafeProductThumbnail
+                            src={image.url}
+                            alt={image.altText}
+                            size={48}
+                            className="h-12 w-12 shrink-0 rounded-md border border-[#E2E8F0] bg-slate-100 object-cover"
+                          />
+                        </td>
+                        <td className="py-2 pr-3 align-top">
+                          {item.productSlug ? (
+                            <Link
+                              href={`/san-pham/${item.productSlug}`}
+                              className="font-medium text-[#0F172A] hover:text-[#1D4ED8]"
+                            >
+                              {item.productName}
+                            </Link>
+                          ) : (
+                            <span className="font-medium text-[#0F172A]">{item.productName}</span>
+                          )}
+                        </td>
+                        <td className="py-2 pr-3 align-top text-[#64748B]">{item.sku}</td>
+                        <td className="py-2 pr-3 align-top text-[#64748B]">{item.quantity}</td>
+                        <td className="py-2 pr-3 align-top text-[#64748B]">{formatVnd(Number(item.unitPrice))}</td>
+                        <td className="py-2 text-right align-top font-medium text-[#0F172A]">
+                          {formatVnd(Number(item.totalPrice))}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

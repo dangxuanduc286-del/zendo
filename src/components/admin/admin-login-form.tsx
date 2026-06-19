@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { z } from "zod";
 import { adminPrimaryButton, adminSecondaryButton } from "../../lib/admin-ui";
 
@@ -30,6 +30,7 @@ const INITIAL_STATE: FormState = {
 };
 
 export default function AdminLoginForm(): JSX.Element {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/";
   const identifierPrefill = searchParams.get("identifier") || "";
@@ -96,7 +97,7 @@ export default function AdminLoginForm(): JSX.Element {
         return;
       }
 
-      window.location.assign(safeCallbackUrl || "/");
+      router.replace(safeCallbackUrl || "/");
     } catch {
       setSubmitError("Đăng nhập thất bại do lỗi hệ thống. Vui lòng thử lại.");
     } finally {

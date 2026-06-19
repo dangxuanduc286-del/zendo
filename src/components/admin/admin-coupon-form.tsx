@@ -15,7 +15,17 @@ import {
   type CouponFormValues,
 } from "../../lib/admin-coupon";
 import { adminPrimaryButton, adminSecondaryButton } from "../../lib/admin-ui";
-import { GUEST_COUPON_OPTIONS, type GuestCouponOption } from "../../lib/coupon";
+type QuickCouponOption = {
+  code: string;
+  name: string;
+  type: "PERCENT" | "FIXED_AMOUNT" | "FREE_SHIPPING";
+  value: number;
+  maxDiscountValue?: number | null;
+  minOrderValue?: number | null;
+  description: string;
+  usageLimit: number;
+  usagePerCustomer: number;
+};
 
 interface AdminCouponFormProps {
   mode: "create" | "edit";
@@ -40,7 +50,19 @@ const DEFAULT_VALUES: CouponFormValues = {
 };
 
 type CouponFormInput = z.input<typeof couponFormSchema>;
-const QUICK_POPULAR_COUPON_CODES = ["SAVE20K", "SAVE30K", "SAVE50K", "WELCOME5", "WELCOME10", "FREESHIP20"];
+const QUICK_POPULAR_COUPONS: QuickCouponOption[] = [
+  { code: "FREESHIP30", name: "🚚 FREESHIP30 - Được chọn nhiều nhất", type: "FREE_SHIPPING", value: 30000, maxDiscountValue: 30000, minOrderValue: 299000, usageLimit: 5000, usagePerCustomer: 5, description: "Giảm phí vận chuyển tối đa 30.000đ. Tag: Được chọn nhiều nhất" },
+  { code: "SAVE5", name: "⚡ SAVE5 - Ưu đãi nhanh", type: "PERCENT", value: 5, maxDiscountValue: 20000, minOrderValue: 399000, usageLimit: 5000, usagePerCustomer: 2, description: "Giảm 5%, tối đa 20.000đ. Tag: Ưu đãi nhanh" },
+  { code: "SAVE20", name: "🎁 SAVE20 - Tiết kiệm", type: "FIXED_AMOUNT", value: 20000, maxDiscountValue: null, minOrderValue: 499000, usageLimit: 4000, usagePerCustomer: 2, description: "Giảm trực tiếp 20.000đ. Tag: Tiết kiệm" },
+  { code: "SAVE50", name: "🎁 SAVE50 - Phổ biến", type: "FIXED_AMOUNT", value: 50000, maxDiscountValue: null, minOrderValue: 999000, usageLimit: 3500, usagePerCustomer: 2, description: "Giảm trực tiếp 50.000đ. Tag: Phổ biến" },
+  { code: "SAVE10", name: "⭐ SAVE10 - Được yêu thích", type: "PERCENT", value: 10, maxDiscountValue: 50000, minOrderValue: 1490000, usageLimit: 3000, usagePerCustomer: 2, description: "Giảm 10%, tối đa 50.000đ. Tag: Được yêu thích" },
+  { code: "SAVE80", name: "🎁 SAVE80 - Đơn lớn", type: "FIXED_AMOUNT", value: 80000, maxDiscountValue: null, minOrderValue: 1990000, usageLimit: 2500, usagePerCustomer: 2, description: "Giảm trực tiếp 80.000đ. Tag: Đơn lớn" },
+  { code: "SAVE120", name: "🎁 SAVE120 - Tiết kiệm cao", type: "FIXED_AMOUNT", value: 120000, maxDiscountValue: null, minOrderValue: 2990000, usageLimit: 2000, usagePerCustomer: 2, description: "Giảm trực tiếp 120.000đ. Tag: Tiết kiệm cao" },
+  { code: "SAVE15VIP", name: "💎 SAVE15VIP - Khách VIP", type: "PERCENT", value: 15, maxDiscountValue: 120000, minOrderValue: 2990000, usageLimit: 1500, usagePerCustomer: 2, description: "Giảm 15%, tối đa 120.000đ. Tag: Khách VIP" },
+  { code: "SAVE250", name: "🔥 SAVE250 - Giá trị cao", type: "FIXED_AMOUNT", value: 250000, maxDiscountValue: null, minOrderValue: 4990000, usageLimit: 1200, usagePerCustomer: 2, description: "Giảm trực tiếp 250.000đ. Tag: Giá trị cao" },
+  { code: "SAVE25VIP", name: "👑 SAVE25VIP - Ưu đãi cực lớn", type: "PERCENT", value: 25, maxDiscountValue: 200000, minOrderValue: 4990000, usageLimit: 1000, usagePerCustomer: 2, description: "Giảm 25%, tối đa 200.000đ. Tag: Ưu đãi cực lớn" },
+  { code: "SAVE350VIP", name: "👑 SAVE350VIP - Cao cấp", type: "FIXED_AMOUNT", value: 350000, maxDiscountValue: null, minOrderValue: 6990000, usageLimit: 800, usagePerCustomer: 2, description: "Giảm trực tiếp 350.000đ. Tag: Cao cấp" },
+];
 
 function toDatetimeLocal(value: string): string {
   if (!value) return "";
@@ -50,9 +72,9 @@ function toDatetimeLocal(value: string): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-function buildQuickCouponPayload(coupon: GuestCouponOption): CouponFormValues {
+function buildQuickCouponPayload(coupon: QuickCouponOption): CouponFormValues {
   const startsAt = new Date();
-  const endsAt = new Date(Date.now() + 45 * 24 * 60 * 60 * 1000);
+  const endsAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
   return {
     code: coupon.code,
     name: coupon.name,
@@ -65,8 +87,8 @@ function buildQuickCouponPayload(coupon: GuestCouponOption): CouponFormValues {
       ? coupon.maxDiscountValue ?? undefined
       : undefined,
     minOrderValue: coupon.minOrderValue ?? undefined,
-    usageLimit: 3000,
-    usagePerCustomer: coupon.type === "FREE_SHIPPING" ? 5 : 2,
+    usageLimit: coupon.usageLimit,
+    usagePerCustomer: coupon.usagePerCustomer,
     startAt: startsAt.toISOString(),
     endAt: endsAt.toISOString(),
     isActive: true,
@@ -173,7 +195,7 @@ export default function AdminCouponForm({
     setQuickCreating(true);
     setQuickCreateStatus("");
     setSubmitError("");
-    const coupons = GUEST_COUPON_OPTIONS.filter((coupon) => QUICK_POPULAR_COUPON_CODES.includes(coupon.code));
+    const coupons = QUICK_POPULAR_COUPONS;
     let createdCount = 0;
     let skippedCount = 0;
 
@@ -194,7 +216,7 @@ export default function AdminCouponForm({
         }
         createdCount += 1;
       }
-      setQuickCreateStatus(`Đã tạo ${createdCount} voucher phổ biến, bỏ qua ${skippedCount} mã đã tồn tại.`);
+      setQuickCreateStatus(`Đã tạo ${createdCount} voucher Zendo, bỏ qua ${skippedCount} mã đã tồn tại.`);
       router.refresh();
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : "Không thể tạo nhanh voucher phổ biến.");
@@ -211,8 +233,8 @@ export default function AdminCouponForm({
     );
   }
   const generateCode = () => {
-    const presets = ["ZENDO10", "SALE20", "FREESHIP", "VIP50"];
-    const random = presets[Math.floor(Math.random() * presets.length)] ?? "ZENDO10";
+    const presets = QUICK_POPULAR_COUPONS.map((coupon) => coupon.code);
+    const random = presets[Math.floor(Math.random() * presets.length)] ?? "FREESHIP30";
     setValue("code", random, { shouldValidate: true, shouldDirty: true });
   };
 
@@ -225,9 +247,9 @@ export default function AdminCouponForm({
         <section className="rounded-xl border border-blue-100 bg-blue-50 p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-sm font-bold text-blue-950">Tạo nhanh voucher phổ biến</h2>
+              <h2 className="text-sm font-bold text-blue-950">Tạo nhanh 11 voucher Zendo</h2>
               <p className="mt-1 text-xs font-medium text-blue-800">
-                Tự sinh SAVE20K, SAVE30K, SAVE50K, WELCOME5, WELCOME10 và FREESHIP20. Mã đã tồn tại sẽ được bỏ qua.
+                Tự sinh FREESHIP30, SAVE5, SAVE20, SAVE50, SAVE10, SAVE80, SAVE120, SAVE15VIP, SAVE250, SAVE25VIP và SAVE350VIP. Mã đã tồn tại sẽ được bỏ qua.
               </p>
             </div>
             <button
@@ -236,7 +258,7 @@ export default function AdminCouponForm({
               disabled={quickCreating}
               className="inline-flex h-10 shrink-0 items-center justify-center rounded-lg bg-[#2563EB] px-4 text-sm font-semibold text-white transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {quickCreating ? "Đang tạo..." : "Tạo nhanh voucher phổ biến"}
+              {quickCreating ? "Đang tạo..." : "Tạo nhanh 11 voucher"}
             </button>
           </div>
           {quickCreateStatus ? <p className="mt-2 text-xs font-semibold text-blue-900">{quickCreateStatus}</p> : null}
@@ -250,7 +272,7 @@ export default function AdminCouponForm({
             <input
               {...register("code")}
               className="h-10 w-full rounded-md border border-zinc-300 px-3 text-sm uppercase outline-none focus:border-zinc-500"
-              placeholder="ZENDO10"
+              placeholder="FREESHIP30"
             />
             <button
               type="button"

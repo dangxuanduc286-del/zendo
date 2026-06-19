@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type NotificationRow = {
   id: string;
@@ -31,8 +32,29 @@ function formatWhen(iso: string): string {
 
 const POLL_MS = 30_000;
 
-export function useAdminNotificationsUnreadPolling(initialCount: number, enabled: boolean): number {
+export function useAdminNotificationsUnreadPolling(
+  initialCount: number,
+  enabled: boolean,
+  routeKey: string,
+): [number, React.Dispatch<React.SetStateAction<number>>] {
   const [count, setCount] = useState(initialCount);
+
+  const refresh = useCallback(async (disposedRef?: { current: boolean }): Promise<void> => {
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+    try {
+      const res = await fetch("/api/admin/notifications/unread-count", {
+        credentials: "same-origin",
+        cache: "no-store",
+      });
+      if (!res.ok) return;
+      const data = (await res.json()) as { count?: unknown };
+      const next =
+        typeof data.count === "number" && Number.isFinite(data.count) ? Math.max(0, Math.floor(data.count)) : null;
+      if (!disposedRef?.current && next != null) setCount(next);
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   useEffect(() => {
     if (!enabled) return;
@@ -41,37 +63,19 @@ export function useAdminNotificationsUnreadPolling(initialCount: number, enabled
 
   useEffect(() => {
     if (!enabled) return;
-    let disposed = false;
-
-    async function refresh(): Promise<void> {
-      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
-      try {
-        const res = await fetch("/api/admin/notifications/unread-count", {
-          credentials: "same-origin",
-          cache: "no-store",
-        });
-        if (!res.ok) return;
-        const data = (await res.json()) as { count?: unknown };
-        const next =
-          typeof data.count === "number" && Number.isFinite(data.count) ? Math.max(0, Math.floor(data.count)) : null;
-        if (!disposed && next != null) setCount(next);
-      } catch {
-        /* ignore */
-      }
-    }
-
-    void refresh();
-    const id = window.setInterval(() => void refresh(), POLL_MS);
-    const onVis = () => void refresh();
+    const disposed = { current: false };
+    void refresh(disposed);
+    const id = window.setInterval(() => void refresh(disposed), POLL_MS);
+    const onVis = () => void refresh(disposed);
     document.addEventListener("visibilitychange", onVis);
     return () => {
-      disposed = true;
+      disposed.current = true;
       window.clearInterval(id);
       document.removeEventListener("visibilitychange", onVis);
     };
-  }, [enabled]);
+  }, [enabled, refresh, routeKey]);
 
-  return count;
+  return [count, setCount];
 }
 
 export default function AdminNotificationsBell({
@@ -81,11 +85,14 @@ export default function AdminNotificationsBell({
   initialUnreadCount?: number;
   enabled?: boolean;
 }): JSX.Element {
-  const unreadCount = useAdminNotificationsUnreadPolling(initialUnreadCount, enabled);
+  const pathname = usePathname();
+  const [unreadCount, setUnreadCount] = useAdminNotificationsUnreadPolling(initialUnreadCount, enabled, pathname);
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<NotificationRow[]>([]);
   const [loading, setLoading] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [panelStyle, setPanelStyle] = useState<React.CSSProperties | null>(null);
 
   const loadList = useCallback(async () => {
     setLoading(true);
@@ -115,24 +122,67 @@ export default function AdminNotificationsBell({
     return () => document.removeEventListener("mousedown", onDoc);
   }, [open]);
 
+  useEffect(() => {
+    if (!open) return;
+
+    const updatePosition = (): void => {
+      const trigger = triggerRef.current;
+      if (!trigger) return;
+      const rect = trigger.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const safeGap = 12;
+      const panelWidth = Math.min(22 * 16, Math.max(18 * 16, viewportWidth - 24));
+      const availableBelow = viewportHeight - rect.bottom - safeGap;
+      const availableAbove = rect.top - safeGap;
+      const openUpward = availableBelow < 320 && availableAbove > availableBelow;
+      const maxHeight = Math.max(220, Math.min(520, (openUpward ? availableAbove : availableBelow) - 8));
+      const left = Math.min(Math.max(safeGap, rect.right - panelWidth), viewportWidth - panelWidth - safeGap);
+      const top = openUpward ? Math.max(safeGap, rect.top - safeGap) : rect.bottom + 8;
+      const transformOrigin = openUpward ? "bottom right" : "top right";
+
+      setPanelStyle({
+        position: "fixed",
+        left,
+        top,
+        width: panelWidth,
+        maxWidth: `calc(100vw - ${safeGap * 2}px)`,
+        maxHeight,
+        transformOrigin,
+      });
+    };
+
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [open]);
+
   async function markRead(id: string): Promise<void> {
     await fetch(`/api/admin/notifications/${id}/read`, {
       method: "POST",
       credentials: "same-origin",
     });
     setItems((prev) => prev.map((r) => (r.id === id ? { ...r, readAt: new Date().toISOString() } : r)));
+    setUnreadCount((prev) => Math.max(0, prev - 1));
   }
 
   async function markAllRead(): Promise<void> {
     await fetch("/api/admin/notifications/read-all", { method: "POST", credentials: "same-origin" });
     setItems((prev) => prev.map((r) => ({ ...r, readAt: r.readAt ?? new Date().toISOString() })));
+    setUnreadCount(0);
   }
 
   const badge = unreadCount > 99 ? "99+" : unreadCount > 0 ? String(unreadCount) : null;
+  const safePanelStyle = useMemo<React.CSSProperties | undefined>(() => panelStyle ?? undefined, [panelStyle]);
 
   return (
     <div ref={rootRef} className="relative shrink-0">
       <button
+        ref={triggerRef}
         type="button"
         aria-label={unreadCount > 0 ? `${unreadCount} thông báo chưa đọc` : "Thông báo quản trị"}
         aria-expanded={open}
@@ -151,18 +201,21 @@ export default function AdminNotificationsBell({
       </button>
 
       {open ? (
-        <div className="absolute right-0 top-full z-50 mt-2 w-[min(22rem,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
-          <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-3 py-2.5">
-            <p className="text-sm font-bold text-slate-900">Thông báo</p>
+        <div
+          className="fixed z-[9999] flex max-w-[calc(100vw-16px)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl ring-1 ring-slate-900/5"
+          style={safePanelStyle}
+        >
+          <div className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
+            <p className="min-w-0 truncate text-sm font-bold text-slate-900">Thông báo</p>
             <button
               type="button"
               onClick={() => void markAllRead()}
-              className="text-xs font-semibold text-sky-700 hover:underline"
+              className="shrink-0 rounded-lg px-2 py-1 text-xs font-semibold text-sky-700 hover:bg-sky-50 hover:underline"
             >
               Đánh dấu đã đọc
             </button>
           </div>
-          <div className="max-h-[min(24rem,60vh)] overflow-y-auto">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 py-1 [scrollbar-gutter:stable]">
             {loading && !items.length ? (
               <p className="px-3 py-6 text-center text-sm text-slate-500">Đang tải…</p>
             ) : null}
@@ -177,24 +230,26 @@ export default function AdminNotificationsBell({
                   if (!row.readAt) void markRead(row.id);
                   setOpen(false);
                 }}
-                className={`block border-b border-slate-50 px-3 py-2.5 transition hover:bg-slate-50 ${
+                className={`block rounded-xl px-3 py-3 transition hover:bg-slate-50 ${
                   row.readAt ? "opacity-75" : "bg-sky-50/40"
                 }`}
               >
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{row.categoryLabel}</p>
-                <p className="text-sm font-semibold text-slate-900">{row.title}</p>
-                <p className="mt-0.5 line-clamp-2 text-xs text-slate-600">{row.summary}</p>
-                <p className="mt-1 text-[11px] text-slate-400">{formatWhen(row.createdAt)}</p>
+                <div className="space-y-1">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{row.categoryLabel}</p>
+                  <p className="text-sm font-semibold leading-5 text-slate-900">{row.title}</p>
+                  <p className="text-xs leading-5 text-slate-600">{row.summary}</p>
+                  <p className="text-[11px] text-slate-400">{formatWhen(row.createdAt)}</p>
+                </div>
               </Link>
             ))}
           </div>
-          <div className="border-t border-slate-100 px-3 py-2">
+          <div className="flex shrink-0 items-center justify-between gap-3 border-t border-slate-100 px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
             <Link
               href="/admin/collaborators?tab=lich-su"
               onClick={() => setOpen(false)}
               className="text-xs font-semibold text-sky-700 hover:underline"
             >
-              Xem lịch sử hoạt động →
+              Xem tất cả
             </Link>
           </div>
         </div>

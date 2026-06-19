@@ -355,7 +355,7 @@ export default function AffiliateLinkBuilder({
               name="customPath"
               value={customPath}
               onChange={(event) => setCustomPath(event.target.value)}
-              placeholder="/khuyen-mai hoặc https://www.zendo.vn/khuyen-mai"
+              placeholder="/khuyen-mai hoặc https://zendo.vn/khuyen-mai"
               className={fieldClass}
             />
           </label>

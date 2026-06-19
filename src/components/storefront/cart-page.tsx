@@ -6,7 +6,8 @@ import EmptyState from "./empty-state";
 import { formatVnd } from "../../lib/currency";
 import { useGuestCart } from "../../hooks/use-guest-cart";
 import CtvPurchaseBlockedPanel from "./ctv-purchase-blocked-panel";
-import { findNextVoucherMilestone, GUEST_COUPON_OPTIONS } from "../../lib/coupon";
+import { findNextVoucherMilestone } from "../../lib/coupon";
+import { useStorefrontCoupons } from "../../hooks/use-storefront-coupons";
 import VoucherProgressCard from "./voucher-progress-card";
 import CartAddonSuggestions from "./cart-addon-suggestions";
 import {
@@ -17,8 +18,8 @@ import {
 } from "../../lib/shipping";
 import ShippingPromotionProgressCard from "./shipping-promotion-progress";
 
-function getCartVoucherValueLabel(code: string): string {
-  const coupon = GUEST_COUPON_OPTIONS.find((item) => item.code === code.toUpperCase());
+function getCartVoucherValueLabel(code: string, coupons: ReturnType<typeof useStorefrontCoupons>): string {
+  const coupon = coupons.find((item) => item.code === code.toUpperCase());
   if (!coupon) return code.toUpperCase();
   if (coupon.type === "PERCENT") return `Giảm ${coupon.value}%`;
   if (coupon.type === "FREE_SHIPPING") return `Ưu đãi vận chuyển ${formatVnd(coupon.value)}`;
@@ -53,7 +54,8 @@ export default function CartPage(
     removeCoupon,
     getUnitPrice,
   } = useGuestCart();
-  const nextVoucherMilestone = findNextVoucherMilestone(subtotal);
+  const coupons = useStorefrontCoupons();
+  const nextVoucherMilestone = findNextVoucherMilestone(subtotal, coupons);
   const hasActiveCoupon = Boolean(appliedCoupon);
   const shippingPromoProgress = hasActiveCoupon ? null : getNextShippingPromotionProgress(subtotal, shippingPromotionConfig);
   const estimatedShippingPromo = hasActiveCoupon
@@ -185,7 +187,7 @@ export default function CartPage(
                 <div className="mt-1 flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-extrabold text-emerald-950">{appliedCoupon.code}</p>
-                    <p className="text-xs font-medium text-emerald-700">{getCartVoucherValueLabel(appliedCoupon.code)}</p>
+                    <p className="text-xs font-medium text-emerald-700">{getCartVoucherValueLabel(appliedCoupon.code, coupons)}</p>
                   </div>
                   <div className="shrink-0 text-right">
                     <p className="text-[11px] font-semibold text-emerald-700">
@@ -223,7 +225,7 @@ export default function CartPage(
                 type="text"
                 value={couponCode}
                 onChange={(event) => setCouponCode(event.target.value)}
-                placeholder="Nhập mã (WELCOME10...)"
+                placeholder="Nhập mã (FREESHIP30...)"
                 className="h-10 w-full rounded-md border border-zinc-300 px-3 text-sm outline-none transition focus:border-zinc-500"
               />
               <button

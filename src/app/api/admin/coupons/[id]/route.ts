@@ -191,10 +191,31 @@ export async function DELETE(
     if (!db) {
       return NextResponse.json({ message: "Hệ thống chưa cấu hình cơ sở dữ liệu." }, { status: 503 });
     }
-    await db.coupon.delete({ where: { id: resolvedParams.id } });
-    return NextResponse.json({ success: true });
+    const updated = await db.coupon.update({
+      where: { id: resolvedParams.id },
+      data: { status: "DISABLED" },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        description: true,
+        type: true,
+        scope: true,
+        value: true,
+        maxDiscountAmount: true,
+        minOrderAmount: true,
+        usageLimit: true,
+        usagePerCustomer: true,
+        usedCount: true,
+        startsAt: true,
+        endsAt: true,
+        status: true,
+        updatedAt: true,
+      },
+    });
+    return NextResponse.json({ success: true, item: mapCoupon(updated) });
   } catch {
-    return NextResponse.json({ message: "Không thể xóa mã giảm giá." }, { status: 500 });
+    return NextResponse.json({ message: "Không thể vô hiệu hóa mã giảm giá." }, { status: 500 });
   }
 }
 

@@ -69,6 +69,7 @@ function BannerSlider({ banners }: BannerSliderProps): JSX.Element | null {
             alt={current.altText?.trim() || current.title}
             fill
             priority={activeIndex === 0}
+            fetchPriority={activeIndex === 0 ? "high" : undefined}
             quality={90}
             sizes="(max-width: 1024px) 100vw, (max-width: 1536px) 960px, 1200px"
             fallbackLabel="Banner"

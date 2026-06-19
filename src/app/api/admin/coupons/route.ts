@@ -3,6 +3,20 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "../../../../lib/auth";
 import { couponFormSchema } from "../../../../lib/admin-coupon";
 
+const ZENDO_CHECKOUT_COUPON_ORDER = [
+  "FREESHIP30",
+  "SAVE5",
+  "SAVE20",
+  "SAVE50",
+  "SAVE10",
+  "SAVE80",
+  "SAVE120",
+  "SAVE15VIP",
+  "SAVE250",
+  "SAVE25VIP",
+  "SAVE350VIP",
+];
+
 async function getDbClient() {
   if (!process.env.DATABASE_URL) return null;
   try {
@@ -53,7 +67,7 @@ function mapCoupon(row: {
   };
 }
 
-export async function GET(): Promise<NextResponse> {
+export async function GET(request: Request): Promise<NextResponse> {
   try {
 
     const session = await getServerSession(authOptions);
@@ -66,7 +80,11 @@ export async function GET(): Promise<NextResponse> {
       return NextResponse.json({ message: "Hệ thống chưa cấu hình cơ sở dữ liệu." }, { status: 503 });
     }
 
+    const url = new URL(request.url);
+    const campaignOnly = url.searchParams.get("campaign") === "checkout";
+
     const rows = await db.coupon.findMany({
+      where: campaignOnly ? { code: { in: ZENDO_CHECKOUT_COUPON_ORDER } } : undefined,
       orderBy: [{ updatedAt: "desc" }],
       select: {
         id: true,
@@ -88,7 +106,13 @@ export async function GET(): Promise<NextResponse> {
       },
     });
 
-    return NextResponse.json({ items: rows.map(mapCoupon) });
+    const items = rows.map(mapCoupon);
+
+    const sortedItems = campaignOnly
+      ? items.sort((a, b) => ZENDO_CHECKOUT_COUPON_ORDER.indexOf(a.code) - ZENDO_CHECKOUT_COUPON_ORDER.indexOf(b.code))
+      : items;
+
+    return NextResponse.json({ items: sortedItems });
   } catch (error) {
     return NextResponse.json(
       { message: error instanceof Error ? error.message : "Không thể tải danh sách mã giảm giá." },

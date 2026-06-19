@@ -12,9 +12,9 @@ import {
   computeGuestCoupon,
   findNextVoucherMilestone,
   getGuestCouponBadges,
-  GUEST_COUPON_OPTIONS,
   type GuestCouponOption,
 } from "../../lib/coupon";
+import { useStorefrontCoupons } from "../../hooks/use-storefront-coupons";
 import { guiSuKienAnalyticsClient } from "../../lib/analytics/event-client";
 import { laySessionKey, layVisitorKey } from "../../lib/analytics/visitor-session";
 import { matchLocationCode } from "../../lib/location-utils";
@@ -43,14 +43,6 @@ function getVoucherValueLabel(coupon: GuestCouponOption): string {
   if (coupon.type === "PERCENT") return `Giảm ${coupon.value}%`;
   if (coupon.type === "FREE_SHIPPING") return `Ưu đãi vận chuyển ${formatVnd(coupon.value)}`;
   return `Giảm ${formatVnd(coupon.value)}`;
-}
-
-function getVoucherLimitLabel(coupon: GuestCouponOption): string {
-  if (coupon.type === "PERCENT" && coupon.maxDiscountValue && coupon.maxDiscountValue > 0) {
-    return `Tối đa ${formatVnd(coupon.maxDiscountValue)}`;
-  }
-  if (coupon.type === "PERCENT") return "Chưa cấu hình giảm tối đa";
-  return "";
 }
 
 function getVoucherMinOrderLabel(coupon: GuestCouponOption): string {
@@ -145,6 +137,10 @@ export default function CheckoutForm(
   const [isMappingAddress, setIsMappingAddress] = useState(false);
   const [addressMappingWarning, setAddressMappingWarning] = useState("");
   const [voucherPickerOpen, setVoucherPickerOpen] = useState(false);
+  const [pendingMobileVoucherCode, setPendingMobileVoucherCode] = useState("");
+  const voucherPanelRef = useRef<HTMLDivElement | null>(null);
+  const voucherTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const coupons = useStorefrontCoupons();
   const [fieldErrors, setFieldErrors] = useState<{
     fullName?: string;
     phone?: string;
@@ -208,25 +204,22 @@ export default function CheckoutForm(
 
   const voucherOptions = useMemo(
     () =>
-      GUEST_COUPON_OPTIONS.map((coupon) => {
-        const result = computeGuestCoupon(coupon.code, subtotal);
+      coupons.map((coupon) => {
+        const result = computeGuestCoupon(coupon.code, subtotal, coupons);
         return {
           coupon,
           discountAmount: result?.amount ?? 0,
           available: Boolean(result && result.amount > 0),
+          amountNeeded: coupon.minOrderValue ? Math.max(0, coupon.minOrderValue - subtotal) : 0,
         };
-      }).sort((a, b) => {
-        if (a.available !== b.available) return a.available ? -1 : 1;
-        if (a.discountAmount !== b.discountAmount) return b.discountAmount - a.discountAmount;
-        if (a.coupon.expiresSoon !== b.coupon.expiresSoon) return a.coupon.expiresSoon ? -1 : 1;
-        if (a.coupon.recommended !== b.coupon.recommended) return a.coupon.recommended ? -1 : 1;
-        return (a.coupon.minOrderValue ?? 0) - (b.coupon.minOrderValue ?? 0);
       }),
-    [subtotal],
+    [coupons, subtotal],
   );
-  const bestVoucherCode = voucherOptions[0]?.available ? voucherOptions[0].coupon.code : "";
+  const bestVoucherCode = voucherOptions
+    .filter((item) => item.available)
+    .sort((a, b) => b.discountAmount - a.discountAmount)[0]?.coupon.code ?? "";
   const selectedVoucher = voucherOptions.find((item) => item.coupon.code === formState.couponCode.trim().toUpperCase()) ?? null;
-  const nextVoucherMilestone = findNextVoucherMilestone(subtotal);
+  const nextVoucherMilestone = findNextVoucherMilestone(subtotal, coupons);
   const shippingQuote = useMemo(
     () => getInternalShippingQuote({
       provinceCode: formState.provinceCode,
@@ -257,15 +250,62 @@ export default function CheckoutForm(
     }
   }, [cartCouponCode, couponSource, formState.couponCode]);
 
-  const selectVoucher = useCallback((coupon: GuestCouponOption) => {
-    updateCouponCode(coupon.code);
+  const closeVoucherPicker = useCallback(() => {
     setVoucherPickerOpen(false);
-  }, [updateCouponCode]);
+    setPendingMobileVoucherCode("");
+    voucherTriggerRef.current?.focus();
+  }, []);
+
+  const selectVoucher = useCallback((coupon: GuestCouponOption) => {
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 639px)").matches) {
+      setPendingMobileVoucherCode(coupon.code);
+      return;
+    }
+    updateCouponCode(coupon.code);
+    closeVoucherPicker();
+  }, [closeVoucherPicker, updateCouponCode]);
+
+  const confirmMobileVoucher = useCallback(() => {
+    if (!pendingMobileVoucherCode) return;
+    updateCouponCode(pendingMobileVoucherCode);
+    closeVoucherPicker();
+  }, [closeVoucherPicker, pendingMobileVoucherCode, updateCouponCode]);
 
   const clearVoucher = useCallback(() => {
     updateCouponCode("");
-    setVoucherPickerOpen(false);
-  }, [updateCouponCode]);
+    closeVoucherPicker();
+  }, [closeVoucherPicker, updateCouponCode]);
+
+  useEffect(() => {
+    if (!voucherPickerOpen) return;
+    const panel = voucherPanelRef.current;
+    const focusableSelector = "button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex='-1'])";
+    const focusable = panel ? Array.from(panel.querySelectorAll<HTMLElement>(focusableSelector)) : [];
+    focusable[0]?.focus();
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeVoucherPicker();
+        return;
+      }
+      if (event.key !== "Tab" || !panel) return;
+      const nodes = Array.from(panel.querySelectorAll<HTMLElement>(focusableSelector)).filter((node) => !node.hasAttribute("disabled"));
+      if (!nodes.length) return;
+      const first = nodes[0];
+      const last = nodes[nodes.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [closeVoucherPicker, voucherPickerOpen]);
 
   const normalizePhone = (rawPhone: string): string => rawPhone.replace(/[^\d+]/g, "");
 
@@ -717,45 +757,45 @@ export default function CheckoutForm(
         <section className="relative mt-4">
           <div className="flex items-center justify-between gap-2">
             <h3 className="text-sm font-semibold text-zinc-900">Voucher</h3>
-            {selectedVoucher?.coupon.code === bestVoucherCode ? (
-              <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
-                Tiết kiệm tốt nhất
-              </span>
-            ) : null}
+            <span className="text-[11px] font-medium text-zinc-500">{voucherOptions.filter((item) => item.available).length} khả dụng</span>
           </div>
 
-          <div className="mt-2 rounded-xl border border-zinc-200 bg-zinc-50 p-3">
+          <div className="mt-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
             {selectedVoucher && selectedVoucher.available ? (
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-zinc-900">{selectedVoucher.coupon.name}</p>
-                  <p className="mt-0.5 truncate text-xs font-medium text-zinc-500">
-                    {selectedVoucher.coupon.code} · {getVoucherValueLabel(selectedVoucher.coupon)}
-                  </p>
-                  {getVoucherLimitLabel(selectedVoucher.coupon) ? (
-                    <p className="mt-0.5 truncate text-xs font-medium text-zinc-500">
-                      {getVoucherLimitLabel(selectedVoucher.coupon)}
+              <div className="rounded-xl border border-[#2563EB]/35 bg-blue-50/70 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-[#0F172A]">✓ Đang áp dụng {selectedVoucher.coupon.code}</p>
+                    <p className="mt-1 text-xs font-medium text-slate-600">Tiết kiệm dự kiến</p>
+                    <p className="text-sm font-extrabold text-[#2563EB]">
+                      {selectedVoucher.coupon.type === "FREE_SHIPPING" && !shippingQuote ? "Tính khi nhập địa chỉ" : formatVnd(selectedVoucherSavings)}
                     </p>
-                  ) : null}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={clearVoucher}
+                    className="shrink-0 rounded-lg px-2 py-1 text-xs font-bold text-slate-500 transition hover:bg-white hover:text-rose-600 focus:outline-none focus:ring-4 focus:ring-blue-100"
+                  >
+                    Xóa
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setVoucherPickerOpen(true)}
-                  className="inline-flex h-8 shrink-0 items-center rounded-lg border border-[#2563EB] bg-white px-2.5 text-xs font-semibold text-[#2563EB] transition hover:bg-blue-50"
-                >
-                  Chọn voucher
-                </button>
               </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setVoucherPickerOpen(true)}
-                className="inline-flex h-10 w-full items-center justify-between rounded-lg border border-dashed border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 transition hover:border-[#2563EB] hover:text-[#2563EB]"
-              >
-                <span>Chọn voucher</span>
-                <span aria-hidden>›</span>
-              </button>
-            )}
+            ) : null}
+            <button
+              ref={voucherTriggerRef}
+              type="button"
+              aria-haspopup="dialog"
+              aria-expanded={voucherPickerOpen}
+              aria-controls="checkout-voucher-panel"
+              onClick={() => {
+                setPendingMobileVoucherCode(activeCouponCode);
+                setVoucherPickerOpen(true);
+              }}
+              className="mt-3 inline-flex h-11 w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-800 transition duration-150 hover:border-[#2563EB]/60 hover:bg-white hover:text-[#2563EB] focus:outline-none focus:ring-4 focus:ring-blue-100"
+            >
+              <span>{selectedVoucher?.available ? "Đổi voucher" : "Chọn voucher"}</span>
+              <span aria-hidden>{voucherPickerOpen ? "⌃" : "⌄"}</span>
+            </button>
           </div>
 
           {nextVoucherMilestone ? <div className="mt-2"><VoucherProgressCard milestone={nextVoucherMilestone} subtotal={subtotal} compact /></div> : null}
@@ -769,29 +809,43 @@ export default function CheckoutForm(
           </div>
 
           {voucherPickerOpen ? (
-            <div className="fixed inset-0 z-50 flex items-end bg-black/35 sm:absolute sm:inset-auto sm:right-0 sm:top-[calc(100%+8px)] sm:block sm:w-[360px] sm:bg-transparent">
+            <div className="fixed inset-0 z-50 flex items-end bg-slate-950/35 backdrop-blur-[2px] sm:absolute sm:inset-auto sm:right-0 sm:top-[calc(100%+10px)] sm:block sm:w-full sm:bg-transparent sm:backdrop-blur-0">
               <button
                 type="button"
                 aria-label="Đóng chọn voucher"
                 className="absolute inset-0 sm:hidden"
-                onClick={() => setVoucherPickerOpen(false)}
+                onClick={closeVoucherPicker}
               />
-              <div className="relative max-h-[78vh] w-full overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:max-h-[440px] sm:rounded-2xl sm:border sm:border-zinc-200">
-                <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-3">
-                  <div>
-                    <p className="text-sm font-bold text-zinc-900">Chọn voucher</p>
-                    <p className="text-xs text-zinc-500">Chỉ áp dụng 1 mã giảm giá</p>
+              <div
+                id="checkout-voucher-panel"
+                ref={voucherPanelRef}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="checkout-voucher-title"
+                className="relative w-full overflow-hidden rounded-t-[28px] bg-white shadow-2xl ring-1 ring-slate-200/70 transition duration-200 ease-out sm:max-h-[520px] sm:rounded-3xl sm:shadow-[0_18px_50px_rgba(15,23,42,0.16)]"
+                style={{ maxHeight: "min(82vh, calc(100dvh - env(safe-area-inset-top) - 24px))", paddingBottom: "env(safe-area-inset-bottom)" }}
+              >
+                <div className="border-b border-slate-100 px-4 py-3 sm:px-4">
+                  <div className="mb-3 rounded-2xl border border-orange-100 bg-gradient-to-r from-orange-50 via-amber-50 to-yellow-50 p-3 shadow-sm">
+                    <p className="text-sm font-extrabold text-orange-950">🔥 Tiết kiệm tới 350.000đ</p>
+                    <p className="mt-0.5 text-xs font-bold text-amber-800">🎁 Có 11 ưu đãi dành cho bạn</p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setVoucherPickerOpen(false)}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-zinc-100 text-zinc-600 transition hover:bg-zinc-200"
-                    aria-label="Đóng"
-                  >
-                    ×
-                  </button>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p id="checkout-voucher-title" className="text-sm font-extrabold text-slate-950">Danh sách voucher ({voucherOptions.length})</p>
+                      <p className="mt-0.5 text-xs text-slate-500">Chọn 1 ưu đãi tốt nhất cho đơn hàng</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={closeVoucherPicker}
+                      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600 transition hover:bg-slate-200 focus:outline-none focus:ring-4 focus:ring-blue-100"
+                      aria-label="Đóng"
+                    >
+                      ×
+                    </button>
+                  </div>
                 </div>
-                <div className="max-h-[58vh] space-y-2 overflow-y-auto p-3 sm:max-h-[340px]">
+                <div className="max-h-[58vh] space-y-2 overflow-y-auto overscroll-contain p-3 sm:max-h-[390px]">
                   {nextVoucherMilestone ? <VoucherProgressCard milestone={nextVoucherMilestone} subtotal={subtotal} compact /> : null}
                   <ShippingPromotionProgressCard
                     progress={shippingPromoProgress}
@@ -799,71 +853,92 @@ export default function CheckoutForm(
                     subtotal={subtotal}
                     compact
                   />
-                  {voucherOptions.map(({ coupon, discountAmount, available }) => {
-                    const selected = activeCouponCode === coupon.code;
+                  {voucherOptions.map(({ coupon, discountAmount, available, amountNeeded }) => {
+                    const selected = (pendingMobileVoucherCode || activeCouponCode) === coupon.code;
                     const recommended = coupon.code === bestVoucherCode;
                     const badges = getGuestCouponBadges(coupon, { isBest: recommended });
                     return (
                       <button
                         key={coupon.code}
                         type="button"
-                        disabled={!available}
-                        onClick={() => selectVoucher(coupon)}
-                        className={`flex w-full items-start gap-2.5 rounded-xl border p-2.5 text-left transition sm:p-3 ${
+                        onClick={() => {
+                          if (available) selectVoucher(coupon);
+                        }}
+                        role="radio"
+                        aria-checked={selected}
+                        aria-disabled={!available}
+                        className={`flex w-full items-start gap-2.5 rounded-2xl border p-3 text-left transition duration-150 ease-out focus:outline-none focus:ring-4 focus:ring-blue-100 ${
                           selected
-                            ? "border-[#2563EB] bg-blue-50"
-                            : "border-zinc-200 bg-white hover:border-[#2563EB]/60 hover:bg-blue-50/30"
-                        } ${available ? "" : "cursor-not-allowed opacity-50"}`}
+                            ? "border-[#2563EB] bg-blue-50/80 shadow-sm"
+                            : available
+                              ? "border-emerald-300 bg-emerald-50/60 shadow-sm hover:-translate-y-0.5 hover:border-emerald-500 hover:shadow-md"
+                              : "border-slate-200 bg-white hover:border-slate-300"
+                        }`}
                       >
                         <span
-                          className={`mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
-                            selected ? "border-[#2563EB] bg-[#2563EB]" : "border-zinc-300 bg-white"
+                          className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[11px] font-black ${
+                            selected ? "border-[#2563EB] bg-[#2563EB] text-white" : "border-slate-300 bg-white text-transparent"
                           }`}
                           aria-hidden
                         >
-                          {selected ? <span className="h-1.5 w-1.5 rounded-full bg-white" /> : null}
+                          ✓
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="flex min-w-0 items-center gap-2">
                             <span className="truncate text-sm font-bold text-zinc-900">{coupon.name}</span>
                           </span>
-                          <span className="mt-1 flex flex-wrap gap-1">
-                            {badges.map((badge) => (
-                              <span
-                                key={badge}
-                                className="rounded-full bg-zinc-100 px-1.5 py-0.5 text-[9px] font-bold leading-none text-zinc-700 sm:text-[10px]"
-                              >
-                                {badge}
-                              </span>
-                            ))}
-                          </span>
-                          <span className="mt-1 block text-xs font-semibold text-[#2563EB]">
-                            {coupon.code}
-                          </span>
-                          <span className="mt-1 block text-sm font-bold text-zinc-900">
-                            {getVoucherValueLabel(coupon)}
-                          </span>
-                          {getVoucherLimitLabel(coupon) ? (
-                            <span className="mt-0.5 block text-xs font-medium text-zinc-600">
-                              {getVoucherLimitLabel(coupon)}
+                          {available ? (
+                            <span className="mt-1 inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-extrabold leading-none text-emerald-700">
+                              Đủ điều kiện
                             </span>
                           ) : null}
-                          <span className="mt-0.5 block text-xs text-zinc-500">
-                            {getVoucherMinOrderLabel(coupon)} · {available ? `Ước tính tiết kiệm ${formatVnd(discountAmount)}` : "Chưa đủ điều kiện"}
+                          {badges.length ? (
+                            <span className="mt-1 flex flex-wrap gap-1">
+                              {badges.slice(0, 2).map((badge) => (
+                                <span
+                                  key={badge}
+                                  className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold leading-none text-slate-600"
+                                >
+                                  {badge}
+                                </span>
+                              ))}
+                            </span>
+                          ) : null}
+                          <span className="mt-1 block text-xs font-bold text-[#2563EB]">Mã: {coupon.code}</span>
+                          <span className="mt-1 block text-sm font-extrabold text-slate-950">
+                            {available ? `Tiết kiệm tới ${formatVnd(discountAmount)}` : getVoucherValueLabel(coupon)}
                           </span>
+                          <span className="mt-0.5 block text-xs text-slate-500">
+                            {getVoucherMinOrderLabel(coupon)}
+                          </span>
+                          {!available && amountNeeded > 0 ? (
+                            <span className="mt-1 block text-xs font-semibold text-amber-700">
+                              Mua thêm {formatVnd(amountNeeded)} để nhận ưu đãi này
+                            </span>
+                          ) : null}
                         </span>
                       </button>
                     );
                   })}
-                  {formState.couponCode ? (
+                  <div className="sticky bottom-0 space-y-2 bg-white pt-2 sm:static sm:bg-transparent sm:pt-0">
                     <button
                       type="button"
-                      onClick={clearVoucher}
-                      className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-600 transition hover:border-zinc-300"
+                      onClick={confirmMobileVoucher}
+                      disabled={!pendingMobileVoucherCode}
+                      className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-[#2563EB] px-4 text-sm font-bold text-white shadow-lg transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-50 sm:hidden"
                     >
-                      Không dùng voucher
+                      Áp dụng voucher
                     </button>
-                  ) : null}
+                    {formState.couponCode ? (
+                      <button
+                        type="button"
+                        onClick={clearVoucher}
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-blue-100"
+                      >
+                        Không dùng voucher
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
               </div>
             </div>
@@ -879,29 +954,6 @@ export default function CheckoutForm(
             <span>Giảm giá</span>
             <span className="font-medium text-zinc-900">- {formatVnd(discount)}</span>
           </div>
-          {selectedVoucher && selectedVoucher.available ? (
-            <div className="mt-3 rounded-xl border border-emerald-100 bg-emerald-50 p-3">
-              <p className="text-xs font-bold text-emerald-800">
-                {couponSource === "auto" ? "🔥 Đã tự động áp dụng ưu đãi tốt nhất" : "🎁 Voucher đã áp dụng"}
-              </p>
-              <div className="mt-1 flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-extrabold text-emerald-950">{selectedVoucher.coupon.code}</p>
-                  <p className="text-xs font-medium text-emerald-700">{getVoucherValueLabel(selectedVoucher.coupon)}</p>
-                </div>
-                <div className="shrink-0 text-right">
-                  <p className="text-[11px] font-semibold text-emerald-700">
-                    {selectedVoucher.coupon.type === "FREE_SHIPPING" ? "Vận chuyển" : "Tiết kiệm"}
-                  </p>
-                  <p className="text-sm font-extrabold text-emerald-950">
-                    {selectedVoucher.coupon.type === "FREE_SHIPPING" && !shippingQuote
-                      ? "Tính khi nhập địa chỉ"
-                      : formatVnd(selectedVoucherSavings)}
-                  </p>
-                </div>
-              </div>
-            </div>
-          ) : null}
           <div className="mt-3">
             <CartAddonSuggestions compact />
           </div>

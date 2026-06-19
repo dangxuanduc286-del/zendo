@@ -36,6 +36,7 @@ type VietnamAddressesApi = typeof import("../../lib/vietnam-addresses");
 import type { PolicyHubCard } from "../../lib/site-policy-public";
 import { AccountTabKeepAlive } from "./account-tab-keep-alive";
 import { prefetchStorefrontAccountTabsIdle } from "../../lib/account-tab-prefetch";
+import AccountVoucherWallet from "./account-voucher-wallet";
 
 const accountTabHeavyFallback = (): JSX.Element => (
   <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-sm" aria-hidden>
@@ -107,11 +108,7 @@ type DashboardData = {
     productNames: string[];
     linePreviews: Array<{ productName: string; quantity: number; imageUrl: string }>;
   }>;
-  vouchers: {
-    active: Array<{ code: string; name: string; description: string; expiresAt: string }>;
-    used: Array<{ code: string; name: string; description: string; expiresAt: string }>;
-    expired: Array<{ code: string; name: string; description: string; expiresAt: string }>;
-  };
+  vouchers: import("../../lib/server/storefront-customer-account-dashboard").StorefrontCustomerAccountDashboardData["vouchers"];
   notifications: {
     unread: number;
     groups: {
@@ -315,7 +312,6 @@ export default function AffiliateOnlyAccountView({
   const [orderSearch, setOrderSearch] = useState("");
   const [expandedOrderIds, setExpandedOrderIds] = useState<string[]>([]);
   const [trackingOrderId, setTrackingOrderId] = useState("");
-  const [couponFilter, setCouponFilter] = useState<"active" | "used" | "expired">("active");
   const [avatarUrl, setAvatarUrl] = useState(data.avatarUrl || "");
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState("");
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -527,12 +523,6 @@ export default function AffiliateOnlyAccountView({
   });
   const selectedTrackingOrder =
     data.orders.find((order) => order.id === trackingOrderId) ?? data.orders[0] ?? null;
-  const couponMap = {
-    active: data.vouchers.active,
-    used: data.vouchers.used,
-    expired: data.vouchers.expired,
-  } as const;
-  const visibleCoupons = couponMap[couponFilter];
   const accountSubtitle = accountSettings.accountSubtitle || accountSettings.welcomeMessage || "Quản lý thông tin tài khoản của bạn.";
   useEffect(() => {
     if (!allowedNavTabs.includes(activeTab)) {
@@ -1466,52 +1456,12 @@ export default function AffiliateOnlyAccountView({
 
           {showCouponsEffective ? (
             <AccountTabKeepAlive tabKey="coupons" activeTab={activeTab}>
-            <section id="voucher" className="w-full min-w-0 rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 lg:p-6">
-              <h3 className="text-base font-semibold text-[#0F172A]">{accountSettings.couponTitle || "Kho voucher"}</h3>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button type="button" onClick={() => setCouponFilter("active")} className={`rounded-full px-3 py-1 text-xs ${couponFilter === "active" ? "bg-[#2563EB] text-white" : "bg-[#F8FAFC] text-[#0F172A]"}`}>
-                  Còn hạn
-                </button>
-                <button type="button" onClick={() => setCouponFilter("used")} className={`rounded-full px-3 py-1 text-xs ${couponFilter === "used" ? "bg-[#2563EB] text-white" : "bg-[#F8FAFC] text-[#0F172A]"}`}>
-                  Đã dùng
-                </button>
-                <button type="button" onClick={() => setCouponFilter("expired")} className={`rounded-full px-3 py-1 text-xs ${couponFilter === "expired" ? "bg-[#2563EB] text-white" : "bg-[#F8FAFC] text-[#0F172A]"}`}>
-                  Hết hạn
-                </button>
-              </div>
-              {visibleCoupons.length ? (
-                <div className="mt-3 space-y-3">
-                  {visibleCoupons.slice(0, 5).map((voucher) => (
-                    <div key={`${couponFilter}-${voucher.code}`} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-[#0F172A]">{voucher.name}</p>
-                        <p className="text-xs text-[#64748B]">{voucher.description || "Ưu đãi dành cho bạn"}</p>
-                        <p className="mt-1 text-xs text-[#64748B]">Mã: {voucher.code}</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => navigator.clipboard?.writeText(voucher.code).catch(() => {})}
-                        className="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-[#0F172A]"
-                      >
-                        Sao chép mã
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="mt-2 text-sm text-[#64748B]">Bạn chưa có voucher nào.</p>
-              )}
-              {showShoppingCta ? (
-                <div className="mt-3">
-                  <Link
-                    href={shoppingHomeHref}
-                    className="inline-flex h-9 items-center rounded-lg bg-[#2563EB] px-3 text-xs font-semibold text-white hover:bg-[#1D4ED8]"
-                  >
-                    Mua sắm ngay
-                  </Link>
-                </div>
-              ) : null}
-            </section>
+            <AccountVoucherWallet
+              vouchers={data.vouchers}
+              title={accountSettings.couponTitle || "Kho voucher"}
+              shoppingHomeHref={shoppingHomeHref}
+              showShoppingCta={showShoppingCta}
+            />
             </AccountTabKeepAlive>
           ) : null}
 

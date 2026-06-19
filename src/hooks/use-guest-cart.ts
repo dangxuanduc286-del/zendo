@@ -13,6 +13,7 @@ import {
 } from "../lib/cart";
 import { computeGuestCoupon, findBestGuestCoupon, type CouponResult } from "../lib/coupon";
 import { safeParseJson } from "../lib/safe-json";
+import { useStorefrontCoupons } from "./use-storefront-coupons";
 
 function readCart(): GuestCartItem[] {
   if (typeof window === "undefined") return [];
@@ -48,6 +49,8 @@ export function useGuestCart() {
   const [couponCode, setCouponCodeState] = useState("");
   const [couponSource, setCouponSource] = useState<CouponSource>("");
   const [appliedCoupon, setAppliedCoupon] = useState<CouponResult | null>(null);
+
+  const coupons = useStorefrontCoupons();
 
   const refresh = useCallback(() => {
     setItems(readCart());
@@ -97,13 +100,13 @@ export function useGuestCart() {
       setAppliedCoupon(null);
       return;
     }
-    setAppliedCoupon(computeGuestCoupon(couponCode, subtotal));
-  }, [couponCode, subtotal]);
+    setAppliedCoupon(computeGuestCoupon(couponCode, subtotal, coupons));
+  }, [couponCode, coupons, subtotal]);
 
   useEffect(() => {
-    if (subtotal <= 0 || couponSource === "manual") return;
-    const bestCoupon = findBestGuestCoupon(subtotal);
-    const currentCoupon = couponCode.trim() ? computeGuestCoupon(couponCode, subtotal) : null;
+    if (subtotal <= 0 || couponSource === "manual" || coupons.length === 0) return;
+    const bestCoupon = findBestGuestCoupon(subtotal, coupons);
+    const currentCoupon = couponCode.trim() ? computeGuestCoupon(couponCode, subtotal, coupons) : null;
     if (!bestCoupon) return;
     if (currentCoupon?.code === bestCoupon.code && currentCoupon.amount === bestCoupon.amount) {
       setAppliedCoupon(bestCoupon);
@@ -116,7 +119,7 @@ export function useGuestCart() {
       window.localStorage.setItem(CART_COUPON_STORAGE_KEY, bestCoupon.code);
       window.localStorage.setItem(CART_COUPON_SOURCE_STORAGE_KEY, "auto");
     }
-  }, [couponCode, couponSource, subtotal]);
+  }, [couponCode, couponSource, coupons, subtotal]);
 
   const setCouponCode = useCallback((nextCouponCode: string) => {
     setCouponCodeState(nextCouponCode);
@@ -151,7 +154,7 @@ export function useGuestCart() {
   }, []);
 
   const applyCoupon = useCallback(() => {
-    const coupon = computeGuestCoupon(couponCode, subtotal);
+    const coupon = computeGuestCoupon(couponCode, subtotal, coupons);
     setAppliedCoupon(coupon);
     setCouponSource("manual");
     if (typeof window !== "undefined") {
@@ -163,7 +166,7 @@ export function useGuestCart() {
       }
     }
     return Boolean(coupon);
-  }, [couponCode, subtotal]);
+  }, [couponCode, coupons, subtotal]);
 
   const removeCoupon = useCallback(() => {
     setAppliedCoupon(null);

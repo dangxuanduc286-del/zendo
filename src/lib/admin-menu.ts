@@ -28,6 +28,7 @@ export const ADMIN_MENU_ITEMS: AdminMenuItem[] = [
   { label: "Thống kê truy cập", href: "/admin/analytics" },
   { label: "Tài khoản", href: "/admin/admins" },
   { label: "Cài đặt website & giao diện", href: "/admin/website-appearance" },
+  { label: "Marketing / Premium Freeship Popup", href: "/admin/marketing/premium-freeship-popup" },
   { label: "Chính sách hệ thống", href: "/admin/site-policies" },
   { label: "Banner", href: "/admin/banners" },
   { label: "Bài viết", href: "/admin/posts" },

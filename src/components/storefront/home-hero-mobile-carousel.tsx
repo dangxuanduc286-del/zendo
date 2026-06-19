@@ -59,6 +59,7 @@ function HomeHeroMobileCarousel({
                 quality={80}
                 wrapperBgClassName="bg-white"
                 priority={i === 0}
+                fetchPriority={i === 0 ? "high" : undefined}
               />
             </div>
           );

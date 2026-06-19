@@ -7,6 +7,7 @@ import {
   getOrderStatusLabel,
   getOrderStatusTone,
 } from "../../../../../lib/order-status";
+import { resolveProductImage } from "../../../../../lib/product-image";
 
 type ParamsInput = Promise<{ id: string }>;
 
@@ -84,7 +85,7 @@ export async function GET(_request: Request, segment: { params: ParamsInput }): 
                 images: {
                   orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
                   take: 1,
-                  select: { url: true, altText: true },
+                  select: { url: true, altText: true, isPrimary: true, sortOrder: true },
                 },
               },
             },
@@ -142,7 +143,7 @@ export async function GET(_request: Request, segment: { params: ParamsInput }): 
         },
         timeline,
         items: order.items.map((it) => {
-          const img = it.product?.images?.[0];
+          const image = resolveProductImage(it.product?.images, it.productName);
           return {
             id: it.id,
             productId: it.productId,
@@ -153,8 +154,8 @@ export async function GET(_request: Request, segment: { params: ParamsInput }): 
             quantity: it.quantity,
             unitPrice: Number(it.unitPrice),
             lineTotal: Number(it.totalPrice),
-            imageUrl: img?.url?.trim() || "",
-            imageAlt: img?.altText?.trim() || it.productName,
+            imageUrl: image.url,
+            imageAlt: image.altText,
           };
         }),
       },

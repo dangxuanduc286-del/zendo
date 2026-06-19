@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { CSSProperties } from "react";
+import type { CSSProperties, ImgHTMLAttributes } from "react";
 import MediaImage from "../shared/media-image";
 import { resolveMediaUrl } from "../../lib/media";
 
@@ -8,6 +8,7 @@ interface StorefrontBannerImageProps {
   alt: string;
   href?: string;
   priority?: boolean;
+  fetchPriority?: ImgHTMLAttributes<HTMLImageElement>["fetchPriority"];
   sizes?: string;
   className?: string;
   imageClassName?: string;
@@ -31,6 +32,7 @@ export default function StorefrontBannerImage({
   alt,
   href = "",
   priority = false,
+  fetchPriority,
   sizes = "(max-width: 1024px) 100vw, 60vw",
   className = "",
   imageClassName = "object-cover",
@@ -64,6 +66,7 @@ export default function StorefrontBannerImage({
           alt={alt}
           fill
           priority={priority}
+          fetchPriority={fetchPriority}
           sizes={sizes}
           quality={quality}
           fallbackLabel={alt}

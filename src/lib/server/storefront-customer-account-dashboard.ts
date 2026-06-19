@@ -2,7 +2,7 @@ import "server-only";
 
 import type { PrismaClient } from "@prisma/client";
 import { resolveCustomerAffiliateProfile } from "@/lib/affiliate-customer-status";
-import { resolveMediaUrl } from "@/lib/media";
+import { resolveProductImage } from "@/lib/product-image";
 import {
   getStorefrontCustomerAccountNotifications,
   type StorefrontCustomerAccountNotifications,
@@ -50,9 +50,9 @@ export type StorefrontCustomerAccountDashboardData = {
     linePreviews: Array<{ productName: string; quantity: number; imageUrl: string }>;
   }>;
   vouchers: {
-    active: Array<{ code: string; name: string; description: string; expiresAt: string }>;
-    used: Array<{ code: string; name: string; description: string; expiresAt: string }>;
-    expired: Array<{ code: string; name: string; description: string; expiresAt: string }>;
+    active: StorefrontAccountVoucher[];
+    used: StorefrontAccountVoucher[];
+    expired: StorefrontAccountVoucher[];
   };
   notifications: StorefrontCustomerAccountNotifications;
   personalized: {
@@ -82,6 +82,35 @@ export type StorefrontCustomerAccountDashboardData = {
       orderCode: string | null;
     }>;
   };
+};
+
+export type StorefrontAccountVoucher = {
+  id: string;
+  code: string;
+  name: string;
+  description: string;
+  discountType: "PERCENT" | "FIXED_AMOUNT" | "FREE_SHIPPING";
+  scope: "ORDER" | "SHIPPING";
+  currency: "VND";
+  discountValue: number;
+  maxDiscountValue: number | null;
+  minOrderValue: number | null;
+  usageLimit: number | null;
+  usagePerCustomer: number | null;
+  usedCount: number;
+  remainingUses: number | null;
+  startAt: string;
+  endAt: string;
+  expiresAt: string;
+  status: "DRAFT" | "ACTIVE" | "EXPIRED" | "DISABLED";
+  availability: "available" | "used" | "expired" | "disabled" | "upcoming" | "unavailable";
+  voucherType: string;
+  freeShipping: boolean;
+  appliesToProducts: string;
+  appliesToCategories: string;
+  appliesToUsers: string;
+  specialConditions: string[];
+  updatedAt: string;
 };
 
 type ParsedNotes = Record<string, unknown>;
@@ -271,7 +300,7 @@ async function getStorefrontCustomerAccountDashboardDataInternal(
                     images: {
                       orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
                       take: 1,
-                      select: { url: true },
+                      select: { url: true, isPrimary: true, sortOrder: true, altText: true },
                     },
                   },
                 },
@@ -288,7 +317,24 @@ async function getStorefrontCustomerAccountDashboardDataInternal(
           },
           orderBy: { updatedAt: "desc" },
           take: 50,
-          select: { code: true, name: true, description: true, endsAt: true },
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            description: true,
+            type: true,
+            scope: true,
+            value: true,
+            maxDiscountAmount: true,
+            minOrderAmount: true,
+            usageLimit: true,
+            usagePerCustomer: true,
+            usedCount: true,
+            startsAt: true,
+            endsAt: true,
+            status: true,
+            updatedAt: true,
+          },
         }),
       () =>
         db.coupon.findMany({
@@ -298,7 +344,24 @@ async function getStorefrontCustomerAccountDashboardDataInternal(
           },
           orderBy: { updatedAt: "desc" },
           take: 50,
-          select: { code: true, name: true, description: true, endsAt: true },
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            description: true,
+            type: true,
+            scope: true,
+            value: true,
+            maxDiscountAmount: true,
+            minOrderAmount: true,
+            usageLimit: true,
+            usagePerCustomer: true,
+            usedCount: true,
+            startsAt: true,
+            endsAt: true,
+            status: true,
+            updatedAt: true,
+          },
         }),
       () =>
         db.coupon.findMany({
@@ -307,7 +370,24 @@ async function getStorefrontCustomerAccountDashboardDataInternal(
           },
           orderBy: { updatedAt: "desc" },
           take: 50,
-          select: { code: true, name: true, description: true, endsAt: true },
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            description: true,
+            type: true,
+            scope: true,
+            value: true,
+            maxDiscountAmount: true,
+            minOrderAmount: true,
+            usageLimit: true,
+            usagePerCustomer: true,
+            usedCount: true,
+            startsAt: true,
+            endsAt: true,
+            status: true,
+            updatedAt: true,
+          },
         }),
       () => db.address.count({ where: { customerId: userId } }),
       () =>
@@ -361,11 +441,11 @@ async function getStorefrontCustomerAccountDashboardDataInternal(
   const orders = recentOrders.map((o) => {
     const rawItems = Array.isArray(o.items) ? o.items : [];
     const linePreviews = rawItems.map((it) => {
-      const rawUrl = it.product?.images?.[0]?.url ?? "";
+      const productName = (it.productName || "Sản phẩm").trim() || "Sản phẩm";
       return {
-        productName: (it.productName || "Sản phẩm").trim() || "Sản phẩm",
+        productName,
         quantity: Math.max(1, Math.floor(Number(it.quantity)) || 1),
-        imageUrl: resolveMediaUrl(typeof rawUrl === "string" ? rawUrl : "").trim(),
+        imageUrl: resolveProductImage(it.product?.images, productName).url,
       };
     });
     return {
@@ -381,12 +461,71 @@ async function getStorefrontCustomerAccountDashboardDataInternal(
     };
   });
 
-  const toVoucher = (c: { code: string; name: string; description: string | null; endsAt: Date | null }) => ({
-    code: c.code,
-    name: c.name,
-    description: (c.description || "").trim(),
-    expiresAt: c.endsAt ? c.endsAt.toISOString() : "",
-  });
+  const toVoucher = (c: {
+    id: string;
+    code: string;
+    name: string;
+    description: string | null;
+    type: "PERCENT" | "FIXED_AMOUNT" | "FREE_SHIPPING";
+    scope: "ORDER" | "SHIPPING";
+    value: unknown;
+    maxDiscountAmount: unknown;
+    minOrderAmount: unknown;
+    usageLimit: number | null;
+    usagePerCustomer: number | null;
+    usedCount: number;
+    startsAt: Date | null;
+    endsAt: Date | null;
+    status: "DRAFT" | "ACTIVE" | "EXPIRED" | "DISABLED";
+    updatedAt: Date;
+  }, availabilityOverride?: StorefrontAccountVoucher["availability"]): StorefrontAccountVoucher => {
+    const remainingUses = c.usageLimit == null ? null : Math.max(0, c.usageLimit - c.usedCount);
+    const availability = availabilityOverride ?? (c.status === "DISABLED"
+      ? "disabled"
+      : c.status === "EXPIRED" || (c.endsAt && c.endsAt <= now)
+        ? "expired"
+        : c.startsAt && c.startsAt > now
+          ? "upcoming"
+          : c.status === "ACTIVE" && (remainingUses == null || remainingUses > 0)
+            ? "available"
+            : "unavailable");
+    return {
+      id: c.id,
+      code: c.code,
+      name: c.name,
+      description: (c.description || "").trim(),
+      discountType: c.type,
+      scope: c.scope,
+      currency: "VND",
+      discountValue: Number(c.value),
+      maxDiscountValue: c.maxDiscountAmount == null ? null : Number(c.maxDiscountAmount),
+      minOrderValue: c.minOrderAmount == null ? null : Number(c.minOrderAmount),
+      usageLimit: c.usageLimit,
+      usagePerCustomer: c.usagePerCustomer,
+      usedCount: c.usedCount,
+      remainingUses,
+      startAt: c.startsAt ? c.startsAt.toISOString() : "",
+      endAt: c.endsAt ? c.endsAt.toISOString() : "",
+      expiresAt: c.endsAt ? c.endsAt.toISOString() : "",
+      status: c.status,
+      availability,
+      voucherType: c.scope === "SHIPPING" || c.type === "FREE_SHIPPING" ? "Vận chuyển" : "Đơn hàng",
+      freeShipping: c.type === "FREE_SHIPPING" || c.scope === "SHIPPING",
+      appliesToProducts: "Tất cả sản phẩm đủ điều kiện",
+      appliesToCategories: "Tất cả danh mục đủ điều kiện",
+      appliesToUsers: c.usagePerCustomer ? `Tối đa ${c.usagePerCustomer} lượt/khách` : "Tất cả khách hàng",
+      specialConditions: [
+        c.minOrderAmount != null ? `Đơn tối thiểu ${Number(c.minOrderAmount).toLocaleString("vi-VN")}đ` : "Không yêu cầu đơn tối thiểu",
+        c.maxDiscountAmount != null ? `Giảm tối đa ${Number(c.maxDiscountAmount).toLocaleString("vi-VN")}đ` : "Không giới hạn giảm tối đa",
+        c.usageLimit != null ? `Tổng giới hạn ${c.usageLimit.toLocaleString("vi-VN")} lượt` : "Không giới hạn tổng lượt dùng",
+      ],
+      updatedAt: c.updatedAt.toISOString(),
+    };
+  };
+
+  const activeVoucherWallet = activeCoupons
+    .map((coupon) => toVoucher(coupon))
+    .sort((a, b) => new Date(b.updatedAt || b.startAt || 0).getTime() - new Date(a.updatedAt || a.startAt || 0).getTime());
 
   return {
     displayName,
@@ -398,7 +537,7 @@ async function getStorefrontCustomerAccountDashboardDataInternal(
     stats: {
       totalOrders,
       processingOrders,
-      vouchers: activeCoupons.length,
+      vouchers: activeVoucherWallet.length,
       rewardPoints,
       affiliateCommission: affiliateMetrics.affiliateCommission,
       addresses: addressCount,
@@ -406,9 +545,9 @@ async function getStorefrontCustomerAccountDashboardDataInternal(
     addresses: addrList,
     orders,
     vouchers: {
-      active: activeCoupons.map(toVoucher),
-      used: usedCoupons.map(toVoucher),
-      expired: expiredCoupons.map(toVoucher),
+      active: activeVoucherWallet,
+      used: usedCoupons.map((coupon) => toVoucher(coupon, "used")),
+      expired: expiredCoupons.map((coupon) => toVoucher(coupon, "expired")),
     },
     notifications: notificationsPayload,
     personalized: { wishlist: [], recentlyViewed: [], recommended: [] },

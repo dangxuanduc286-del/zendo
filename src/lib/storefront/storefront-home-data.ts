@@ -2,6 +2,26 @@ import { memoizePerRequest } from "../runtime/request-cache";
 import { getStorefrontDbClient } from "../storefront-db";
 import { getProductReviewMetricsMap } from "./product-review-metrics";
 
+const HOME_DATA_AUDIT_ENABLED = process.env.HOME_DATA_AUDIT === "1";
+
+function createHomeDataAuditLogger() {
+  const requestStartMs = performance.now();
+  return {
+    start(label: string) {
+      if (!HOME_DATA_AUDIT_ENABLED) return;
+      console.log(
+        `[home-data-audit] ${JSON.stringify({ phase: "start", label, atMs: Math.round(performance.now() - requestStartMs) })}`,
+      );
+    },
+    end(label: string, extra: Record<string, unknown> = {}) {
+      if (!HOME_DATA_AUDIT_ENABLED) return;
+      console.log(
+        `[home-data-audit] ${JSON.stringify({ phase: "end", label, durationMs: Math.round(performance.now() - requestStartMs), ...extra })}`,
+      );
+    },
+  };
+}
+
 export type HomeCategoryRow = {
   id: string;
   name: string;
@@ -45,6 +65,7 @@ export const loadStorefrontHomeData = memoizePerRequest(async (): Promise<{
   postRows: HomePostRow[];
   metricsMap: Map<string, HomeProductMetrics>;
 }> => {
+  const audit = createHomeDataAuditLogger();
   const db = await getStorefrontDbClient();
   if (!db) {
     return {
@@ -55,8 +76,9 @@ export const loadStorefrontHomeData = memoizePerRequest(async (): Promise<{
     };
   }
 
-  const [categoryRows, productRows, postRows] = await Promise.all([
-    db.category.findMany({
+  audit.start("categories query");
+  const categoriesPromise = db.category
+    .findMany({
       where: { status: "PUBLISHED", parentId: null, showOnHome: true },
       orderBy: [{ sortOrder: "asc" }, { updatedAt: "desc" }],
       take: 10,
@@ -67,8 +89,12 @@ export const loadStorefrontHomeData = memoizePerRequest(async (): Promise<{
         imageUrl: true,
         _count: { select: { products: true } },
       },
-    }),
-    db.product.findMany({
+    })
+    .finally(() => audit.end("categories query"));
+
+  audit.start("products query");
+  const productsPromise = db.product
+    .findMany({
       where: {
         status: "ACTIVE",
         OR: [{ isFeatured: true }, { isNew: true }, { isBestSeller: true }],
@@ -87,25 +113,41 @@ export const loadStorefrontHomeData = memoizePerRequest(async (): Promise<{
         stockQuantity: true,
         soldCount: true,
       },
-    }),
-    db.post.findMany({
+    })
+    .finally(() => audit.end("products query"));
+
+  audit.start("posts query");
+  const postsPromise = db.post
+    .findMany({
       where: { status: "PUBLISHED" },
       orderBy: [{ publishedAt: "desc" }, { updatedAt: "desc" }],
       take: 4,
-      select: { id: true, title: true, slug: true, excerpt: true, content: true, thumbnailUrl: true },
-    }),
-  ]);
+      select: { id: true, title: true, slug: true, excerpt: true, thumbnailUrl: true },
+    })
+    .finally(() => audit.end("posts query"));
+
+  const [categoryRows, productRows, postRows] = await Promise.all([categoriesPromise, productsPromise, postsPromise]);
 
   const productModels = productRows as Array<Omit<HomeProductRow, "imageUrl">>;
   const ids = productModels.map((p) => p.id).filter(Boolean);
-  const imageRows = ids.length
-    ? await db.productImage.findMany({
+
+  audit.start("banner query");
+  const imageRowsPromise = ids.length
+    ? db.productImage.findMany({
         where: { productId: { in: ids } },
         select: { productId: true, url: true },
         orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }],
-        take: Math.min(2000, Math.max(ids.length * 24, ids.length)),
+        take: Math.min(240, Math.max(ids.length * 4, ids.length)),
       })
-    : [];
+    : Promise.resolve([] as Array<{ productId: string; url: string | null }>);
+
+  audit.start("homepage aggregation");
+  const metricsMapPromise = getProductReviewMetricsMap(db, ids) as Promise<Map<string, HomeProductMetrics>>;
+
+  const [imageRows, metricsMap] = await Promise.all([imageRowsPromise, metricsMapPromise]);
+  audit.end("banner query", { rows: imageRows.length, productIds: ids.length });
+  audit.end("homepage aggregation", { productIds: ids.length });
+
   const firstImageByProduct = new Map<string, string>();
   for (const row of imageRows) {
     if (!row.productId) continue;
@@ -117,13 +159,6 @@ export const loadStorefrontHomeData = memoizePerRequest(async (): Promise<{
     ...p,
     imageUrl: firstImageByProduct.get(p.id) ?? "",
   }));
-
-  const featuredProducts = allSectionProducts.filter((product) => product.isFeatured).slice(0, 8);
-  const newestProducts = allSectionProducts.filter((product) => product.isNew).slice(0, 8);
-  const bestSellerProducts = allSectionProducts.filter((product) => product.isBestSeller).slice(0, 8);
-  const productIds = [...new Set([...featuredProducts, ...newestProducts, ...bestSellerProducts].map((p) => p.id))];
-
-  const metricsMap = (await getProductReviewMetricsMap(db, productIds)) as Map<string, HomeProductMetrics>;
 
   return {
     categoryRows: categoryRows as HomeCategoryRow[],

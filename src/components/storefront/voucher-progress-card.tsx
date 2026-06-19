@@ -18,7 +18,7 @@ export default function VoucherProgressCard({
   return (
     <div className={`rounded-xl border border-amber-200 bg-amber-50 ${compact ? "px-3 py-2" : "p-3"}`}>
       <p className="text-xs font-bold text-amber-950">
-        🎁 Mua thêm {formatVnd(milestone.amountNeeded)} để nhận {milestone.coupon.code}
+        🎁 Mua thêm {formatVnd(milestone.amountNeeded)} để áp dụng ưu đãi này
       </p>
       <div className="mt-2 h-2 overflow-hidden rounded-full bg-amber-100">
         <div

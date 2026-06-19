@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type DragEvent } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import pLimit from "p-limit";
 import {
   REVIEW_STATUS_LABELS,
   REVIEW_STATUS_OPTIONS,
@@ -99,21 +100,27 @@ export default function AdminReviewForm({ mode, reviewId }: { mode: "create" | "
     try {
       const uploadedUrls: string[] = [];
       const failedMessages: string[] = [];
-      for (const file of acceptedFiles) {
-        if (!REVIEW_ALLOWED_TYPES.has(file.type)) {
-          failedMessages.push(`${file.name}: File không đúng định dạng ảnh.`);
-          continue;
-        }
-        if (file.size > REVIEW_MAX_FILE_SIZE_BYTES) {
-          failedMessages.push(`${file.name}: Ảnh vượt quá 5MB.`);
-          continue;
-        }
-        try {
-          uploadedUrls.push(await uploadReviewImage(file));
-        } catch {
-          failedMessages.push(`${file.name}: Không thể tải ảnh lên. Vui lòng thử lại.`);
-        }
-      }
+      const limit = pLimit(3);
+
+      const uploadTasks = acceptedFiles.map((file) =>
+        limit(async () => {
+          if (!REVIEW_ALLOWED_TYPES.has(file.type)) {
+            failedMessages.push(`${file.name}: File không đúng định dạng ảnh.`);
+            return;
+          }
+          if (file.size > REVIEW_MAX_FILE_SIZE_BYTES) {
+            failedMessages.push(`${file.name}: Ảnh vượt quá 5MB.`);
+            return;
+          }
+          try {
+            uploadedUrls.push(await uploadReviewImage(file));
+          } catch {
+            failedMessages.push(`${file.name}: Không thể tải ảnh lên. Vui lòng thử lại.`);
+          }
+        })
+      );
+
+      await Promise.all(uploadTasks);
       const next = [...reviewImages, ...uploadedUrls].slice(0, REVIEW_MAX_IMAGES);
       setValue("reviewImages", next, { shouldDirty: true, shouldValidate: true });
       if (failedMessages.length) {

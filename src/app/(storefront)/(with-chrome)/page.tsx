@@ -16,6 +16,36 @@ import {
   type HomeProductRow,
 } from "../../../lib/storefront/storefront-home-data";
 
+const HOME_SECTION_PRODUCT_LIMIT = 12;
+const HOME_SECTION_PRIORITY = ["flash", "featured", "newest", "bestSeller"] as const;
+
+type HomeSectionKey = (typeof HOME_SECTION_PRIORITY)[number];
+
+function dedupeAndLimitHomeSections(sectionProducts: Record<HomeSectionKey, ProductCardData[]>): Record<HomeSectionKey, ProductCardData[]> {
+  const renderedProductIds = new Set<string>();
+  const uniqueProductsBySection: Record<HomeSectionKey, ProductCardData[]> = {
+    flash: [],
+    featured: [],
+    newest: [],
+    bestSeller: [],
+  };
+
+  for (const sectionKey of HOME_SECTION_PRIORITY) {
+    const uniqueProducts: ProductCardData[] = [];
+
+    for (const product of sectionProducts[sectionKey]) {
+      if (uniqueProducts.length >= HOME_SECTION_PRODUCT_LIMIT) break;
+      if (renderedProductIds.has(product.id)) continue;
+      renderedProductIds.add(product.id);
+      uniqueProducts.push(product);
+    }
+
+    uniqueProductsBySection[sectionKey] = uniqueProducts;
+  }
+
+  return uniqueProductsBySection;
+}
+
 export const revalidate = 120;
 
 const HOME_SEO_FALLBACK_TITLE = "Zendo.vn - Mua sắm điện tử, gia dụng, phụ kiện chính hãng";
@@ -105,23 +135,30 @@ export default async function StorefrontHomePage(): Promise<JSX.Element> {
   }));
 
   const allSectionProducts = productRows;
-  const featuredProducts = allSectionProducts.filter((product) => product.isFeatured).slice(0, 8);
-  const newestProducts = allSectionProducts.filter((product) => product.isNew).slice(0, 8);
-  const bestSellerProducts = allSectionProducts.filter((product) => product.isBestSeller).slice(0, 8);
+  const featuredCandidates = allSectionProducts.filter((product) => product.isFeatured);
+  const newestCandidates = allSectionProducts.filter((product) => product.isNew);
+  const bestSellerCandidates = allSectionProducts.filter((product) => product.isBestSeller);
 
-  const featured: ProductCardData[] = featuredProducts.map((product) => toCardProduct(product, metricsMap.get(product.id)));
-  const newest: ProductCardData[] = newestProducts.map((product) => toCardProduct(product, metricsMap.get(product.id)));
-  const bestSeller: ProductCardData[] = bestSellerProducts.map((product) => toCardProduct(product, metricsMap.get(product.id)));
+  const featured = featuredCandidates.map((product) => toCardProduct(product, metricsMap.get(product.id)));
+  const newest = newestCandidates.map((product) => toCardProduct(product, metricsMap.get(product.id)));
+  const bestSeller = bestSellerCandidates.map((product) => toCardProduct(product, metricsMap.get(product.id)));
 
-  const flash: ProductCardData[] = [...featured, ...newest, ...bestSeller].filter(
+  const flashCandidates = [...featured, ...newest, ...bestSeller].filter(
     (product) => Number(product.salePrice ?? 0) > 0 && Number(product.salePrice) < Number(product.basePrice),
   );
-  const flashProducts = flash.map((product) => ({ ...product, isFlashSale: true }));
+  const flashProducts = flashCandidates.map((product) => ({ ...product, isFlashSale: true }));
+
+  const dedupedSections = dedupeAndLimitHomeSections({
+    flash: flashProducts,
+    featured,
+    newest,
+    bestSeller,
+  });
 
   const homeItemListJsonLd = buildItemListJsonLd({
     name: "Sản phẩm nổi bật Zendo.vn",
     path: "/",
-    items: [...featured, ...newest, ...bestSeller, ...flashProducts]
+    items: [...dedupedSections.featured, ...dedupedSections.newest, ...dedupedSections.bestSeller, ...dedupedSections.flash]
       .filter((product, index, list) => list.findIndex((item) => item.id === product.id) === index)
       .slice(0, 24)
       .map((product) => ({
@@ -176,63 +213,54 @@ export default async function StorefrontHomePage(): Promise<JSX.Element> {
         ) : null}
 
         {themeSettings.enableFeaturedSection ? (
-        <section
-          aria-labelledby="featured-products-heading"
-          className={productSectionClass}
-        >
-          <SectionHeading
-            id="featured-products-heading"
-            title="Sản phẩm nổi bật"
-            description="Lựa chọn được yêu thích bởi nhiều khách hàng."
-            actionLabel="Xem thêm →"
-            actionHref="/cua-hang"
-          />
-          <ProductGrid products={featured} {...sharedProductGridProps} />
-        </section>
+          <section aria-labelledby="featured-products-heading" className={productSectionClass}>
+            <SectionHeading
+              id="featured-products-heading"
+              title="Sản phẩm nổi bật"
+              description="Lựa chọn được yêu thích bởi nhiều khách hàng."
+              actionLabel="Xem thêm →"
+              actionHref="/cua-hang"
+            />
+            <ProductGrid products={dedupedSections.featured} {...sharedProductGridProps} />
+          </section>
         ) : null}
 
         {themeSettings.enableNewSection ? (
-        <section
-          aria-labelledby="new-products-heading"
-          className={compactMobileProductSectionClass}
-        >
-          <SectionHeading
-            id="new-products-heading"
-            title="Sản phẩm mới"
-            description="Cập nhật xu hướng và sản phẩm mới nhất từ Zendo."
-            actionLabel="Xem thêm →"
-            actionHref="/san-pham-moi"
-          />
-          <ProductGrid
-            products={newest}
-            {...sharedProductGridProps}
-            compactMobile
-            singleItemMobileFullWidth
-            mobileCtaSize="comfortable"
-          />
-        </section>
+          <section aria-labelledby="new-products-heading" className={compactMobileProductSectionClass}>
+            <SectionHeading
+              id="new-products-heading"
+              title="Sản phẩm mới"
+              description="Cập nhật xu hướng và sản phẩm mới nhất từ Zendo."
+              actionLabel="Xem thêm →"
+              actionHref="/san-pham-moi"
+            />
+            <ProductGrid
+              products={dedupedSections.newest}
+              {...sharedProductGridProps}
+              compactMobile
+              singleItemMobileFullWidth
+              mobileCtaSize="comfortable"
+            />
+          </section>
         ) : null}
 
         {themeSettings.enableBestSellerSection ? (
-        <section
-          aria-labelledby="best-seller-products-heading"
-          className={compactMobileProductSectionClass}
-        >
-          <SectionHeading
-            id="best-seller-products-heading"
-            title="Bán chạy"
-            description="Danh sách sản phẩm có doanh số tốt nhất."
-            actionLabel="Xem thêm →"
-            actionHref="/ban-chay"
-          />
-          <ProductGrid
-            products={bestSeller}
-            {...sharedProductGridProps}
-            compactMobile
-            singleItemMobileFullWidth
-            mobileCtaSize="comfortable"
-          />
-        </section>
+          <section aria-labelledby="best-seller-products-heading" className={compactMobileProductSectionClass}>
+            <SectionHeading
+              id="best-seller-products-heading"
+              title="Bán chạy"
+              description="Danh sách sản phẩm có doanh số tốt nhất."
+              actionLabel="Xem thêm →"
+              actionHref="/ban-chay"
+            />
+            <ProductGrid
+              products={dedupedSections.bestSeller}
+              {...sharedProductGridProps}
+              compactMobile
+              singleItemMobileFullWidth
+              mobileCtaSize="comfortable"
+            />
+          </section>
         ) : null}
 
         {themeSettings.enableFlashSaleSection ? (
@@ -245,7 +273,7 @@ export default async function StorefrontHomePage(): Promise<JSX.Element> {
               actionHref="/flash-deal"
             />
             <ProductGrid
-              products={flashProducts}
+              products={dedupedSections.flash}
               {...sharedProductGridProps}
               compactMobile
               singleItemMobileFullWidth
