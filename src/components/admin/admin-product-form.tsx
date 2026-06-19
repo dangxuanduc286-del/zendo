@@ -1019,7 +1019,14 @@ export default function AdminProductForm({
           {images.map((url, index) => (
             <div key={`${url}-${index}`} className="rounded-xl border border-zinc-200 p-2">
               <div className="relative aspect-square overflow-hidden rounded-lg border border-zinc-200 bg-white">
-                <MediaImage src={url} alt="Ảnh sản phẩm" fallbackLabel="Ảnh sản phẩm" fill className="object-contain p-1" sizes="200px" />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={url}
+                  alt="Ảnh sản phẩm"
+                  className="h-full w-full object-contain p-1"
+                  loading="lazy"
+                  decoding="async"
+                />
                 <span className="absolute right-1 top-1 rounded bg-zinc-900/80 px-1.5 py-0.5 text-[10px] text-white">#{index + 1}</span>
                 {index === 0 ? <span className="absolute left-1 top-1 rounded bg-sky-600 px-1.5 py-0.5 text-[10px] text-white">Ảnh chính</span> : null}
               </div>
