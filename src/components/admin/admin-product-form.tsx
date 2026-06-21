@@ -18,6 +18,80 @@ import { slugify } from "../../lib/slug";
 import MediaImage from "../shared/media-image";
 import { adminPrimaryButton, adminSecondaryButton } from "../../lib/admin-ui";
 
+const PRODUCT_IMAGE_MAX_DIMENSION = 1200;
+const PRODUCT_IMAGE_QUALITY = 0.8;
+const PRODUCT_IMAGE_ACCEPTED_TYPES = new Set(["image/jpeg", "image/jpg", "image/png", "image/webp"]);
+
+async function fileToImageSource(file: File): Promise<ImageBitmap | HTMLImageElement> {
+  if (typeof createImageBitmap === "function") {
+    return createImageBitmap(file);
+  }
+
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("Không thể đọc ảnh."));
+    };
+    image.src = objectUrl;
+  });
+}
+
+async function resizeProductImage(file: File): Promise<File> {
+  if (!PRODUCT_IMAGE_ACCEPTED_TYPES.has(file.type)) return file;
+  if (typeof document === "undefined") return file;
+
+  const source = await fileToImageSource(file);
+  const width = source.width;
+  const height = source.height;
+  const longestEdge = Math.max(width, height);
+
+  if (!Number.isFinite(width) || !Number.isFinite(height) || longestEdge <= PRODUCT_IMAGE_MAX_DIMENSION) {
+    if (typeof (source as ImageBitmap).close === "function") {
+      (source as ImageBitmap).close();
+    }
+    return file;
+  }
+
+  const scale = PRODUCT_IMAGE_MAX_DIMENSION / longestEdge;
+  const nextWidth = Math.max(1, Math.round(width * scale));
+  const nextHeight = Math.max(1, Math.round(height * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = nextWidth;
+  canvas.height = nextHeight;
+  const context = canvas.getContext("2d");
+  if (!context) {
+    if (typeof (source as ImageBitmap).close === "function") {
+      (source as ImageBitmap).close();
+    }
+    return file;
+  }
+
+  context.drawImage(source as CanvasImageSource, 0, 0, nextWidth, nextHeight);
+  if (typeof (source as ImageBitmap).close === "function") {
+    (source as ImageBitmap).close();
+  }
+
+  const outputType = file.type === "image/webp" ? "image/webp" : file.type === "image/png" ? "image/png" : "image/jpeg";
+  const blob = await new Promise<Blob | null>((resolve) => {
+    canvas.toBlob((result) => resolve(result), outputType, PRODUCT_IMAGE_QUALITY);
+  });
+
+  if (!blob) return file;
+
+  const suffix = outputType === "image/png" ? "png" : outputType === "image/webp" ? "webp" : "jpg";
+  const baseName = file.name.replace(/\.[^.]+$/, "");
+  return new File([blob], `${baseName}-1200.${suffix}`, {
+    type: outputType,
+    lastModified: Date.now(),
+  });
+}
+
 interface ProductOption {
   id: string;
   name: string;
@@ -339,7 +413,8 @@ export default function AdminProductForm({
             return;
           }
           try {
-            const url = await uploadImage(file);
+            const resizedFile = await resizeProductImage(file);
+            const url = await uploadImage(resizedFile);
             uploadedUrls.push(url);
           } catch {
             failedMessages.push(`${file.name}: Không thể tải ảnh lên. Vui lòng thử lại.`);
@@ -557,7 +632,7 @@ export default function AdminProductForm({
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="max-w-6xl space-y-4">
+    <form onSubmit={handleSubmit(onSubmit)} className="w-full min-w-0 max-w-none space-y-4 pb-24 sm:pb-28 lg:pb-32">
       <section className="rounded-2xl border border-[#E2E8F0] bg-white p-4 sm:p-5">
         <h2 className="text-base font-semibold text-zinc-900">Thông tin cơ bản</h2>
         <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -1084,7 +1159,7 @@ export default function AdminProductForm({
       </section>
 
       {submitError ? <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{submitError}</p> : null}
-      <div className="sticky bottom-3 z-20 flex flex-wrap gap-2 rounded-xl border border-zinc-200 bg-white p-3 shadow-sm">
+      <div className="sticky bottom-0 z-30 -mx-4 flex flex-wrap gap-2 border-t border-zinc-200 bg-white/95 p-3 shadow-[0_-8px_24px_rgba(0,0,0,0.06)] backdrop-blur sm:-mx-5 lg:-mx-0 lg:rounded-xl lg:border lg:shadow-sm">
         <button type="submit" disabled={formState.isSubmitting || isUploading} className={adminPrimaryButton}>{formState.isSubmitting ? "Đang lưu..." : "Lưu sản phẩm"}</button>
         <button type="submit" disabled={formState.isSubmitting || isUploading} className={adminSecondaryButton}>Lưu và xem ngoài web</button>
         <Link href="/admin/products" className={adminSecondaryButton}>Hủy</Link>

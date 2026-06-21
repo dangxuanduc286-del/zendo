@@ -170,6 +170,15 @@ body {
   scrollbar-color: rgb(203 213 225) transparent;
 }
 
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 .admin-scrollbar::-webkit-scrollbar {
   width: 6px;
   height: 6px;

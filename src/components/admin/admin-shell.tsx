@@ -275,9 +275,9 @@ export default function AdminShell({
   const storefrontHomeActive = storefrontHomeCtaActive(pathname);
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] lg:flex lg:h-[100dvh] lg:min-h-0 lg:flex-col lg:overflow-hidden">
-      <div className="flex w-full min-w-0 flex-1 flex-col lg:min-h-0 lg:flex-1 lg:flex-row lg:overflow-hidden">
-        <aside className="hidden w-full min-w-0 max-w-[17.5rem] shrink-0 basis-[minmax(13rem,17.5rem)] border-r border-slate-200 bg-white px-2.5 py-4 lg:flex lg:h-full lg:min-h-0 lg:w-[minmax(13rem,17.5rem)] lg:flex-col lg:overflow-y-auto">
+    <div className="min-h-screen bg-[#F8FAFC] lg:flex lg:min-h-0 lg:flex-col">
+      <div className="flex w-full min-w-0 flex-1 flex-col lg:min-h-0 lg:flex-1 lg:flex-row">
+        <aside className="hidden w-full min-w-0 max-w-[17.5rem] shrink-0 basis-[minmax(13rem,17.5rem)] border-r border-slate-200 bg-white px-2.5 py-4 lg:flex lg:h-auto lg:min-h-0 lg:w-[minmax(13rem,17.5rem)] lg:flex-col lg:overflow-y-auto hide-scrollbar">
           <Link
             href="/admin"
             className="mb-4 block rounded-xl border border-sky-200/60 bg-gradient-to-r from-sky-600 via-sky-500 to-violet-500 px-3.5 py-3.5 text-base font-extrabold tracking-tight text-white shadow-md shadow-sky-900/15 transition hover:brightness-105"
@@ -331,7 +331,7 @@ export default function AdminShell({
           </button>
         </aside>
 
-        <div className="flex min-w-0 flex-1 flex-col lg:h-full lg:min-h-0 lg:overflow-hidden">
+        <div className="flex min-w-0 flex-1 flex-col lg:min-h-0">
           <header className="shrink-0 border-b border-slate-200 bg-[#F8FAFC] lg:hidden">
             <div className="flex items-center gap-2 px-3 py-3 sm:px-4">
               <button
@@ -379,7 +379,7 @@ export default function AdminShell({
                 className="absolute inset-0 bg-slate-900/40"
                 onClick={closeMobileDrawer}
               />
-              <div className="absolute left-0 top-0 flex h-[100dvh] w-[min(20rem,88vw)] max-w-full flex-col border-r border-slate-200 bg-white shadow-2xl">
+              <div className="absolute h-[100dvh] left-0 top-0 flex w-[min(20rem,88vw)] max-w-full flex-col border-r border-slate-200 bg-white shadow-2xl">
                 <div className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-100 px-3 py-3">
                   <span className="text-sm font-bold text-slate-900">Danh mục</span>
                   <button
