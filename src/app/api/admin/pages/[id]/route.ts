@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import { revalidateTag } from "next/cache";
 import { authOptions } from "../../../../../lib/auth";
 import { pageFormSchema } from "../../../../../lib/admin-page";
 import { slugify } from "../../../../../lib/slug";
@@ -130,6 +131,7 @@ export async function PATCH(request: Request, { params }: { params: ParamsInput 
         updatedAt: true,
       },
     });
+    revalidateTag("header-pages");
     return NextResponse.json({ item: mapPage(updated) });
   } catch {
     return NextResponse.json({ message: "Không thể cập nhật trang nội dung." }, { status: 500 });
@@ -144,6 +146,7 @@ export async function DELETE(_: Request, { params }: { params: ParamsInput }): P
     if (!db) return NextResponse.json({ message: "Hệ thống chưa cấu hình cơ sở dữ liệu." }, { status: 503 });
     const { id } = await Promise.resolve(params);
     await db.page.delete({ where: { id } });
+    revalidateTag("header-pages");
     return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json({ message: "Không thể xóa trang nội dung." }, { status: 500 });

@@ -1115,7 +1115,7 @@ const readSettingValueCached = unstable_cache(
     }
   },
   ["setting-value-v1"],
-  { revalidate: 60 },
+  { revalidate: 60, tags: ["site-settings"] },
 );
 
 export async function getSettingValue<T>(key: string): Promise<T | null> {
@@ -1162,6 +1162,7 @@ export async function upsertSettingValue(
         isPublic: options?.isPublic ?? false,
       },
     });
+    revalidateTag("site-settings");
     revalidateTag("storefront-settings");
     return true;
   } catch {
@@ -2062,7 +2063,7 @@ export async function normalizeThemeSettings(value: unknown): Promise<ThemeSetti
   return normalized;
 }
 
-const getWebsiteSettingsInternal = async (): Promise<WebsiteSettings> => {
+const getWebsiteSettingsRaw = async (): Promise<WebsiteSettings> => {
   const [websiteValue, socialValue] = await Promise.all([
     getSettingValue<unknown>("website_settings"),
     getSettingValue<unknown>("social_links"),
@@ -2070,14 +2071,27 @@ const getWebsiteSettingsInternal = async (): Promise<WebsiteSettings> => {
   return normalizeWebsiteSettings(websiteValue, socialValue);
 };
 
-const getThemeSettingsInternal = async (): Promise<ThemeSettings> => {
+const getThemeSettingsRaw = async (): Promise<ThemeSettings> => {
   const themeValue = await getSettingValue<unknown>("theme_settings");
   return normalizeThemeSettings(themeValue);
 };
 
+// Cross-request cache (survives across requests until revalidated).
+const getWebsiteSettingsCached = unstable_cache(
+  getWebsiteSettingsRaw,
+  ["website-settings-v1"],
+  { revalidate: 60, tags: ["site-settings", "storefront-settings"] },
+);
+
+const getThemeSettingsCached = unstable_cache(
+  getThemeSettingsRaw,
+  ["theme-settings-v1"],
+  { revalidate: 60, tags: ["site-settings", "storefront-settings"] },
+);
+
 // Deduplicate repeated calls within the same RSC request/render pass.
-export const getWebsiteSettings = cache(getWebsiteSettingsInternal);
-export const getThemeSettings = cache(getThemeSettingsInternal);
+export const getWebsiteSettings = cache(getWebsiteSettingsCached);
+export const getThemeSettings = cache(getThemeSettingsCached);
 
 export async function getSocialLinks(): Promise<SocialLink[]> {
   const website = await getWebsiteSettings();

@@ -5,6 +5,7 @@ import { resolveMediaUrl } from "../../lib/media";
 import { memoizePerRequest } from "../../lib/runtime/request-cache";
 import { getStorefrontDbClient } from "../../lib/storefront-db";
 import { DEFAULT_ROLE_SUPPORT_CONFIG } from "../../lib/support-contact-config";
+import { unstable_cache } from "next/cache";
 
 /** Alias for storefront root layout / metadata (same memoized DB client). */
 export { getStorefrontDbClient as getDbClient } from "../../lib/storefront-db";
@@ -28,7 +29,7 @@ export type HeaderPage = {
   slug: string;
 };
 
-async function getHeaderCategoriesInternal(): Promise<HeaderCategory[]> {
+async function fetchHeaderCategoriesUncached(): Promise<HeaderCategory[]> {
   const db = await getStorefrontDbClient();
   if (!db) return [];
   try {
@@ -53,7 +54,7 @@ async function getHeaderCategoriesInternal(): Promise<HeaderCategory[]> {
   }
 }
 
-async function getHeaderPagesInternal(): Promise<HeaderPage[]> {
+async function fetchHeaderPagesUncached(): Promise<HeaderPage[]> {
   const db = await getStorefrontDbClient();
   if (!db) return [];
   try {
@@ -72,8 +73,20 @@ async function getHeaderPagesInternal(): Promise<HeaderPage[]> {
   }
 }
 
-export const getHeaderCategories = memoizePerRequest(getHeaderCategoriesInternal);
-export const getHeaderPages = memoizePerRequest(getHeaderPagesInternal);
+const getCachedHeaderCategories = unstable_cache(
+  fetchHeaderCategoriesUncached,
+  ["header-categories-v1"],
+  { revalidate: 1800, tags: ["header-categories"] },
+);
+
+const getCachedHeaderPages = unstable_cache(
+  fetchHeaderPagesUncached,
+  ["header-pages-v1"],
+  { revalidate: 1800, tags: ["header-pages"] },
+);
+
+export const getHeaderCategories = memoizePerRequest(getCachedHeaderCategories);
+export const getHeaderPages = memoizePerRequest(getCachedHeaderPages);
 
 export async function getSafeStorefrontSession() {
   try {
@@ -84,9 +97,17 @@ export async function getSafeStorefrontSession() {
   }
 }
 
+const getCachedWebsiteSettings = unstable_cache(
+  async () => {
+    return await getWebsiteSettings();
+  },
+  ["safe-website-settings-v1"],
+  { revalidate: 60, tags: ["site-settings", "storefront-settings"] },
+);
+
 export async function getSafeWebsiteSettings() {
   try {
-    return await getWebsiteSettings();
+    return await getCachedWebsiteSettings();
   } catch (error) {
     void error;
     return {

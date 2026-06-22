@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import { revalidateTag } from "next/cache";
 import { authOptions } from "../../../../lib/auth";
 import { categoryFormSchema } from "../../../../lib/admin-category";
 import { slugify } from "../../../../lib/slug";
@@ -221,6 +222,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     });
 
 
+    revalidateTag("header-categories");
     return NextResponse.json({ item: mapCategory(created) }, { status: 201 });
   } catch {
     return NextResponse.json({ message: "Không thể tạo danh mục." }, { status: 500 });

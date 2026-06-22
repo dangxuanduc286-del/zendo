@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import { revalidateTag } from "next/cache";
 import { authOptions } from "../../../../../lib/auth";
 import { categoryFormSchema } from "../../../../../lib/admin-category";
 import { slugify } from "../../../../../lib/slug";
@@ -221,6 +222,7 @@ export async function PATCH(
     });
 
 
+    revalidateTag("header-categories");
     return NextResponse.json({ item: mapCategory(updated) });
   } catch {
     return NextResponse.json({ message: "Không thể cập nhật danh mục." }, { status: 500 });
@@ -267,6 +269,7 @@ export async function DELETE(
       }
       await tx.category.delete({ where: { id: categoryId } });
     });
+    revalidateTag("header-categories");
     return NextResponse.json({ success: true });
   } catch (error) {
     const message =

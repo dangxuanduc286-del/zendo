@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import { revalidateTag } from "next/cache";
 import { authOptions } from "../../../../lib/auth";
 import { pageFormSchema } from "../../../../lib/admin-page";
 import { slugify } from "../../../../lib/slug";
@@ -137,6 +138,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         updatedAt: true,
       },
     });
+    revalidateTag("header-pages");
     return NextResponse.json({ item: mapPage(created) }, { status: 201 });
   } catch {
     return NextResponse.json({ message: "Không thể tạo trang nội dung." }, { status: 500 });

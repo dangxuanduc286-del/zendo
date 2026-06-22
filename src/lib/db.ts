@@ -21,9 +21,18 @@ function createPrismaClient(): PrismaClient {
       connectionString: databaseUrl,
       max: Math.max(4, Number(process.env.PG_POOL_MAX) || 12),
       idleTimeoutMillis: 30_000,
-      connectionTimeoutMillis: 15_000,
+      connectionTimeoutMillis: 10_000,
     });
   globalForPrisma.prismaPool = pool;
+
+  // Eagerly establish one connection so the pool is warm when the first
+  // query arrives. This moves the ~1600ms Neon cold-start from the request
+  // critical path into the module-load phase (which runs during Vercel
+  // function init, before the request timer starts).
+  pool.connect().then(
+    (client) => client.release(),
+    () => {/* swallow – first real query will surface the error */},
+  );
 
   const adapter = new PrismaPg(pool);
 
@@ -42,6 +51,7 @@ export const db =
   globalForPrisma.prisma ??
   createPrismaClient();
 
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = db;
-}
+// Persist singleton for the lifetime of the process in all environments.
+// In serverless (Vercel/Neon), the process may serve multiple requests before
+// being recycled — reusing the client avoids repeated connection acquisition.
+globalForPrisma.prisma = db;
