@@ -18,6 +18,9 @@ export function prefetchStorefrontAccountTab(tab: string): void {
     case "purchaseHistory":
       prefetchOnce("purchaseHistory", () => import("../components/storefront/purchase-history-panel"));
       break;
+    case "rewardHistory":
+      prefetchOnce("rewardHistory", () => import("../components/storefront/reward-history-panel"));
+      break;
     case "policyHub":
       prefetchOnce("policyHub", () => import("../components/storefront/account-policy-hub-panel"));
       break;

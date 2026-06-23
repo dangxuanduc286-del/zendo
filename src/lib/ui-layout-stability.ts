@@ -7,14 +7,14 @@ export const UI_OVERFLOW_CLIP = "min-w-0 max-w-full overflow-x-clip";
 /** Sidebar account — rem thay px cố định */
 export const UI_SIDEBAR_COL = "minmax(13rem,17.5rem)";
 
-/** Buyer overview — avatar | nội dung | stats */
+/** Buyer overview — avatar | Rank | Voucher (Rank = Voucher = 1fr) */
 export const UI_ACCOUNT_OVERVIEW_GRID_LG = [
   "lg:grid",
-  "lg:grid-cols-[minmax(16rem,20rem)_minmax(0,1fr)_minmax(14rem,17.5rem)]",
+  "lg:grid-cols-[minmax(16rem,20rem)_minmax(0,1fr)_minmax(0,1fr)]",
   "lg:items-stretch lg:gap-6",
 ].join(" ");
 
-export const UI_ACCOUNT_OVERVIEW_GRID_XL = "xl:grid-cols-[minmax(18rem,21.25rem)_minmax(0,1fr)_minmax(16rem,20rem)] xl:gap-7";
+export const UI_ACCOUNT_OVERVIEW_GRID_XL = "xl:grid-cols-[minmax(18rem,21.25rem)_minmax(0,1fr)_minmax(0,1fr)] xl:gap-7";
 
 /** Grid KPI / metric — cùng hàng cùng chiều cao */
 export const UI_GRID_KPI_STABLE = [

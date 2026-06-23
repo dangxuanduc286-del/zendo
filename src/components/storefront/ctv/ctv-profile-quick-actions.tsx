@@ -73,9 +73,9 @@ function buildProfileQuickActions({
       id: "order-lookup",
       kind: "link",
       icon: Package,
-      label: "Theo dõi đơn",
-      ariaLabel: "Theo dõi đơn hàng",
-      title: "Theo dõi đơn hàng",
+      label: "Đơn hàng",
+      ariaLabel: "Đơn hàng của tôi",
+      title: "Đơn hàng của tôi",
       href: orderLookupHref,
     },
   ];

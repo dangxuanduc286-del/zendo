@@ -14,6 +14,8 @@ import {
   Sparkles,
   TicketPercent,
   Trash2,
+  Trophy,
+  UserCircle2,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -47,6 +49,7 @@ import { AccountTabKeepAlive } from "./account-tab-keep-alive";
 import { AccountPageContentStart, AccountPageHeader } from "./account-page-header";
 import { prefetchStorefrontAccountTabsIdle } from "../../lib/account-tab-prefetch";
 import AccountVoucherWallet from "./account-voucher-wallet";
+import AccountVoucherHighlights from "./account-voucher-highlights";
 
 const PurchaseHistoryPanel = dynamic(() => import("./purchase-history-panel"), {
   loading: () => <div className="rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm">Đang tải...</div>,
@@ -71,6 +74,10 @@ const AccountNotificationsSection = dynamic(
 );
 const AccountPolicyHubPanel = dynamic(() => import("./account-policy-hub-panel"), {
   loading: accountTabPanelFallback,
+});
+const RewardHistoryPanel = dynamic(() => import("./reward-history-panel"), {
+  loading: accountTabPanelFallback,
+  ssr: false,
 });
 const AffiliateAccountDashboardTab = dynamic(
   () => import("./affiliate/affiliate-account-dashboard-tab").then((m) => ({ default: m.AffiliateAccountDashboardTab })),
@@ -169,6 +176,7 @@ type DashboardData = {
 type TabKey =
   | "overview"
   | "orders"
+  | "rewardHistory"
   | "purchaseHistory"
   | "tracking"
   | "notifications"
@@ -349,6 +357,7 @@ function computeLoyaltyUi(points: number): {
 const ACCOUNT_TAB_KEYS = new Set<TabKey>([
   "overview",
   "orders",
+  "rewardHistory",
   "purchaseHistory",
   "tracking",
   "notifications",
@@ -541,13 +550,14 @@ export default function CustomerBuyerAccountView({
   const menuItems: AccountNavItem[] = [
     { kind: "tab", label: "Tổng quan", tab: "overview", enabled: accountSettings.showOverview },
     { kind: "tab", label: "Đơn hàng của tôi", tab: "orders", enabled: accountSettings.showOrders },
+    { kind: "tab", label: "Hoạt động điểm thưởng", tab: "rewardHistory", enabled: true },
     {
       kind: "tab",
       label: accountSettings.purchaseHistoryTitle?.trim() || "Lịch sử mua hàng",
       tab: "purchaseHistory",
-      enabled: showPurchaseHistoryEffective,
+      enabled: false, // Ẩn: trùng chức năng với "Đơn hàng của tôi"
     },
-    { kind: "tab", label: "Theo dõi đơn hàng", tab: "tracking", enabled: accountSettings.showOrderTimeline },
+    { kind: "tab", label: "Theo dõi đơn hàng", tab: "tracking", enabled: false }, // Ẩn: trùng chức năng với "Đơn hàng của tôi"
     { kind: "tab", label: "Thông báo", tab: "notifications", enabled: accountSettings.showNotifications },
     { kind: "tab", label: "Kho voucher", tab: "coupons", enabled: showCouponsEffective },
     { kind: "tab", label: "Thông tin cá nhân", tab: "profile", enabled: accountSettings.showProfile },
@@ -1173,181 +1183,208 @@ export default function CustomerBuyerAccountView({
           >
             <div className="min-w-0 w-full lg:flex lg:h-full">
               <div
-                className={`relative flex min-h-0 w-full flex-col rounded-[26px] border border-slate-200/80 bg-white p-6 shadow-[0_4px_28px_rgba(15,23,42,0.07)] sm:rounded-[28px] sm:p-8 ${MOBILE_HERO_BLOCK} lg:h-full lg:rounded-[30px] lg:p-8`}
+                className={`relative flex min-h-0 w-full flex-col rounded-[26px] border border-slate-200/80 bg-white p-6 shadow-[0_4px_28px_rgba(15,23,42,0.07)] sm:rounded-[28px] ${MOBILE_HERO_BLOCK} lg:h-full lg:rounded-[30px]`}
               >
+                {/*
+                  Header — icon Lucide UserCircle2 đồng bộ với 2 card còn lại.
+                  Icon 22-24px (+20%), gap 10px với text, font-weight 700, màu slate-800 đồng bộ theme.
+                  Badge (CTV/VIP/Thành viên) giữ absolute top-right.
+                */}
+                <div className="flex items-center gap-2.5">
+                  <UserCircle2 className="h-[22px] w-[22px] shrink-0 text-[#2563FF] sm:h-6 sm:w-6" strokeWidth={2} aria-hidden="true" />
+                  <h2 className="text-base font-bold tracking-[-0.01em] text-slate-800 sm:text-lg">
+                    {accountSettings.accountTitle || "Tài khoản của tôi"}
+                  </h2>
+                </div>
                 <span className="absolute right-4 top-4 z-10 max-w-[calc(100%-2rem)] truncate rounded-full border border-slate-200/90 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-[#2563EB] sm:right-5 sm:top-5 sm:px-3 sm:text-xs">
                   {data.badge}
                 </span>
 
-                <div className="flex justify-center pt-1 sm:pt-0">
-                  <div className="relative shrink-0">
-                    <div
-                      className="pointer-events-none absolute -inset-4 rounded-full bg-[#2563FF]/18 blur-2xl sm:-inset-5"
-                      aria-hidden
-                    />
-                    <div className="relative mx-auto h-[120px] w-[120px] overflow-hidden rounded-full border-[4px] border-white bg-slate-100 shadow-md sm:h-[148px] sm:w-[148px] sm:border-[5px] sm:shadow-[0_14px_44px_rgba(37,99,255,0.22)] lg:h-[176px] lg:w-[176px]">
-                      {currentAvatar ? (
-                        <MediaImage
-                          src={currentAvatar}
-                          alt={`Ảnh đại diện ${data.displayName}`}
-                          width={180}
-                          height={180}
-                          className="h-full w-full object-cover object-center"
-                          sizes="(max-width: 640px) 168px, 180px"
-                          quality={clampNextImageQuality(90)}
-                          fallbackLabel={data.displayName}
+                {/* Content — avatar + thông tin hồ sơ
+                    Header / Content / Actions phân tách rõ ràng.
+                    Avatar căn giữa đẹp hơn, tên hiển thị đầy đủ (không truncate),
+                    sđt nằm gọn dưới tên, mô tả hạ thấp gần nút hành động hơn. */}
+                <div className="flex flex-1 flex-col justify-between gap-4 pt-5 sm:gap-5 sm:pt-5">
+                  <div className="flex flex-col items-center gap-5 sm:gap-5.5">
+                    <div className="flex justify-center">
+                      <div className="relative shrink-0">
+                        <div
+                          className="pointer-events-none absolute -inset-4 rounded-full bg-[#2563FF]/18 blur-2xl sm:-inset-5"
+                          aria-hidden
                         />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#EFF6FF] to-[#BFDBFE] text-4xl font-bold text-[#2563FF] sm:text-5xl">
-                          {(data.displayName.trim()[0] || "Z").toUpperCase()}
+                        <div className="relative mx-auto h-[124px] w-[124px] overflow-hidden rounded-full border-[4px] border-white bg-slate-100 shadow-md sm:h-[152px] sm:w-[152px] sm:border-[5px] sm:shadow-[0_14px_44px_rgba(37,99,255,0.22)] lg:h-[172px] lg:w-[172px]">
+                          {currentAvatar ? (
+                            <MediaImage
+                              src={currentAvatar}
+                              alt={`Ảnh đại diện ${data.displayName}`}
+                              width={180}
+                              height={180}
+                              className="h-full w-full object-cover object-center"
+                              sizes="(max-width: 640px) 168px, 180px"
+                              quality={clampNextImageQuality(90)}
+                              fallbackLabel={data.displayName}
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#EFF6FF] to-[#BFDBFE] text-4xl font-bold text-[#2563FF] sm:text-5xl">
+                              {(data.displayName.trim()[0] || "Z").toUpperCase()}
+                            </div>
+                          )}
                         </div>
-                      )}
+                      </div>
+                    </div>
+
+                    <div className="flex min-w-0 flex-col items-center gap-1.5 text-center sm:gap-2">
+                      {/* Tên tài khoản — luôn hiển thị đầy đủ, không truncate/ellipsis */}
+                      <h3
+                        className="break-words text-[1.5rem] font-bold leading-tight tracking-[-0.02em] text-[#0F172A] sm:text-[1.625rem] lg:text-[1.75rem]"
+                        title={data.displayName}
+                      >
+                        {data.displayName}
+                      </h3>
+                      {/* Số điện thoại / email — nằm gọn dưới tên, khoảng cách nhỏ */}
+                      <div className="flex min-w-0 items-center justify-center gap-1.5">
+                        <p className="min-w-0 break-words text-[14px] font-medium tabular-nums text-slate-600 sm:text-[15px]">
+                          {data.contactText}
+                        </p>
+                        {contactLooksLikePhone ? (
+                          <BadgeCheck className="h-[18px] w-[18px] shrink-0 text-[#2563FF]" strokeWidth={2} aria-label="Đã xác minh" />
+                        ) : null}
+                      </div>
+                      {accountSettings.showProfile ? (
+                        <button
+                          type="button"
+                          onClick={() => selectAccountTab("profile")}
+                          className="mt-0.5 text-sm font-semibold text-[#2563FF] underline-offset-4 hover:underline lg:hidden"
+                        >
+                          Chỉnh sửa hồ sơ
+                        </button>
+                      ) : null}
                     </div>
                   </div>
+
+                  {/* Mô tả — hạ thấp xuống, gần với nhóm nút hành động hơn */}
+                  <p className="max-w-[26rem] text-center text-[13px] leading-relaxed text-slate-500 sm:text-sm sm:leading-relaxed">
+                    {accountSubtitle}
+                  </p>
                 </div>
 
-                <div className="mt-5 min-w-0 space-y-3 text-left max-lg:mt-4 max-lg:space-y-2.5 sm:mt-8 sm:space-y-5">
-                  <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-[#2563FF] sm:text-[13px] sm:tracking-[0.14em]">
-                    {accountSettings.accountTitle || "Tài khoản của tôi"}
-                  </p>
-                  <h2 className="truncate text-[1.625rem] font-bold leading-tight tracking-[-0.02em] text-[#0F172A] sm:text-[1.75rem] lg:text-[1.875rem]">
-                    {data.displayName}
-                  </h2>
-                  <div className="flex min-w-0 items-center gap-2">
-                    <p className="min-w-0 truncate text-[15px] font-medium tabular-nums text-slate-600 sm:text-base">
-                      {data.contactText}
-                    </p>
-                    {contactLooksLikePhone ? (
-                      <BadgeCheck className="h-5 w-5 shrink-0 text-[#2563FF]" strokeWidth={2} aria-label="Đã xác minh" />
+                {/* Actions — luôn nằm sát đáy card, phân tách rõ bằng border-t (đồng bộ với card Rank) */}
+                <div className="mt-auto flex min-w-0 flex-col gap-3 border-t border-slate-100 pt-4">
+                  <div className={`flex min-w-0 flex-row gap-3 sm:gap-3.5 ${avatarUrl ? "" : "flex-col sm:flex-row"}`}>
+                    <input
+                      ref={avatarInputRef}
+                      type="file"
+                      accept="image/*,.jpg,.jpeg,.png,.webp,.gif,.avif,.heic"
+                      className="hidden"
+                      onChange={onAvatarFileChange}
+                    />
+                    <button
+                      type="button"
+                      onClick={onPickAvatar}
+                      disabled={avatarUploading}
+                      className={`inline-flex h-12 min-h-12 items-center justify-center gap-2 rounded-xl border-2 border-[#2563FF]/35 bg-white px-3 text-sm font-semibold text-[#2563FF] shadow-sm transition-colors hover:border-[#2563FF]/55 hover:bg-[#2563FF]/[0.04] disabled:pointer-events-none disabled:opacity-50 sm:px-4 ${avatarUrl ? "min-w-0 flex-1" : "w-full sm:w-auto sm:flex-1"}`}
+                    >
+                      <Camera className="h-[18px] w-[18px] shrink-0" strokeWidth={2} aria-hidden />
+                      <span className="truncate">{avatarUrl ? "Đổi ảnh" : "Tải ảnh lên"}</span>
+                    </button>
+                    {avatarUrl ? (
+                      <button
+                        type="button"
+                        onClick={onRemoveAvatar}
+                        disabled={avatarUploading}
+                        className="inline-flex h-12 min-h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl border-2 border-rose-200/90 bg-white px-3 text-sm font-semibold text-rose-600 shadow-sm transition-colors hover:border-rose-300 hover:bg-rose-50/80 disabled:pointer-events-none disabled:opacity-50 sm:px-4"
+                      >
+                        <Trash2 className="h-[18px] w-[18px] shrink-0" strokeWidth={2} aria-hidden />
+                        <span className="truncate">Xóa ảnh</span>
+                      </button>
                     ) : null}
                   </div>
-                  <p className="text-[15px] leading-[1.65] text-slate-500 sm:text-base sm:leading-relaxed">{accountSubtitle}</p>
-                  {accountSettings.showProfile ? (
-                    <button
-                      type="button"
-                      onClick={() => selectAccountTab("profile")}
-                      className="text-left text-sm font-semibold text-[#2563FF] underline-offset-4 hover:underline lg:hidden"
-                    >
-                      Chỉnh sửa hồ sơ
-                    </button>
-                  ) : null}
+                  {avatarUploading ? <p className="text-sm text-slate-500">Đang tải ảnh...</p> : null}
+                  {avatarMessage ? <p className="text-sm text-emerald-700">{avatarMessage}</p> : null}
+                  {avatarError ? <p className="text-sm text-rose-700">{avatarError}</p> : null}
                 </div>
-
-                <div className={`mt-8 flex min-w-0 flex-row gap-3 sm:gap-3.5 ${avatarUrl ? "" : "flex-col sm:flex-row"}`}>
-                  <input
-                    ref={avatarInputRef}
-                    type="file"
-                    accept="image/*,.jpg,.jpeg,.png,.webp,.gif,.avif,.heic"
-                    className="hidden"
-                    onChange={onAvatarFileChange}
-                  />
-                  <button
-                    type="button"
-                    onClick={onPickAvatar}
-                    disabled={avatarUploading}
-                    className={`inline-flex h-12 min-h-12 items-center justify-center gap-2 rounded-xl border-2 border-[#2563FF]/35 bg-white px-3 text-sm font-semibold text-[#2563FF] shadow-sm transition-colors hover:border-[#2563FF]/55 hover:bg-[#2563FF]/[0.04] disabled:pointer-events-none disabled:opacity-50 sm:px-4 ${avatarUrl ? "min-w-0 flex-1" : "w-full sm:w-auto sm:flex-1"}`}
-                  >
-                    <Camera className="h-[18px] w-[18px] shrink-0" strokeWidth={2} aria-hidden />
-                    <span className="truncate">{avatarUrl ? "Đổi ảnh" : "Tải ảnh lên"}</span>
-                  </button>
-                  {avatarUrl ? (
-                    <button
-                      type="button"
-                      onClick={onRemoveAvatar}
-                      disabled={avatarUploading}
-                      className="inline-flex h-12 min-h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl border-2 border-rose-200/90 bg-white px-3 text-sm font-semibold text-rose-600 shadow-sm transition-colors hover:border-rose-300 hover:bg-rose-50/80 disabled:pointer-events-none disabled:opacity-50 sm:px-4"
-                    >
-                      <Trash2 className="h-[18px] w-[18px] shrink-0" strokeWidth={2} aria-hidden />
-                      <span className="truncate">Xóa ảnh</span>
-                    </button>
-                  ) : null}
-                </div>
-                {avatarUploading ? <p className="mt-3 text-sm text-slate-500">Đang tải ảnh...</p> : null}
-                {avatarMessage ? <p className="mt-3 text-sm text-emerald-700">{avatarMessage}</p> : null}
-                {avatarError ? <p className="mt-3 text-sm text-rose-700">{avatarError}</p> : null}
               </div>
             </div>
 
             {!data.affiliate.isActive ? (
             <div className="hidden min-h-0 min-w-0 w-full lg:flex lg:h-full">
-              <div className="relative flex h-full min-h-0 w-full flex-col gap-5 rounded-[26px] border border-slate-200/80 bg-white p-6 shadow-[0_4px_28px_rgba(15,23,42,0.07)] sm:rounded-[28px] sm:gap-6 sm:p-8 lg:rounded-[30px] lg:p-8">
-              <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-[#2563FF] sm:text-[13px] sm:tracking-[0.14em]">
-                Rank thành viên
-              </p>
-              <p className="text-lg font-black tracking-[-0.03em] text-slate-900">Thành viên {loyaltyUi.tierLabel}</p>
-              <p className="text-sm font-medium tabular-nums tracking-[-0.02em] text-slate-600">{loyaltyUi.pointsLine}</p>
-              <p className="text-xs leading-relaxed text-slate-500">{loyaltyUi.subline}</p>
-              <div className="flex justify-between gap-1.5">
-                {LOYALTY_TIERS.map((tier, i) => {
-                  const TierIcon = tier.Icon;
-                  const active = i === loyaltyUi.tierIndex;
-                  const passed = i < loyaltyUi.tierIndex;
-                  return (
-                    <div key={tier.label} className="flex min-w-0 flex-1 flex-col items-center gap-1">
-                      <div
-                        className={`flex h-9 w-9 items-center justify-center rounded-xl border sm:h-10 sm:w-10 sm:rounded-2xl ${
-                          active
-                            ? "border-[#2563EB] bg-blue-50 text-[#2563EB] shadow-sm"
-                            : passed
-                              ? "border-emerald-200 bg-emerald-50 text-emerald-600"
-                              : "border-slate-200 bg-white text-slate-300"
-                        }`}
-                      >
-                        <TierIcon className="h-4 w-4 sm:h-5 sm:w-5" strokeWidth={2} aria-hidden />
-                      </div>
-                      <span
-                        className={`text-center text-[10px] font-semibold leading-tight ${active ? "text-[#2563EB]" : "text-slate-500"}`}
-                      >
-                        {tier.label}
-                      </span>
-                    </div>
-                  );
-                })}
+              <div className="relative flex h-full min-h-0 w-full flex-col gap-5 rounded-[26px] border border-slate-200/80 bg-white p-6 shadow-[0_4px_28px_rgba(15,23,42,0.07)] sm:rounded-[28px] lg:rounded-[30px]">
+              {/*
+                Header — icon Lucide Trophy đồng bộ với 2 card còn lại.
+                Icon 22-24px (+20%), gap 10px với text, font-weight 700, màu slate-800 đồng bộ theme.
+              */}
+              <div className="flex items-center gap-2.5">
+                <Trophy className="h-[22px] w-[22px] shrink-0 text-[#2563FF] sm:h-6 sm:w-6" strokeWidth={2} aria-hidden="true" />
+                <h2 className="text-base font-bold tracking-[-0.01em] text-slate-800 sm:text-lg">
+                  Rank thành viên
+                </h2>
               </div>
-              {loyaltyUi.showBar ? (
-                <div className="h-2.5 overflow-hidden rounded-full bg-slate-200">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-[#2563EB] to-sky-400 transition-all duration-500 ease-out"
-                    style={{ width: `${Math.round(loyaltyUi.progress * 100)}%` }}
-                  />
+              {/* Content — căn đều theo chiều dọc, spacing rhythm gọn hơn */}
+              <div className="flex flex-1 flex-col justify-between gap-4">
+                <div className="space-y-1.5">
+                  <p className="text-lg font-black tracking-[-0.03em] text-slate-900">Thành viên {loyaltyUi.tierLabel}</p>
+                  <p className="text-sm font-medium tabular-nums tracking-[-0.02em] text-slate-600">{loyaltyUi.pointsLine}</p>
+                  <p className="text-xs leading-relaxed text-slate-500">{loyaltyUi.subline}</p>
                 </div>
-              ) : (
-                <div className="h-2.5 overflow-hidden rounded-full bg-slate-200">
-                  <div className="h-full w-full rounded-full bg-gradient-to-r from-amber-400 via-amber-300 to-amber-400 transition-all duration-500 ease-out" />
-                </div>
-              )}
-              <ul className="space-y-2.5 text-sm leading-relaxed text-slate-600">
-                {(LOYALTY_TIER_BENEFITS[loyaltyUi.tierIndex] ?? LOYALTY_TIER_BENEFITS[0]).map((line) => (
-                  <li key={line} className="flex items-start gap-2.5">
-                    <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" aria-hidden />
-                    <span>{line}</span>
-                  </li>
-                ))}
-              </ul>
-              <div className="border-t border-slate-100 pt-4">
-                <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">Hoạt động điểm thưởng</p>
-                <ul className="mt-3 max-h-48 space-y-2.5 overflow-y-auto pr-1 text-sm text-slate-600">
-                  {data.loyalty.transactions.length === 0 ? (
-                    <li className="text-xs text-slate-400">
-                      Chưa có giao dịch điểm. Với thẻ/ví: điểm cộng sau khi đặt hàng thành công. Với COD hoặc chuyển khoản: khi cửa hàng xác nhận đã thanh toán trên đơn. Hủy đơn hoặc hoàn tiền sẽ điều chỉnh điểm tương ứng.
-                    </li>
+                <div className="space-y-3">
+                  <div className="flex justify-between gap-1.5">
+                    {LOYALTY_TIERS.map((tier, i) => {
+                      const TierIcon = tier.Icon;
+                      const active = i === loyaltyUi.tierIndex;
+                      const passed = i < loyaltyUi.tierIndex;
+                      return (
+                        <div key={tier.label} className="flex min-w-0 flex-1 flex-col items-center gap-1">
+                          <div
+                            className={`flex h-9 w-9 items-center justify-center rounded-xl border sm:h-10 sm:w-10 sm:rounded-2xl ${
+                              active
+                                ? "border-[#2563EB] bg-blue-50 text-[#2563EB] shadow-sm"
+                                : passed
+                                  ? "border-emerald-200 bg-emerald-50 text-emerald-600"
+                                  : "border-slate-200 bg-white text-slate-300"
+                            }`}
+                          >
+                            <TierIcon className="h-4 w-4 sm:h-5 sm:w-5" strokeWidth={2} aria-hidden />
+                          </div>
+                          <span
+                            className={`text-center text-[10px] font-semibold leading-tight ${active ? "text-[#2563EB]" : "text-slate-500"}`}
+                          >
+                            {tier.label}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {loyaltyUi.showBar ? (
+                    <div className="h-2.5 overflow-hidden rounded-full bg-slate-200">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-[#2563EB] to-sky-400 transition-all duration-500 ease-out"
+                        style={{ width: `${Math.round(loyaltyUi.progress * 100)}%` }}
+                      />
+                    </div>
                   ) : (
-                    data.loyalty.transactions.map((tx) => (
-                      <li key={tx.id} className="flex gap-2 border-b border-slate-50 pb-2 last:border-0">
-                        <span
-                          className={`shrink-0 tabular-nums font-semibold ${tx.points >= 0 ? "text-emerald-600" : "text-rose-600"}`}
-                        >
-                          {tx.points >= 0 ? "+" : ""}
-                          {tx.points.toLocaleString("vi-VN")}
-                        </span>
-                        <span className="min-w-0 flex-1 leading-snug text-slate-600">{tx.description}</span>
-                        <span className="shrink-0 text-[11px] text-slate-400">
-                          {new Date(tx.createdAt).toLocaleDateString("vi-VN")}
-                        </span>
-                      </li>
-                    ))
+                    <div className="h-2.5 overflow-hidden rounded-full bg-slate-200">
+                      <div className="h-full w-full rounded-full bg-gradient-to-r from-amber-400 via-amber-300 to-amber-400 transition-all duration-500 ease-out" />
+                    </div>
                   )}
+                </div>
+                <ul className="space-y-2.5 text-sm leading-relaxed text-slate-600">
+                  {(LOYALTY_TIER_BENEFITS[loyaltyUi.tierIndex] ?? LOYALTY_TIER_BENEFITS[0]).map((line) => (
+                    <li key={line} className="flex items-start gap-2.5">
+                      <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" aria-hidden />
+                      <span>{line}</span>
+                    </li>
+                  ))}
                 </ul>
+              </div>
+              {/* Actions — luôn nằm sát đáy card, phân tách rõ bằng border-t */}
+              <div className="mt-auto border-t border-slate-100 pt-4">
+                <button
+                  type="button"
+                  onClick={() => selectAccountTab("rewardHistory")}
+                  className="inline-flex h-10 w-full items-center justify-center rounded-xl border border-[#E2E8F0] bg-white px-4 text-sm font-semibold text-[#2563EB] transition hover:bg-[#EFF6FF]"
+                >
+                  Xem lịch sử điểm thưởng
+                </button>
               </div>
               </div>
             </div>
@@ -1357,51 +1394,47 @@ export default function CustomerBuyerAccountView({
 
             <div className="min-w-0 w-full lg:flex lg:h-full">
             <div
-              className={`flex min-h-0 w-full min-w-0 flex-col gap-4 rounded-[26px] border border-slate-200/80 bg-white p-6 shadow-[0_4px_28px_rgba(15,23,42,0.07)] sm:gap-5 sm:rounded-[28px] sm:p-8 ${MOBILE_PROMO_BLOCK} lg:h-full lg:min-h-0 lg:rounded-[30px] lg:p-8`}
+              className={`flex min-h-0 w-full min-w-0 flex-col gap-5 rounded-[26px] border border-slate-200/80 bg-white p-6 shadow-[0_4px_28px_rgba(15,23,42,0.07)] sm:rounded-[28px] ${MOBILE_PROMO_BLOCK} lg:h-full lg:min-h-0 lg:rounded-[30px]`}
             >
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#2563FF]/90">Ưu đãi dành riêng cho bạn</p>
-              <p className="text-base font-bold leading-snug tracking-[-0.02em] text-[#0F172A] sm:text-lg">
-                {data.vouchers.active[0]?.name?.trim()
-                  ? data.vouchers.active[0].name.length > 44
-                    ? `${data.vouchers.active[0].name.slice(0, 44)}…`
-                    : data.vouchers.active[0].name
-                  : "GIẢM 15% ĐƠN TIẾP THEO"}
-              </p>
-              <p className="text-xs leading-relaxed text-slate-500 sm:text-sm">
-                {data.vouchers.active[0]
-                  ? "Áp dụng kèm mã — đơn hàng tiếp theo của bạn."
-                  : "Đơn hàng tiếp theo tại Zendo.vn — theo điều kiện chương trình đang hiển thị."}
-              </p>
-              <div className="rounded-lg border-0 bg-slate-100 px-2.5 py-2 max-lg:shadow-none sm:rounded-xl sm:border sm:border-slate-200 sm:bg-slate-50 sm:px-3 sm:py-2.5">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Mã gợi ý</p>
-                <p className="font-mono text-sm font-bold tracking-wide text-[#0F172A] sm:text-base">
-                  {data.vouchers.active[0]?.code ?? "ZENDOVIP15"}
-                </p>
-              </div>
-              <div className="mt-auto flex min-w-0 flex-col gap-3 pt-1">
-              <Link
-                href={accountSettings.orderLookupUrl || "/tra-cuu-don-hang"}
-                className="inline-flex h-10 min-h-10 w-full shrink-0 items-center justify-center rounded-xl bg-[#2563EB] px-4 text-sm font-semibold text-white hover:bg-[#1D4ED8]"
-              >
-                Theo dõi đơn hàng
-              </Link>
-              {showShoppingCta ? (
-                <Link
-                  href={shoppingHomeHref}
-                  className="inline-flex h-10 min-h-10 w-full shrink-0 items-center justify-center rounded-xl bg-[#F59E0B] px-4 text-sm font-semibold text-white hover:bg-[#D97706]"
-                >
-                  {accountSettings.shoppingCtaText || "Tiếp tục mua sắm"}
-                </Link>
-              ) : null}
-              {accountSettings.showProfile ? (
+              {/*
+                Content — voucher highlights (header + danh sách voucher + "Xem tất cả").
+                Flex-1 để kéo giãn chiếm phần giữa card, đẩy Actions xuống đáy.
+                Spacing đồng bộ với 2 card còn lại (gap-5, p-6).
+              */}
+              <AccountVoucherHighlights
+                vouchers={data.vouchers.active}
+                totalVouchers={data.vouchers.active.length}
+                onViewAll={() => selectAccountTab("coupons")}
+              />
+              {/*
+                Actions — luôn nằm sát đáy card, phân tách rõ bằng border-t.
+                Không khoảng trắng thừa, mt-auto đẩy xuống đáy.
+              */}
+              <div className="mt-auto flex min-w-0 flex-col gap-3 border-t border-slate-100 pt-4">
                 <button
                   type="button"
-                  onClick={() => selectAccountTab("profile")}
-                  className="hidden h-10 w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-[#2563EB] shadow-sm hover:bg-slate-50 lg:inline-flex"
+                  onClick={() => setActiveTab("orders")}
+                  className="inline-flex h-10 min-h-10 w-full shrink-0 items-center justify-center rounded-xl bg-[#2563EB] px-4 text-sm font-semibold text-white hover:bg-[#1D4ED8]"
                 >
-                  Chỉnh sửa hồ sơ
+                  Đơn hàng của tôi
                 </button>
-              ) : null}
+                {showShoppingCta ? (
+                  <Link
+                    href={shoppingHomeHref}
+                    className="inline-flex h-10 min-h-10 w-full shrink-0 items-center justify-center rounded-xl bg-[#F59E0B] px-4 text-sm font-semibold text-white hover:bg-[#D97706]"
+                  >
+                    {accountSettings.shoppingCtaText || "Tiếp tục mua sắm"}
+                  </Link>
+                ) : null}
+                {accountSettings.showProfile ? (
+                  <button
+                    type="button"
+                    onClick={() => selectAccountTab("profile")}
+                    className="hidden h-10 w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-[#2563EB] shadow-sm hover:bg-slate-50 lg:inline-flex"
+                  >
+                    Chỉnh sửa hồ sơ
+                  </button>
+                ) : null}
               </div>
             </div>
             </div>
@@ -1701,6 +1734,13 @@ export default function CustomerBuyerAccountView({
             </section>
             </AccountTabKeepAlive>
           ) : null}
+
+          <AccountTabKeepAlive tabKey="rewardHistory" activeTab={activeTab}>
+            <RewardHistoryPanel
+              active={activeTab === "rewardHistory"}
+              panelClassName={TAB_PANEL_CLASS}
+            />
+          </AccountTabKeepAlive>
 
           {showPurchaseHistoryEffective ? (
             <AccountTabKeepAlive tabKey="purchaseHistory" activeTab={activeTab}>

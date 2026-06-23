@@ -89,6 +89,11 @@ export function resolveCtvAccountTab(
     return { tab: "policyHub" };
   }
 
+  // Redirect tab trùng lặp về "orders"
+  if (tab === "purchaseHistory" || tab === "tracking") {
+    return { tab: "orders" };
+  }
+
   if (tab === "affiliate") {
     if (sub) return { tab: "affiliate", sub };
     return { tab: "overview" };
@@ -102,7 +107,9 @@ export function resolveCtvAccountTab(
  */
 export function resolveBuyerAccountTab(initialTab: string, allowedTabs: readonly string[]): string {
   const normalized = (initialTab ?? "").trim();
-  const fromUrl = normalized === "support" ? "policyHub" : normalized;
+  // Redirect tab trùng lặp về "orders"
+  const remapped = normalized === "purchaseHistory" || normalized === "tracking" ? "orders" : normalized;
+  const fromUrl = remapped === "support" ? "policyHub" : remapped;
 
   if (fromUrl && allowedTabs.includes(fromUrl)) {
     return fromUrl;

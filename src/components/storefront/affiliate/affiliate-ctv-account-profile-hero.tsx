@@ -189,7 +189,7 @@ export function AffiliateCtvAccountProfileHero({
           </button>
         ) : null}
         <Link href={orderLookupHref} className={CTV_CTA_PRIMARY}>
-          Theo dõi đơn hàng
+          Đơn hàng của tôi
         </Link>
         {showProfileLink && onEditProfile ? (
           <button type="button" onClick={onEditProfile} className={CTV_CTA_SECONDARY}>
@@ -288,7 +288,7 @@ export function AffiliateCtvAccountProfileHero({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Link href={orderLookupHref} className={CTV_CTA_PRIMARY}>
-            Theo dõi đơn hàng
+            Đơn hàng của tôi
           </Link>
           {showShoppingCta ? (
             <Link href={shoppingHomeHref} className={CTV_CTA_ACCENT}>

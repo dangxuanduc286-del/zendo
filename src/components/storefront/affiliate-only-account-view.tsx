@@ -1201,10 +1201,10 @@ export default function AffiliateOnlyAccountView({
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   type="button"
-                  onClick={() => selectTab("tracking")}
+                  onClick={() => selectTab("orders")}
                   className="inline-flex h-10 items-center rounded-xl bg-[#2563EB] px-4 text-sm font-semibold text-white hover:bg-[#1D4ED8]"
                 >
-                  Theo dõi đơn hàng
+                  Đơn hàng của tôi
                 </button>
                 {showShoppingCta ? (
                   <Link

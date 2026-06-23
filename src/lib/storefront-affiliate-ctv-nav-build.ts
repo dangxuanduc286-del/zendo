@@ -22,8 +22,6 @@ export function buildAffiliateCtvNavEntriesFromDashboard(
   data: AffiliateCtvNavSource,
 ): CtvNavEntry[] {
   const buyerShortcutStatsOk = accountSettings.affiliateShowBuyerStats;
-  const showPurchaseHistoryEffective =
-    accountSettings.showPurchaseHistory && accountSettings.affiliateShowPurchaseHistory;
   const showAddressesEffective = accountSettings.showAddresses && accountSettings.affiliateShowAddressBook;
   const showCouponsEffective = accountSettings.showCoupons && accountSettings.affiliateShowVoucher;
   const showShoppingCta = accountSettings.affiliateShowShoppingCta;
@@ -47,13 +45,13 @@ export function buildAffiliateCtvNavEntriesFromDashboard(
         tab: "purchaseHistory",
         label: accountSettings.purchaseHistoryTitle?.trim() || "Lịch sử mua hàng",
         Icon: ClipboardList,
-        enabled: showPurchaseHistoryEffective,
+        enabled: false, // Ẩn: trùng chức năng với "Đơn hàng của tôi"
       },
       {
         tab: "tracking",
         label: "Theo dõi đơn hàng",
         Icon: Truck,
-        enabled: accountSettings.showOrderTimeline && buyerShortcutStatsOk,
+        enabled: false, // Ẩn: trùng chức năng với "Đơn hàng của tôi"
       },
       {
         tab: "coupons",
