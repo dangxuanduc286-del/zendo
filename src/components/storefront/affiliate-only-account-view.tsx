@@ -22,11 +22,8 @@ import { AffiliateCommissionNotificationToast } from "./affiliate/affiliate-comm
 import { AffiliateCommissionUnlockBanner } from "./affiliate/affiliate-commission-unlock-banner";
 import AccountPolicyHubPanel from "./account-policy-hub-panel";
 import {
-  CTV_CONTENT_PANEL,
   CTV_CTA_PRIMARY,
   CTV_CTA_SECONDARY,
-  CTV_OVERVIEW_TILE,
-  CTV_TYPE_SECTION,
 } from "./affiliate/affiliate-ctv-account-ui-tokens";
 import { AccountOrderItemThumbnail } from "./account-order-item-thumbnail";
 import { AffiliateCtvAccountSidebar } from "./affiliate-ctv-account-sidebar";
@@ -37,6 +34,7 @@ import type { PolicyHubCard } from "../../lib/site-policy-public";
 import { AccountTabKeepAlive } from "./account-tab-keep-alive";
 import { prefetchStorefrontAccountTabsIdle } from "../../lib/account-tab-prefetch";
 import AccountVoucherWallet from "./account-voucher-wallet";
+import { AccountOverviewDashboard } from "./account-overview-dashboard";
 
 const accountTabHeavyFallback = (): JSX.Element => (
   <div className="rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-sm" aria-hidden>
@@ -524,6 +522,41 @@ export default function AffiliateOnlyAccountView({
   const selectedTrackingOrder =
     data.orders.find((order) => order.id === trackingOrderId) ?? data.orders[0] ?? null;
   const accountSubtitle = accountSettings.accountSubtitle || accountSettings.welcomeMessage || "Quản lý thông tin tài khoản của bạn.";
+
+  const overviewActivityLines = useMemo(() => {
+    const lines: Array<{ title: string; meta: string; category?: "order" | "voucher" | "notification" | "reward" | "system" }> = [];
+    const sortedOrders = [...data.orders].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+    for (const order of sortedOrders.slice(0, 3)) {
+      const ui = getOrderStatusUi(order.orderStatus);
+      lines.push({
+        title: `Đơn #${order.code} · ${ui.label}`,
+        meta: new Date(order.createdAt).toLocaleDateString("vi-VN"),
+        category: "order",
+      });
+    }
+    if (data.vouchers.active.length > 0) {
+      lines.push({
+        title: `${data.vouchers.active.length} voucher đang khả dụng trong kho của bạn`,
+        meta: "Ưu đãi",
+        category: "voucher",
+      });
+    }
+    for (const item of liveNotifications.items.slice(0, 2)) {
+      lines.push({
+        title: item.title,
+        meta: new Date(item.createdAt).toLocaleDateString("vi-VN"),
+        category: "notification",
+      });
+    }
+    lines.push({
+      title: `${data.stats.rewardPoints.toLocaleString("vi-VN")} điểm thưởng đang hiệu lực trên tài khoản`,
+      meta: "Tích lũy",
+      category: "reward",
+    });
+    return lines.slice(0, 6);
+  }, [data.orders, data.vouchers.active, data.stats.rewardPoints, liveNotifications.items]);
   useEffect(() => {
     if (!allowedNavTabs.includes(activeTab)) {
       setActiveTab(allowedNavTabs.includes("overview") ? "overview" : fallbackTab);
@@ -1092,13 +1125,29 @@ export default function AffiliateOnlyAccountView({
         ) : null}
 
           {activeTab === "overview" && !(accountSettings.showOverview && accountSettings.showAffiliate) ? (
-            <section className={`${CTV_CONTENT_PANEL} lg:hidden`} aria-labelledby="ctv-overview-heading">
-              <h3 id="ctv-overview-heading" className={CTV_TYPE_SECTION}>
-                Tổng quan tài khoản
-              </h3>
+            <div className="lg:hidden">
+              <AccountOverviewDashboard
+                quickCards={quickCards}
+                orders={data.orders}
+                notificationGroups={liveNotifications.groups}
+                vouchers={data.vouchers.active}
+                activityLines={overviewActivityLines}
+                getOrderStatusUi={getOrderStatusUi}
+                onViewAllVouchers={() => selectTab("coupons")}
+                onGoToOrders={() => selectTab("orders")}
+                ordersHref="/tai-khoan?tab=orders"
+                shoppingHomeHref={shoppingHomeHref}
+                showShoppingCta={showShoppingCta}
+                shoppingCtaText={accountSettings.shoppingCtaText}
+                showCoupons={showCouponsEffective}
+                showSupport={accountSettings.affiliateShowSupport}
+                orderLookupUrl={accountSettings.orderLookupUrl}
+                supportHref={supportHref}
+                description="Tổng hợp đơn hàng, hoa hồng và hoạt động CTV gần nhất."
+              />
               {accountSettings.showAffiliate ? (
                 <div
-                  className="mt-5 grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-3 lg:gap-4"
+                  className="mt-3 grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-3"
                   role="group"
                   aria-label="Thao tác CTV nhanh"
                 >
@@ -1127,95 +1176,7 @@ export default function AffiliateOnlyAccountView({
                   </button>
                 </div>
               ) : null}
-              <div className="mt-5 grid grid-cols-1 gap-4 xl:grid-cols-2">
-                {buyerShortcutStatsOk ? (
-                  <article className={CTV_OVERVIEW_TILE}>
-                    <p className="text-sm font-semibold text-[#0F172A]">Đơn gần đây</p>
-                    {data.orders.length ? (
-                      <div className="mt-2 space-y-1.5">
-                        {data.orders.slice(0, 2).map((order) => (
-                          <p key={order.id} className="text-sm text-[#64748B]">
-                            #{order.code} • {new Intl.NumberFormat("vi-VN").format(order.totalAmount)}đ
-                          </p>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="mt-2">
-                        <p className="text-sm text-[#64748B]">Bạn chưa có đơn hàng nào.</p>
-                        {showShoppingCta ? (
-                          <Link
-                            href={shoppingHomeHref}
-                            className="mt-2 inline-flex h-9 items-center rounded-lg bg-[#F59E0B] px-3 text-xs font-semibold text-white hover:bg-[#D97706]"
-                          >
-                            Mua sắm ngay
-                          </Link>
-                        ) : null}
-                      </div>
-                    )}
-                  </article>
-                ) : null}
-                <article className={CTV_OVERVIEW_TILE}>
-                  <p className="text-sm font-semibold text-[#0F172A]">Thông báo mới</p>
-                  <div className="mt-2 space-y-1 text-sm text-[#64748B]">
-                    <p>Đơn hàng: {liveNotifications.groups.order}</p>
-                    <p>Hoa hồng: {liveNotifications.groups.commission}</p>
-                    <p>Khuyến mãi: {liveNotifications.groups.promotion}</p>
-                    <p>Hệ thống: {liveNotifications.groups.system}</p>
-                  </div>
-                </article>
-                {showCouponsEffective ? (
-                  <article className={CTV_OVERVIEW_TILE}>
-                    <p className="text-sm font-semibold text-[#0F172A]">Voucher nổi bật</p>
-                    {data.vouchers.active.slice(0, 2).length ? (
-                      <div className="mt-2 space-y-1.5">
-                        {data.vouchers.active.slice(0, 2).map((voucher) => (
-                          <p key={voucher.code} className="text-sm text-[#64748B]">
-                            {voucher.name} • {voucher.code}
-                          </p>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="mt-2 text-sm text-[#64748B]">Chưa có voucher còn hạn.</p>
-                    )}
-                  </article>
-                ) : null}
-                {accountSettings.affiliateShowSupport ? (
-                  <article className={CTV_OVERVIEW_TILE}>
-                    <p className="text-sm font-semibold text-[#0F172A]">Hỗ trợ nhanh</p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {accountSettings.orderLookupUrl ? <Link href={accountSettings.orderLookupUrl} className="rounded-lg bg-white px-2.5 py-1 text-xs text-[#0F172A]">Tra cứu đơn</Link> : null}
-                      {supportHref.startsWith("http") ? (
-                        <Link
-                          href={supportHref}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="rounded-lg bg-white px-2.5 py-1 text-xs text-[#0F172A]"
-                        >
-                          Zalo
-                        </Link>
-                      ) : null}
-                    </div>
-                  </article>
-                ) : null}
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => selectTab("orders")}
-                  className="inline-flex h-10 items-center rounded-xl bg-[#2563EB] px-4 text-sm font-semibold text-white hover:bg-[#1D4ED8]"
-                >
-                  Đơn hàng của tôi
-                </button>
-                {showShoppingCta ? (
-                  <Link
-                    href={shoppingHomeHref}
-                    className="inline-flex h-10 items-center rounded-xl bg-[#F59E0B] px-4 text-sm font-semibold text-white hover:bg-[#D97706]"
-                  >
-                    Tiếp tục mua sắm
-                  </Link>
-                ) : null}
-              </div>
-            </section>
+            </div>
           ) : null}
 
           {accountSettings.showOrders ? (

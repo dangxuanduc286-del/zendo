@@ -8,11 +8,8 @@ import {
   Camera,
   Crown,
   Gem,
-  Loader2,
   Medal,
-  Package,
   Sparkles,
-  TicketPercent,
   Trash2,
   Trophy,
   UserCircle2,
@@ -50,6 +47,7 @@ import { AccountPageContentStart, AccountPageHeader } from "./account-page-heade
 import { prefetchStorefrontAccountTabsIdle } from "../../lib/account-tab-prefetch";
 import AccountVoucherWallet from "./account-voucher-wallet";
 import AccountVoucherHighlights from "./account-voucher-highlights";
+import { AccountOverviewDashboard } from "./account-overview-dashboard";
 
 const PurchaseHistoryPanel = dynamic(() => import("./purchase-history-panel"), {
   loading: () => <div className="rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm">Đang tải...</div>,
@@ -204,8 +202,6 @@ const MOBILE_HERO_BLOCK =
   "max-lg:rounded-none max-lg:border-0 max-lg:border-b max-lg:border-slate-200/80 max-lg:shadow-none max-lg:bg-white max-lg:p-4 max-lg:sm:p-4";
 const MOBILE_PROMO_BLOCK =
   "max-lg:rounded-none max-lg:border-0 max-lg:border-b max-lg:border-slate-200/80 max-lg:shadow-none max-lg:bg-white max-lg:p-4 max-lg:gap-3 max-lg:sm:gap-3";
-const MOBILE_OVERVIEW_TILE =
-  "max-lg:rounded-lg max-lg:border-0 max-lg:bg-slate-50 max-lg:p-2.5 max-lg:shadow-none max-lg:hover:bg-slate-50 max-lg:hover:shadow-none";
 const TAB_PANEL_CLASS = `w-full min-w-0 rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 ${MOBILE_PANEL_FLAT}`;
 
 function mapOrderTimeline(status: string): {
@@ -515,7 +511,7 @@ export default function CustomerBuyerAccountView({
   const loyaltyUi = useMemo(() => computeLoyaltyUi(data.loyalty.points), [data.loyalty.points]);
 
   const overviewActivityLines = useMemo(() => {
-    const lines: Array<{ title: string; meta: string }> = [];
+    const lines: Array<{ title: string; meta: string; category?: "order" | "voucher" | "notification" | "reward" | "system" }> = [];
     const sortedOrders = [...data.orders].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     );
@@ -524,56 +520,80 @@ export default function CustomerBuyerAccountView({
       lines.push({
         title: `Đơn #${order.code} · ${ui.label}`,
         meta: new Date(order.createdAt).toLocaleDateString("vi-VN"),
+        category: "order",
       });
     }
     if (data.vouchers.active.length > 0) {
       lines.push({
         title: `${data.vouchers.active.length} voucher đang khả dụng trong kho của bạn`,
         meta: "Ưu đãi",
+        category: "voucher",
       });
     }
     for (const item of liveNotifications.items.slice(0, 2)) {
       lines.push({
         title: item.title,
         meta: new Date(item.createdAt).toLocaleDateString("vi-VN"),
+        category: "notification",
       });
     }
     if (!data.affiliate.isActive) {
       lines.push({
         title: `${data.loyalty.points.toLocaleString("vi-VN")} điểm thưởng đang hiệu lực trên tài khoản`,
         meta: "Tích lũy",
+        category: "reward",
       });
     }
     return lines.slice(0, 6);
   }, [data.orders, data.vouchers.active, data.loyalty.points, liveNotifications.items, data.affiliate.isActive]);
 
-  const menuItems: AccountNavItem[] = [
-    { kind: "tab", label: "Tổng quan", tab: "overview", enabled: accountSettings.showOverview },
-    { kind: "tab", label: "Đơn hàng của tôi", tab: "orders", enabled: accountSettings.showOrders },
-    { kind: "tab", label: "Hoạt động điểm thưởng", tab: "rewardHistory", enabled: true },
-    {
-      kind: "tab",
-      label: accountSettings.purchaseHistoryTitle?.trim() || "Lịch sử mua hàng",
-      tab: "purchaseHistory",
-      enabled: false, // Ẩn: trùng chức năng với "Đơn hàng của tôi"
-    },
-    { kind: "tab", label: "Theo dõi đơn hàng", tab: "tracking", enabled: false }, // Ẩn: trùng chức năng với "Đơn hàng của tôi"
-    { kind: "tab", label: "Thông báo", tab: "notifications", enabled: accountSettings.showNotifications },
-    { kind: "tab", label: "Kho voucher", tab: "coupons", enabled: showCouponsEffective },
-    { kind: "tab", label: "Thông tin cá nhân", tab: "profile", enabled: accountSettings.showProfile },
-    { kind: "tab", label: "Sổ địa chỉ", tab: "addresses", enabled: showAddressesEffective },
-    {
-      kind: "tab",
-      label: "Yêu thích / đã xem",
-      tab: "wishlist",
-      enabled: accountSettings.showWishlist || accountSettings.showRecentlyViewed || accountSettings.showRecommendedProducts,
-    },
-    { kind: "support", label: "Hỗ trợ", enabled: accountSettings.showSupport },
-    { kind: "tab", label: "Tra cứu & chính sách", tab: "policyHub", enabled: true },
-    { kind: "tab", label: "CTV / Affiliate", tab: "affiliate", enabled: accountSettings.showAffiliate },
-    { kind: "tab", label: "Bảo mật tài khoản", tab: "security", enabled: accountSettings.showSecurity },
-  ];
-  const enabledMenuItems = menuItems.filter((item) => item.enabled && item.label.trim().length > 0);
+  const menuItems: AccountNavItem[] = useMemo(
+    () => [
+      { kind: "tab", label: "Tổng quan", tab: "overview", enabled: accountSettings.showOverview },
+      { kind: "tab", label: "Đơn hàng của tôi", tab: "orders", enabled: accountSettings.showOrders },
+      { kind: "tab", label: "Hoạt động điểm thưởng", tab: "rewardHistory", enabled: true },
+      {
+        kind: "tab",
+        label: accountSettings.purchaseHistoryTitle?.trim() || "Lịch sử mua hàng",
+        tab: "purchaseHistory",
+        enabled: false, // Ẩn: trùng chức năng với "Đơn hàng của tôi"
+      },
+      { kind: "tab", label: "Theo dõi đơn hàng", tab: "tracking", enabled: false }, // Ẩn: trùng chức năng với "Đơn hàng của tôi"
+      { kind: "tab", label: "Thông báo", tab: "notifications", enabled: accountSettings.showNotifications },
+      { kind: "tab", label: "Kho voucher", tab: "coupons", enabled: showCouponsEffective },
+      { kind: "tab", label: "Thông tin cá nhân", tab: "profile", enabled: accountSettings.showProfile },
+      { kind: "tab", label: "Sổ địa chỉ", tab: "addresses", enabled: showAddressesEffective },
+      {
+        kind: "tab",
+        label: "Yêu thích / đã xem",
+        tab: "wishlist",
+        enabled: accountSettings.showWishlist || accountSettings.showRecentlyViewed || accountSettings.showRecommendedProducts,
+      },
+      { kind: "support", label: "Hỗ trợ", enabled: accountSettings.showSupport },
+      { kind: "tab", label: "Tra cứu & chính sách", tab: "policyHub", enabled: true },
+      { kind: "tab", label: "CTV / Affiliate", tab: "affiliate", enabled: accountSettings.showAffiliate },
+      { kind: "tab", label: "Bảo mật tài khoản", tab: "security", enabled: accountSettings.showSecurity },
+    ],
+    [
+      accountSettings.showOverview,
+      accountSettings.showOrders,
+      accountSettings.purchaseHistoryTitle,
+      accountSettings.showNotifications,
+      accountSettings.showProfile,
+      accountSettings.showWishlist,
+      accountSettings.showRecentlyViewed,
+      accountSettings.showRecommendedProducts,
+      accountSettings.showSupport,
+      accountSettings.showAffiliate,
+      accountSettings.showSecurity,
+      showCouponsEffective,
+      showAddressesEffective,
+    ],
+  );
+  const enabledMenuItems = useMemo(
+    () => menuItems.filter((item) => item.enabled && item.label.trim().length > 0),
+    [menuItems],
+  );
   const fallbackTab =
     enabledMenuItems.find((item): item is { kind: "tab"; tab: TabKey; label: string; enabled: boolean } => item.kind === "tab")
       ?.tab ?? "overview";
@@ -1001,78 +1021,6 @@ export default function CustomerBuyerAccountView({
     }
   };
 
-  const statCardHelpers: Record<string, string> = {
-    orders: "Tổng đơn đã đặt",
-    processing: "Đơn đang xử lý",
-    vouchers: "Voucher khả dụng",
-    rewards: "Điểm thưởng hiện tại",
-  };
-
-  const statsGridMobile =
-    quickCards.length > 0 ? (
-      <div
-        id="tong-quan-stats"
-        className="grid min-w-0 w-full grid-cols-2 gap-1.5 px-3 pb-3 lg:hidden"
-        role="region"
-        aria-label="Thống kê tài khoản"
-      >
-        {quickCards.map((card) => (
-          <article
-            key={card.key}
-            className="rounded-lg border-0 bg-slate-50 px-2 py-1.5 shadow-none sm:rounded-xl sm:border sm:border-[#E2E8F0] sm:bg-[#F8FAFC] sm:px-2.5 sm:py-2 sm:shadow-sm"
-          >
-            <p className="text-[11px] font-medium leading-snug text-[#64748B] sm:text-xs">{card.label}</p>
-            <p className="mt-0.5 truncate text-base font-bold tabular-nums text-[#0F172A] sm:text-lg">{card.value}</p>
-          </article>
-        ))}
-      </div>
-    ) : null;
-
-  const statsDashboardDesktop =
-    quickCards.length > 0 ? (
-      <section
-        className="hidden min-w-0 lg:col-start-2 lg:row-start-2 lg:mt-5 lg:block lg:w-full"
-        aria-label="Thống kê tài khoản (desktop)"
-      >
-        <div className="grid min-w-0 grid-cols-2 gap-4 2xl:grid-cols-4">
-          {quickCards.map((card) => {
-            const Icon =
-              card.key === "orders"
-                ? Package
-                : card.key === "processing"
-                  ? Loader2
-                  : card.key === "vouchers"
-                    ? TicketPercent
-                    : Sparkles;
-            const displayValue =
-              typeof card.value === "number" ? card.value.toLocaleString("vi-VN") : String(card.value);
-            return (
-              <article
-                key={`desktop-stat-${card.key}`}
-                className="group relative rounded-[24px] border border-orange-100 bg-gradient-to-br from-orange-50 to-amber-50 p-5 shadow-[0_4px_18px_rgba(251,146,60,0.08)] transition-all hover:-translate-y-px hover:shadow-[0_10px_30px_rgba(251,146,60,0.12)]"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-slate-600">{card.label}</p>
-                    <p className="mt-2 text-[36px] font-black leading-none tracking-[-0.05em] text-slate-900 tabular-nums">
-                      {displayValue}
-                    </p>
-                    <p className="mt-2 text-xs text-slate-500">{statCardHelpers[card.key] ?? ""}</p>
-                  </div>
-                  <div
-                    className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-orange-100 bg-white/80"
-                    aria-hidden
-                  >
-                    <Icon className="h-6 w-6 text-orange-500" strokeWidth={2} />
-                  </div>
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      </section>
-    ) : null;
-
   return (
     <div className={`w-full min-w-0 max-w-none space-y-0 bg-transparent max-lg:pb-2 lg:mx-auto lg:max-w-[87.5rem] lg:space-y-0 lg:px-4 lg:pb-8 lg:pt-2 ${UI_OVERFLOW_CLIP}`}>
       <AccountMobileMenuDrawer
@@ -1106,7 +1054,7 @@ export default function CustomerBuyerAccountView({
       >
         <aside
           className={`order-2 hidden w-full min-w-0 shrink-0 rounded-2xl border border-[#E2E8F0] bg-white p-3 shadow-sm md:block lg:order-none lg:col-start-1 lg:row-start-1 lg:sticky lg:top-6 lg:self-start lg:max-h-[calc(100dvh-5rem)] lg:w-full lg:max-w-full lg:overflow-y-auto lg:overscroll-contain lg:rounded-[28px] lg:border-slate-200 lg:p-4 lg:shadow-sm ${
-            activeTab === "overview" ? "lg:row-span-3" : "lg:row-span-1"
+            activeTab === "overview" ? "lg:row-span-2" : "lg:row-span-1"
           }`}
         >
           <div className="flex flex-wrap gap-2 lg:flex-col lg:gap-2">
@@ -1390,8 +1338,6 @@ export default function CustomerBuyerAccountView({
             </div>
             ) : null}
 
-            <div className="w-full lg:col-span-3 lg:hidden">{statsGridMobile}</div>
-
             <div className="min-w-0 w-full lg:flex lg:h-full">
             <div
               className={`flex min-h-0 w-full min-w-0 flex-col gap-5 rounded-[26px] border border-slate-200/80 bg-white p-6 shadow-[0_4px_28px_rgba(15,23,42,0.07)] sm:rounded-[28px] ${MOBILE_PROMO_BLOCK} lg:h-full lg:min-h-0 lg:rounded-[30px]`}
@@ -1413,7 +1359,7 @@ export default function CustomerBuyerAccountView({
               <div className="mt-auto flex min-w-0 flex-col gap-3 border-t border-slate-100 pt-4">
                 <button
                   type="button"
-                  onClick={() => setActiveTab("orders")}
+                  onClick={() => selectAccountTab("orders")}
                   className="inline-flex h-10 min-h-10 w-full shrink-0 items-center justify-center rounded-xl bg-[#2563EB] px-4 text-sm font-semibold text-white hover:bg-[#1D4ED8]"
                 >
                   Đơn hàng của tôi
@@ -1442,131 +1388,31 @@ export default function CustomerBuyerAccountView({
         </section>
         ) : null}
 
-        {activeTab === "overview" ? statsDashboardDesktop : null}
-
         <div
           className={`order-3 min-w-0 w-full max-w-none space-y-0 max-lg:space-y-0 lg:order-none lg:col-start-2 lg:space-y-5 ${
-            activeTab === "overview" ? "lg:row-start-3" : "lg:row-start-1"
+            activeTab === "overview" ? "lg:row-start-2" : "lg:row-start-1"
           }`}
         >
           {activeTab === "overview" ? (
-            <section
-              className={`w-full min-w-0 rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm sm:p-5 ${MOBILE_PANEL_FLAT} lg:rounded-[32px] lg:border-slate-200/90 lg:p-7 lg:shadow-[0_8px_30px_rgba(15,23,42,0.04)]`}
-            >
-              <AccountPageHeader
-                id="tong-quan"
-                title="Tổng quan tài khoản"
-                bordered={false}
-                headingLevel="h2"
-              />
-              <AccountPageContentStart>
-              <div className="grid grid-cols-1 gap-2 max-lg:gap-2 lg:grid-cols-2 lg:gap-5">
-                {buyerShortcutStatsOk ? (
-                  <article className={`rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3 transition-all ${MOBILE_OVERVIEW_TILE} lg:rounded-[26px] lg:border-slate-200/90 lg:bg-slate-50/60 lg:p-6 lg:hover:bg-white lg:hover:shadow-sm`}>
-                    <p className="text-sm font-semibold leading-tight tracking-[-0.02em] text-[#0F172A] lg:text-base lg:font-bold lg:tracking-[-0.03em]">
-                      Đơn gần đây
-                    </p>
-                    {data.orders.length ? (
-                      <div className="mt-2 space-y-1.5 lg:mt-3 lg:space-y-3">
-                        {data.orders.slice(0, 2).map((order) => (
-                          <p key={order.id} className="text-sm leading-snug tracking-[-0.02em] text-[#64748B]">
-                            #{order.code} • {new Intl.NumberFormat("vi-VN").format(order.totalAmount)}đ
-                          </p>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="mt-2">
-                        <p className="text-sm text-[#64748B]">Bạn chưa có đơn hàng nào.</p>
-                        {showShoppingCta ? (
-                          <Link
-                            href={shoppingHomeHref}
-                            className="mt-2 inline-flex h-9 items-center rounded-lg bg-[#F59E0B] px-3 text-xs font-semibold text-white hover:bg-[#D97706]"
-                          >
-                            Mua sắm ngay
-                          </Link>
-                        ) : null}
-                      </div>
-                    )}
-                  </article>
-                ) : null}
-                <article className={`rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3 transition-all ${MOBILE_OVERVIEW_TILE} lg:rounded-[26px] lg:border-slate-200/90 lg:bg-slate-50/60 lg:p-6 lg:hover:bg-white lg:hover:shadow-sm`}>
-                  <p className="text-sm font-semibold leading-tight tracking-[-0.02em] text-[#0F172A] lg:text-base lg:font-bold lg:tracking-[-0.03em]">
-                    Thông báo mới
-                  </p>
-                  <div className="mt-2 space-y-1 text-sm leading-tight tracking-[-0.02em] text-[#64748B] lg:mt-3 lg:space-y-3 lg:leading-snug">
-                    <p>Đơn hàng: {liveNotifications.groups.order}</p>
-                    <p>Hoa hồng: {liveNotifications.groups.commission}</p>
-                    <p>Khuyến mãi: {liveNotifications.groups.promotion}</p>
-                    <p>Hệ thống: {liveNotifications.groups.system}</p>
-                  </div>
-                </article>
-                {showCouponsEffective ? (
-                  <article className={`rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3 transition-all ${MOBILE_OVERVIEW_TILE} lg:rounded-[26px] lg:border-slate-200/90 lg:bg-slate-50/60 lg:p-6 lg:hover:bg-white lg:hover:shadow-sm`}>
-                    <p className="text-sm font-semibold leading-tight tracking-[-0.02em] text-[#0F172A] lg:text-base lg:font-bold lg:tracking-[-0.03em]">
-                      Voucher nổi bật
-                    </p>
-                    {data.vouchers.active.slice(0, 2).length ? (
-                      <div className="mt-2 space-y-1.5 lg:mt-3 lg:space-y-3">
-                        {data.vouchers.active.slice(0, 2).map((voucher) => (
-                          <p key={voucher.code} className="text-sm leading-snug tracking-[-0.02em] text-[#64748B]">
-                            {voucher.name} • {voucher.code}
-                          </p>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="mt-2 text-sm text-[#64748B]">Chưa có voucher còn hạn.</p>
-                    )}
-                  </article>
-                ) : null}
-                {showSupportCombined ? (
-                  <article className="hidden rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3 transition-all lg:block lg:rounded-[26px] lg:border-slate-200/90 lg:bg-slate-50/60 lg:p-6 lg:hover:bg-white lg:hover:shadow-sm">
-                    <p className="text-sm font-semibold leading-tight tracking-[-0.02em] text-[#0F172A] lg:text-base lg:font-bold lg:tracking-[-0.03em]">
-                      Hỗ trợ nhanh
-                    </p>
-                    <div className="mt-2 flex flex-wrap gap-2 lg:mt-3">
-                      {accountSettings.orderLookupUrl ? (
-                        <Link href={accountSettings.orderLookupUrl} className="rounded-lg bg-white px-2.5 py-1 text-xs text-[#0F172A]">
-                          Tra cứu đơn
-                        </Link>
-                      ) : null}
-                      {supportHref.startsWith("http") ? (
-                        <Link
-                          href={supportHref}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="rounded-lg bg-white px-2.5 py-1 text-xs text-[#0F172A]"
-                        >
-                          Zalo
-                        </Link>
-                      ) : null}
-                    </div>
-                  </article>
-                ) : null}
-                <article className="hidden rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3 transition-all lg:col-span-2 lg:block lg:rounded-[26px] lg:border-slate-200/90 lg:bg-slate-50/60 lg:p-6 lg:hover:bg-white lg:hover:shadow-sm">
-                  <p className="text-sm font-semibold leading-tight tracking-[-0.02em] text-[#0F172A] lg:text-base lg:font-bold lg:tracking-[-0.03em]">
-                    Hoạt động gần đây
-                  </p>
-                  <div className="mt-2 space-y-2 lg:mt-3 lg:space-y-3">
-                    {overviewActivityLines.length ? (
-                      overviewActivityLines.map((line, i) => (
-                        <div
-                          key={`${line.title}-${i}`}
-                          className="flex items-start justify-between gap-3 rounded-xl border border-transparent bg-white/0 px-0 py-1 lg:rounded-2xl lg:border-slate-200/60 lg:bg-white/70 lg:px-3 lg:py-2"
-                        >
-                          <p className="min-w-0 flex-1 text-sm font-medium leading-snug tracking-[-0.02em] text-slate-700">{line.title}</p>
-                          <span className="shrink-0 text-xs font-medium tabular-nums text-slate-400">{line.meta}</span>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-sm leading-relaxed text-[#64748B]">
-                        Các hoạt động đơn hàng, ưu đãi và thông báo sẽ hiển thị tại đây.
-                      </p>
-                    )}
-                  </div>
-                </article>
-              </div>
-              </AccountPageContentStart>
-            </section>
+            <AccountOverviewDashboard
+              quickCards={quickCards}
+              orders={data.orders}
+              notificationGroups={liveNotifications.groups}
+              vouchers={data.vouchers.active}
+              activityLines={overviewActivityLines}
+              getOrderStatusUi={getOrderStatusUi}
+              onViewAllVouchers={() => selectAccountTab("coupons")}
+              onGoToOrders={() => selectAccountTab("orders")}
+              ordersHref="/tai-khoan?tab=orders"
+              shoppingHomeHref={shoppingHomeHref}
+              showShoppingCta={showShoppingCta}
+              shoppingCtaText={accountSettings.shoppingCtaText}
+              showCoupons={showCouponsEffective}
+              showSupport={showSupportCombined}
+              orderLookupUrl={accountSettings.orderLookupUrl}
+              supportHref={supportHref}
+              mobileFlatClass={MOBILE_PANEL_FLAT}
+            />
           ) : null}
 
           {accountSettings.showOrders ? (

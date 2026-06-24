@@ -192,3 +192,11 @@ body {
 .admin-scrollbar::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* AccountTabKeepAlive — đảm bảo panel ẩn thực sự ẩn (display:none) khi inactive.
+   Tailwind `hidden` chỉ set `display:none` nhưng một số style kế thừa có thể ghi đè.
+   Rule này chốt display:none cho [hidden][data-account-tab] để tránh panel ẩn vẫn
+   chiếm không gian / nhận focus / gây kẹt UI khi đổi tab. */
+[data-account-tab][hidden] {
+  display: none !important;
+}

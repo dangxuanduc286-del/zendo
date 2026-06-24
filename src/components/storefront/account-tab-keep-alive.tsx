@@ -40,6 +40,8 @@ function AccountTabKeepAliveInner({
       inert={!isActive}
       aria-hidden={!isActive}
       data-account-tab={tabKey}
+      data-account-tab-key={tabKey}
+      data-account-active-tab={activeTab}
       {...(isActive ? { "data-account-tab-active": "1" as const } : {})}
     >
       <AccountTabPanelVisibilityProvider active={isActive}>{children}</AccountTabPanelVisibilityProvider>
