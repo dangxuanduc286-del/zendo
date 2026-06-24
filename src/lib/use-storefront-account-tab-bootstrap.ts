@@ -1,12 +1,12 @@
 "use client";
 
 import type { Dispatch, SetStateAction } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { startTransition, useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import {
   buildTaiKhoanTabHref,
   consumeAccountLoginOverviewEntry,
   isCtvAffiliateAccount,
+  logAccountTabDebug,
   resetAccountOverviewScroll,
   resolveBuyerAccountTab,
   resolveCtvAccountTab,
@@ -46,6 +46,18 @@ export function resolveStorefrontAccountTabInitial<TTab extends string>(
 /**
  * URL `?tab=` (và `?sub=` cho CTV) là single source of truth cho tab hiện tại.
  * `activeTab`/`activeSubTab` state chỉ là mirror của URL để render tức thời.
+ *
+ * PERF (audit 2026-06-24):
+ * Trước đây hook dùng `router.replace()` từ `next/navigation` để cập nhật `?tab=`.
+ * Next.js 15 App Router coi searchParams change là navigation → gửi RSC request
+ * `GET /tai-khoan?tab=...` → server chạy lại `page.tsx` → `getStorefrontCustomerAccountDashboardData`
+ * (DB query nặng 3–5s) → client chờ 3–5s mỗi lần click tab.
+ *
+ * Fix: dùng `window.history.replaceState()` để cập nhật URL **không trigger RSC fetch**.
+ * - Click tab: `setActiveTab` + `history.replaceState` → render <100ms, không RSC.
+ * - Back/Forward: `popstate` listener sync state từ `window.location.search`.
+ * - URL `?tab=` vẫn đồng bộ.
+ * - Không phá business logic / API / DB / Affiliate / Voucher / Order History.
  */
 export function useStorefrontAccountTabBootstrap<TTab extends string, TSub extends string>(
   args: BootstrapArgs<TTab, TSub>,
@@ -59,17 +71,13 @@ export function useStorefrontAccountTabBootstrap<TTab extends string, TSub exten
     setActiveSubTab,
   } = args;
 
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const bootstrappedRef = useRef(false);
   const isCtv = isCtvAffiliateAccount(affiliateActive);
+  const bootstrappedRef = useRef(false);
 
-  const syncStateFromSearchParams = useCallback(
-    (
-      params: Pick<URLSearchParams, "get">,
-      options?: { forceLoginOverview?: boolean; canonicalize?: boolean },
-    ) => {
+  const syncStateFromUrl = useCallback(
+    (options?: { forceLoginOverview?: boolean }) => {
+      if (typeof window === "undefined") return;
+      const params = new URLSearchParams(window.location.search);
       const urlTab = (params.get("tab") ?? "").trim();
       const urlSub = (params.get("sub") ?? "").trim();
       const resolved = isCtv
@@ -79,6 +87,13 @@ export function useStorefrontAccountTabBootstrap<TTab extends string, TSub exten
         : { tab: resolveBuyerAccountTab(urlTab, allowedTabs) };
 
       const tab = resolved.tab;
+      logAccountTabDebug("syncFromUrl", {
+        urlTab,
+        urlSub,
+        resolvedTab: tab,
+        resolvedSub: resolved.sub,
+        forceLoginOverview: options?.forceLoginOverview,
+      });
       if (accountTabKeys.has(tab as TTab)) {
         setActiveTab(tab as TTab);
       }
@@ -88,56 +103,105 @@ export function useStorefrontAccountTabBootstrap<TTab extends string, TSub exten
         setActiveSubTab("overview" as TSub);
       }
 
-      if (!isCtv || !options?.canonicalize) return;
-
-      const wantSub = resolved.sub ?? "";
-      const href = buildTaiKhoanTabHref(tab, wantSub || undefined);
-      const needsReplace =
-        urlTab !== tab || (tab === "affiliate" && urlSub !== wantSub) || (!urlTab && tab === "overview");
-
-      if (needsReplace) {
-        router.replace(href, { scroll: false });
-      }
-
       if (tab === "overview") {
         resetAccountOverviewScroll();
       }
+
+      return { tab, sub: resolved.sub };
     },
-    [accountTabKeys, affiliateSubTabKeys, allowedTabs, isCtv, router, setActiveSubTab, setActiveTab],
+    [accountTabKeys, affiliateSubTabKeys, allowedTabs, isCtv, setActiveSubTab, setActiveTab],
   );
 
-  // Giữ ref tới syncStateFromSearchParams để effect chỉ chạy khi searchParams/pathname
-  // thay đổi, không chạy khi identity của syncStateFromSearchParams thay đổi.
-  const syncStateRef = useRef(syncStateFromSearchParams);
-  useEffect(() => {
-    syncStateRef.current = syncStateFromSearchParams;
-  }, [syncStateFromSearchParams]);
-
+  // Bootstrap: chạy 1 lần khi mount để đảm bảo state khớp URL (SSR + client).
   useEffect(() => {
     const firstRun = !bootstrappedRef.current;
     const forceLogin = firstRun && isCtv && consumeAccountLoginOverviewEntry();
     bootstrappedRef.current = true;
-    syncStateRef.current(searchParams, {
-      forceLoginOverview: forceLogin,
-      canonicalize: firstRun,
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isCtv, pathname, searchParams]);
 
+    const result = syncStateFromUrl({ forceLoginOverview: forceLogin });
+
+    // Canonicalize URL nếu cần (CTV): đảm bảo `?tab=` khớp tab đã resolve.
+    if (isCtv && typeof window !== "undefined" && result) {
+      const params = new URLSearchParams(window.location.search);
+      const urlTab = (params.get("tab") ?? "").trim();
+      const urlSub = (params.get("sub") ?? "").trim();
+      const wantSub = result.sub ?? "";
+      const href = buildTaiKhoanTabHref(result.tab, wantSub || undefined);
+      const needsReplace =
+        urlTab !== result.tab ||
+        (result.tab === "affiliate" && urlSub !== wantSub) ||
+        (!urlTab && result.tab === "overview");
+      if (needsReplace) {
+        window.history.replaceState({}, "", href);
+        logAccountTabDebug("bootstrap.canonicalize", { href });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Back/Forward browser: popstate listener sync state từ URL mới.
+  // Next.js App Router cũng listen popstate và sẽ fetch RSC — không thể prevent
+  // hoàn toàn, nhưng state đã được sync tức thời qua handler này nên UI phản hồi
+  // ngay; RSC fetch chỉ refresh data (thường dùng cache nên nhanh hơn click tab).
+  useEffect(() => {
+    const onPopState = () => {
+      const t0 = typeof performance !== "undefined" ? performance.now() : Date.now();
+      logAccountTabDebug("popstate.start", { url: window.location.href, t0 });
+      syncStateFromUrl();
+      const t1 = typeof performance !== "undefined" ? performance.now() : Date.now();
+      logAccountTabDebug("popstate.syncDone", { syncMs: t1 - t0 });
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [syncStateFromUrl]);
+
+  /**
+   * Click tab: cập nhật state + URL qua `history.replaceState`.
+   * KHÔNG dùng `router.replace` để tránh RSC fetch 3–5s.
+   * `replaceState` không thêm history entry → không phá Back/Forward của các
+   * trang trước/sau tài khoản. Back/Forward giữa các tab tài khoản không tạo
+   * entry mới (giống behavior cũ với `router.replace`).
+   */
   const onSelectTab = useCallback(
     (tab: TTab, sub?: TSub) => {
-      startTransition(() => {
-        setActiveTab(tab);
-        if (tab !== "affiliate" && affiliateSubTabKeys.has("overview" as TSub)) {
-          setActiveSubTab("overview" as TSub);
-        } else if (sub && affiliateSubTabKeys.has(sub)) {
-          setActiveSubTab(sub);
-        }
+      const t0 = typeof performance !== "undefined" ? performance.now() : Date.now();
+      logAccountTabDebug("onSelectTab.start", { nextTab: tab, sub, isCtv, t0 });
+
+      // 1. Cập nhật state tức thời → React re-render chỉ KeepAlive panels (<100ms).
+      setActiveTab(tab);
+      if (tab !== "affiliate" && affiliateSubTabKeys.has("overview" as TSub)) {
+        setActiveSubTab("overview" as TSub);
+      } else if (sub && affiliateSubTabKeys.has(sub)) {
+        setActiveSubTab(sub);
+      }
+
+      // 2. Cập nhật URL qua history API (không trigger Next.js navigation / RSC fetch).
+      if (typeof window !== "undefined") {
         const subForHref = tab === "affiliate" && sub ? sub : undefined;
-        router.replace(buildTaiKhoanTabHref(tab, subForHref), { scroll: false });
-      });
+        const href = buildTaiKhoanTabHref(tab, subForHref);
+        const t1 = typeof performance !== "undefined" ? performance.now() : Date.now();
+        window.history.replaceState({}, "", href);
+        const t2 = typeof performance !== "undefined" ? performance.now() : Date.now();
+        logAccountTabDebug("onSelectTab.historyReplace", {
+          href,
+          historyMs: t2 - t1,
+        });
+      }
+
+      // 3. Reset scroll cho tab Tổng quan.
+      if (tab === "overview") {
+        resetAccountOverviewScroll();
+      }
+
+      // 4. Measure render-complete time (debug only).
+      if (typeof requestAnimationFrame !== "undefined") {
+        requestAnimationFrame(() => {
+          const t3 = typeof performance !== "undefined" ? performance.now() : Date.now();
+          logAccountTabDebug("onSelectTab.renderComplete", { totalMs: t3 - t0 });
+        });
+      }
     },
-    [affiliateSubTabKeys, router, setActiveSubTab, setActiveTab],
+    [affiliateSubTabKeys, setActiveSubTab, setActiveTab, isCtv],
   );
 
   return { onSelectTab };

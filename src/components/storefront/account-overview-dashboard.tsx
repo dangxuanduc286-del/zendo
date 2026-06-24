@@ -82,10 +82,8 @@ type AccountOverviewDashboardProps = {
   getOrderStatusUi: (status: string) => StatusUi;
   /** Callback khi click "Xem tất cả voucher" */
   onViewAllVouchers?: () => void;
-  /** Callback khi click "Đơn hàng của tôi" (legacy — prefer `ordersHref`) */
+  /** Callback khi click "Xem tất cả" / "Xem đơn hàng của tôi" — chuyển tab nội bộ qua navigateAccountTab. */
   onGoToOrders?: () => void;
-  /** Route trang "Đơn hàng của tôi" — dùng cho Link "Xem tất cả" (ưu tiên hơn `onGoToOrders`) */
-  ordersHref?: string;
   /** Callback khi click "Tiếp tục mua sắm" */
   shoppingHomeHref?: string;
   /** Hiển thị CTA mua sắm */
@@ -218,7 +216,6 @@ function AccountOverviewDashboardInner({
   getOrderStatusUi,
   onViewAllVouchers,
   onGoToOrders,
-  ordersHref,
   shoppingHomeHref = "/",
   showShoppingCta = true,
   shoppingCtaText = "Tiếp tục mua sắm",
@@ -315,15 +312,7 @@ function AccountOverviewDashboardInner({
               <Package className="h-4 w-4 shrink-0 text-blue-600" strokeWidth={2.2} aria-hidden />
               <h3 className={SECTION_TITLE}>Đơn gần đây</h3>
             </div>
-            {ordersHref ? (
-              <Link
-                href={ordersHref}
-                className="inline-flex shrink-0 items-center gap-0.5 text-[12px] font-semibold text-blue-600 transition hover:text-blue-700"
-              >
-                Xem tất cả
-                <ChevronRight className="h-3.5 w-3.5" strokeWidth={2.2} aria-hidden />
-              </Link>
-            ) : onGoToOrders ? (
+            {onGoToOrders ? (
               <button
                 type="button"
                 onClick={onGoToOrders}
@@ -369,13 +358,14 @@ function AccountOverviewDashboardInner({
             <div className="flex flex-col items-start gap-2 py-1">
               <p className="text-[13px] leading-relaxed text-slate-500">Bạn chưa có đơn hàng nào.</p>
               <div className="flex flex-wrap items-center gap-2">
-                {ordersHref ? (
-                  <Link
-                    href={ordersHref}
+                {onGoToOrders ? (
+                  <button
+                    type="button"
+                    onClick={onGoToOrders}
                     className="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-[12px] font-semibold text-blue-600 transition hover:border-blue-200 hover:bg-blue-50/60"
                   >
                     Xem đơn hàng của tôi
-                  </Link>
+                  </button>
                 ) : null}
                 {showShoppingCta ? (
                   <Link

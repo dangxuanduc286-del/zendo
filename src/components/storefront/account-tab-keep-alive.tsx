@@ -2,6 +2,7 @@
 
 import { memo, useEffect, useState, type ReactNode } from "react";
 import { AccountTabPanelVisibilityProvider } from "@/lib/account-tab-panel-visibility";
+import { isAccountTabDebug, logAccountTabDebug } from "@/lib/account-tab-navigation";
 
 export type AccountTabKeepAliveProps = {
   tabKey: string;
@@ -29,6 +30,16 @@ function AccountTabKeepAliveInner({
   useEffect(() => {
     if (isActive) setHasMounted(true);
   }, [isActive]);
+
+  if (isAccountTabDebug()) {
+    logAccountTabDebug("keepAlive.render", {
+      tabKey,
+      activeTab,
+      isActive,
+      hasMounted,
+      enabled,
+    });
+  }
 
   if (!enabled) return null;
   if (!hasMounted) return null;

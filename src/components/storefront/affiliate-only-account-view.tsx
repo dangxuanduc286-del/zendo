@@ -1135,7 +1135,6 @@ export default function AffiliateOnlyAccountView({
                 getOrderStatusUi={getOrderStatusUi}
                 onViewAllVouchers={() => selectTab("coupons")}
                 onGoToOrders={() => selectTab("orders")}
-                ordersHref="/tai-khoan?tab=orders"
                 shoppingHomeHref={shoppingHomeHref}
                 showShoppingCta={showShoppingCta}
                 shoppingCtaText={accountSettings.shoppingCtaText}

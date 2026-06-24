@@ -5,6 +5,26 @@
 export const ACCOUNT_TAB_STORAGE_KEY = "zendo.storefront.accountTab";
 export const ACCOUNT_LOGIN_OVERVIEW_SESSION_KEY = "zendo.account.entryOverview";
 
+/**
+ * Debug log tạm thời cho luồng chuyển tab tài khoản.
+ * Bật trong DevTools: localStorage.setItem("debugAccountTab","1")
+ * Tắt: localStorage.removeItem("debugAccountTab")
+ */
+export function isAccountTabDebug(): boolean {
+  try {
+    return typeof window !== "undefined" && window.localStorage?.getItem("debugAccountTab") === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function logAccountTabDebug(phase: string, payload: Record<string, unknown>): void {
+  if (!isAccountTabDebug()) return;
+  const ts = typeof performance !== "undefined" ? performance.now() : Date.now();
+  // eslint-disable-next-line no-console
+  console.log(`[AccountTab][${phase}]`, { ts, ...payload });
+}
+
 /** Gọi sau đăng nhập khách thành công (trước redirect). */
 export function markAccountLoginOverviewEntry(): void {
   try {

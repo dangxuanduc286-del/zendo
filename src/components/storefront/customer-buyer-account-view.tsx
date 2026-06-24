@@ -624,10 +624,9 @@ export default function CustomerBuyerAccountView({
 
   const selectAccountTab = useCallback(
     (tab: TabKey) => {
+      // navigateAccountTab đã tự set subtab "overview" + router.replace trong startTransition.
+      // Không gọi setActiveSubTab ở đây để tránh render ngoài transition gây race với effect sync URL.
       navigateAccountTab(tab);
-      if (tab !== "affiliate") {
-        setActiveSubTab("overview");
-      }
     },
     [navigateAccountTab],
   );
@@ -1403,7 +1402,6 @@ export default function CustomerBuyerAccountView({
               getOrderStatusUi={getOrderStatusUi}
               onViewAllVouchers={() => selectAccountTab("coupons")}
               onGoToOrders={() => selectAccountTab("orders")}
-              ordersHref="/tai-khoan?tab=orders"
               shoppingHomeHref={shoppingHomeHref}
               showShoppingCta={showShoppingCta}
               shoppingCtaText={accountSettings.shoppingCtaText}
